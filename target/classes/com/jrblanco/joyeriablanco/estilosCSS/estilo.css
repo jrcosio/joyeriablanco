@@ -1,0 +1,62 @@
+
+.botonRojo {
+    -fx-background-color: #F23823;
+    -fx-cursor: hand;
+    /*-fx-background-radius: 100px;    */
+}
+.botonRojo:hover {
+    -fx-background-color:  #F56862;
+    -fx-cursor: hand;
+    /*-fx-background-radius: 100px;   */
+}
+.botonRojo:pressed {
+    -fx-background-color:  #D9453D;
+    -fx-cursor: hand;
+   /* -fx-background-radius: 100px;   */ 
+}
+.botonesAzules {
+    -fx-background-color:  #105AAB;
+    -fx-cursor: hand;
+    -fx-background-radius: 5px;
+}
+.botonesAzules:hover {
+    -fx-background-color:  #1366C0;
+    -fx-cursor: hand;
+    -fx-background-radius: 5px;
+}
+.botonesAzules:pressed {
+    -fx-background-color:  #5da4c8;
+    -fx-cursor: hand;
+    -fx-background-radius: 5px;
+}
+
+.botonesVerdes {
+    -fx-background-color:  #3AC5AB;
+    -fx-cursor: hand;
+}
+.botonesVerdes:hover {
+    -fx-background-color:  #54DCC2;
+    -fx-cursor: hand;
+}
+.botonesVerdes:pressed {
+    -fx-background-color:  #2EB399;
+    -fx-cursor: hand;
+}
+
+.botonesMorados {
+    -fx-background-color:  #7A48A3;
+    -fx-cursor: hand;
+}
+.botonesMorados:hover {
+    -fx-background-color:  #A670CE;
+    -fx-cursor: hand;
+}
+.botonesMorados:pressed {
+    -fx-background-color:  #5B2985;
+    -fx-cursor: hand;
+}
+
+.panelesBotonoes {
+    -fx-background-color:  #595959;
+    -fx-background-radius: 5px;
+}
