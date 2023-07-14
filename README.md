@@ -6,12 +6,12 @@ Este es un proyecto de gestión desarrollado en Java, JavaFX y Maven.
 
 ## Descripción
 
-El objetivo de este proyecto es desarrollar un sistema de gestión para JBlanco, una empresa especializada en la venta de productos electrónicos. El sistema permite a JBlanco administrar su inventario, gestionar pedidos y realizar un seguimiento de las ventas.
+El objetivo de este proyecto es desarrollar un sistema de gestión para JBlanco, una empresa especializada en joyería. El sistema permite a JBlanco administrar sus ventas, básicamnete las facturas.
 
 ## Características
 
 - Interfaz de usuario intuitiva y fácil de usar, desarrollada con JavaFX.
-- Gestión eficiente del inventario, incluyendo el registro de productos, actualización de precios y control de stock.
+- Gestión eficiente de las facturas.
 - Registro y seguimiento de pedidos, con la capacidad de generar facturas y etiquetas de envío.
 - Generación de informes de ventas y análisis de datos para tomar decisiones estratégicas.
 - Integración con una base de datos para almacenar la información de manera segura y confiable.
