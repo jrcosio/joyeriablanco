@@ -1,4 +1,11 @@
+com\jrblanco\joyeriablanco\clientes\ClientesViewController.class
+com\jrblanco\joyeriablanco\core\Navegation.class
+com\jrblanco\joyeriablanco\core\componentes\mensajedialog\MensajeDialogController.class
+com\jrblanco\joyeriablanco\facturas\FacturasViewController.class
 com\jrblanco\joyeriablanco\main\MainViewController.class
-com\jrblanco\joyeriablanco\App.class
 module-info.class
+com\jrblanco\joyeriablanco\core\componentes\mensajedialog\MensajeDialog.class
+com\jrblanco\joyeriablanco\core\componentes\confirmdialog\ConfirmDialogController.class
+com\jrblanco\joyeriablanco\core\componentes\confirmdialog\ConfirmDialog.class
+com\jrblanco\joyeriablanco\App.class
 com\jrblanco\joyeriablanco\core\VentanasNavigation.class

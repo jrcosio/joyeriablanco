@@ -38,7 +38,6 @@
                   <Image url="@imagenes/Nombre_Logo.png" />
                </image>
             </ImageView>
-            <Label layoutX="225.0" layoutY="61.0" text="Por Jose Ramón Blanco Gutiérrez" textFill="#6f6f6f" />
          </children>
       </AnchorPane>
    </top>
@@ -135,4 +134,11 @@
    <center>
       <AnchorPane fx:id="contentPrincipal" prefHeight="200.0" prefWidth="200.0" style="-fx-background-color: #3b3b3b;" BorderPane.alignment="CENTER" />
    </center>
+   <bottom>
+      <AnchorPane prefHeight="15.0" prefWidth="738.0" style="-fx-background-color: #3b3b3b;" BorderPane.alignment="CENTER">
+         <children>
+            <Label layoutY="-1.0" text="Por Jose Ramón Blanco Gutiérrez" textFill="#6f6f6f" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="10.0" />
+         </children>
+      </AnchorPane>
+   </bottom>
 </BorderPane>

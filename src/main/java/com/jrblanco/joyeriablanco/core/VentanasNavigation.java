@@ -10,5 +10,6 @@ package com.jrblanco.joyeriablanco.core;
  */
 public class VentanasNavigation {
     public static final String MainFXML = "MainView.fxml";
-    
+    public static final String ClientesFXML = "ClientesView.fxml";
+    public static final String FacturasFXML = "FacturasView.fxml";
 }
