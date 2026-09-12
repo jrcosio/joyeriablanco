@@ -1,0 +1,37 @@
+# ---- Entorno y secretos ----
+.env
+.env.*
+!.env.example
+
+# ---- Python / uv ----
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- Node / web ----
+node_modules/
+joyeriablanco_web/dist/
+*.local
+
+# ---- Android ----
+# joyeriablanco_android/.gitignore ya cubre su propio arbol (build/, .gradle, local.properties...)
+joyeriablanco_android/.kotlin/
+joyeriablanco_android/.idea/
+
+# ---- Editores y SO ----
+.DS_Store
+.idea/
+.vscode/
+
+# ---- Salidas generadas por la aplicacion ----
+# PDFs de facturas generados en desarrollo
+backend/var/
