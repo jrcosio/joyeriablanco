@@ -108,7 +108,15 @@ export function TablaClientes({
               <td className={`${celda} hidden tabular-nums lg:table-cell`}>
                 {cliente.telefono ?? '—'}
               </td>
-              <td className={`${celda} hidden break-all lg:table-cell`}>{cliente.correo ?? '—'}</td>
+              <td className={`${celda} hidden lg:table-cell`}>
+                {cliente.correo ? (
+                  <span title={cliente.correo} className="block max-w-56 truncate">
+                    {cliente.correo}
+                  </span>
+                ) : (
+                  '—'
+                )}
+              </td>
               <td className={`${celda} text-right`}>
                 <Editar cliente={cliente} />
               </td>

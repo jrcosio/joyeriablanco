@@ -40,7 +40,7 @@ Reglas:
 `SPECIFY_FEATURE`. Hay que crear la rama a mano antes de empezar:
 
 ```bash
-git checkout -b 001-cimientos-backend
+git checkout -b 002-nombre-feature
 ```
 
 ## Estructura del monorepo
@@ -57,35 +57,39 @@ git checkout -b 001-cimientos-backend
 
 ## Comandos de desarrollo
 
-Todo el backend (API + base de datos) corre en Docker.
+Todo el backend (API + base de datos) corre en Docker. La guía completa está en
+`specs/001-cimientos-clientes/quickstart.md`.
 
 ```bash
-# Entorno completo
-docker compose up -d              # levanta api + db
+# Entorno de desarrollo (raíz del repo)
+cp .env.example .env                          # y cambiar las contraseñas
+docker compose up -d --build                  # db (PostgreSQL 18) + api (FastAPI con recarga)
+docker compose exec api alembic upgrade head  # migraciones como jb_owner
+docker compose exec api joyeria crear-admin --usuario admin --nombre "Administrador"
+docker compose exec api joyeria cargar-datos-ejemplo   # clientes y usuarios *.demo ficticios
 docker compose logs -f api
-docker compose down
+docker compose down                           # -v para borrar también los datos
 
-# Backend (dentro de backend/)
-uv sync                           # instala dependencias
-uv run uvicorn app.main:app --reload
-uv run pytest                     # tests
-uv run pytest -k numeracion       # un subconjunto
-uv run ruff check .               # lint
-uv run ruff format .              # formato
-uv run mypy .                     # tipado estricto
-
-# Migraciones
-uv run alembic upgrade head
-uv run alembic revision --autogenerate -m "descripcion"
+# Backend (dentro de backend/; los tests usan la BD joyeriablanco_test del servicio db)
+uv sync
+uv run pytest                     # tests contra PostgreSQL real
+uv run pytest -k clientes         # un subconjunto
+uv run ruff check . && uv run ruff format --check . && uv run mypy .   # calidad (obligatoria)
+uv run alembic revision -m "descripcion"   # nueva migración (escrita a mano y revisada)
+uv run joyeria --help             # CLI: crear-admin, restablecer-admin, purgar-sesiones,
+                                  # cargar-datos-ejemplo, reiniciar-bd-e2e, exportar-openapi
 
 # Web (dentro de joyeriablanco_web/)
-npm run dev
-npm run build
-npm run test
-```
+npm ci
+npm run dev                       # http://localhost:5173, proxy de /api a la API
+npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens
+uv --directory ../backend run joyeria exportar-openapi && npm run gen:api  # regenerar tipos
+npx playwright test               # E2E: levanta api-e2e con BD propia y Vite en :5174
 
-> Los comandos concretos se fijan en la feature 001. Hasta entonces, esta sección es la intención,
-> no una referencia ya operativa.
+# Producción (ver quickstart §4 y §5)
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+deploy/verificar-produccion.sh <dominio>
+```
 
 ## Convenciones de código
 

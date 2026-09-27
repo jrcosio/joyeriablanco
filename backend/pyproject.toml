@@ -31,6 +31,8 @@ dev = [
     "ruff>=0.16,<0.17",
     "mypy>=2.3,<2.4",
     "faker>=40.39",
+    "pyyaml>=6",
+    "types-pyyaml>=6",
 ]
 
 [build-system]

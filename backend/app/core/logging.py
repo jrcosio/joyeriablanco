@@ -73,6 +73,9 @@ def configure_logging(nivel: int = logging.INFO) -> None:
     for nombre in ("uvicorn", "uvicorn.error"):
         logging.getLogger(nombre).handlers[:] = []
         logging.getLogger(nombre).propagate = True
+    # Las URL de peticiones salientes podrían llevar datos personales en la query (FR-053).
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     acceso = logging.getLogger("uvicorn.access")
     acceso.handlers[:] = []
     acceso.propagate = False

@@ -66,6 +66,22 @@ npx playwright test
 **Resultado esperado**: todo en verde. La inalterabilidad de la auditoría se prueba con `UPDATE` y
 `DELETE` directos como `jb_app` y como `jb_owner`: ambos fallan (FR-022).
 
+### Rendimiento (SC-003)
+
+```bash
+docker compose --profile e2e exec api-e2e joyeria reiniciar-bd-e2e
+docker compose --profile e2e exec api-e2e joyeria cargar-datos-ejemplo --clientes 10000 --contrasena-demo '<contraseña>'
+cd backend && uv run python scripts/medir_busqueda.py --contrasena '<contraseña>'
+```
+
+**Medición del 2026-09-27** (portátil de desarrollo, pila `api-e2e`, 10.000 clientes):
+
+| Medida | Resultado | Objetivo |
+|---|---|---|
+| Carga de 10.000 clientes | 14 s | — |
+| Búsquedas y filtros (100 variadas) | mediana 6 ms, p95 14–17 ms, máximo 27 ms | p95 < 1000 ms |
+| Acceso (Argon2id) | 36 ms | < 1000 ms |
+
 ## 4. Producción en local (simulación)
 
 ```bash
