@@ -10,6 +10,9 @@
     <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Evita que React Aria inyecte un <style> en línea (CSP sin unsafe-inline): la regla
+         equivalente está en src/styles/base.css. -->
+    <meta id="react-aria-pressable-style" name="react-aria-pressable-style" content="base.css" />
     <title>Joyería Blanco · Gestión</title>
   </head>
   <body>

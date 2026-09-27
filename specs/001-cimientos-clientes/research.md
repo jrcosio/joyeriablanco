@@ -244,6 +244,15 @@ convierte `RequestValidationError` y las excepciones de dominio. Nunca se expone
 **Razón**: React aplica los estilos en línea por CSSOM, que la CSP no bloquea. Tailwind genera un
 fichero CSS estático. Nada exige `unsafe-inline`.
 
+**Verificación en implement (2026-09-27)**: la producción simulada detectó tres violaciones, que se
+resolvieron sin relajar la política (quedan cero violaciones):
+
+| Violación | Solución |
+|---|---|
+| Vite incrustaba fuentes pequeñas como `data:` | `build.assetsInlineLimit: 0`; además, `img-src` queda en `'self'` sin `data:` |
+| Zod 4 usa `new Function` para compilar validadores | `z.config({ jitless: true })` en `src/zod-config.ts`, importado antes que cualquier esquema |
+| React Aria (`usePress`) inyecta un `<style>` | La misma regla va en `base.css`, y un `<meta id="react-aria-pressable-style">` en `index.html` evita la inyección |
+
 ## R-15. Entornos Docker
 
 **Decisión**:

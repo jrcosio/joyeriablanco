@@ -28,6 +28,8 @@ export default defineConfig({
   build: {
     target: 'es2023',
     sourcemap: false,
+    // Sin recursos incrustados como data: URI: la CSP de producción solo admite 'self'.
+    assetsInlineLimit: 0,
   },
   test: {
     environment: 'jsdom',

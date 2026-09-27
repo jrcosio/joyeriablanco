@@ -9,7 +9,7 @@ Detalle de endpoints en [contracts/openapi.yaml](contracts/openapi.yaml), de rut
 - Docker con Compose v2.
 - `uv` 0.12 o superior (Python 3.13 lo instala uv).
 - Node.js 26.
-- Puertos libres en `127.0.0.1`: 5432, 8000, 8001 y 5173.
+- Puertos libres en `127.0.0.1`: 5432, 8000, 8001, 5173 y 5174 (E2E); 80 y 443 para la simulación de producción.
 
 ## 1. Entorno de desarrollo
 
@@ -70,16 +70,52 @@ npx playwright test
 
 ```bash
 DOMINIO=localhost TLS_MODO=internal docker compose -f docker-compose.prod.yml --env-file .env up -d --build
-curl -sI http://localhost      | head -3   # → 308 hacia https://
-curl -skI https://localhost    | grep -iE 'strict-transport|content-security|x-content-type|referrer-policy'
-docker compose -f docker-compose.prod.yml port db 5432 || echo "BD sin puertos publicados ✔"
+deploy/verificar-produccion.sh localhost      # 13 comprobaciones: redirección, cabeceras, CSP, BD sin puertos…
+docker compose -f docker-compose.prod.yml exec api joyeria crear-admin --usuario jefa --nombre "Jefa"
 ```
 
-**Resultado esperado**:
-- La redirección a HTTPS funciona.
-- Aparecen las cuatro cabeceras de seguridad.
-- La base de datos no tiene puertos publicados.
-- La aplicación funciona igual que en desarrollo (FR-046 a FR-048).
+**Resultado esperado** (verificado el 2026-09-27):
+- `verificar-produccion.sh` termina con "Todas las comprobaciones han pasado".
+- Un recorrido por https://localhost (acceso, cambio de contraseña temporal, alta de cliente,
+  auditoría) no produce ninguna violación de CSP. Las tipografías se sirven desde el propio origen.
+- La cookie es `__Host-jb_sesion` con `Secure`, `HttpOnly` y `SameSite=Strict` (FR-046 a FR-048).
 
-**En el servidor real**, con `DOMINIO=<dominio>` y los puertos 80 y 443 abiertos, Caddy obtiene el
-certificado solo. SC-011 se valida con un análisis público de la configuración TLS.
+## 5. Despliegue en un servidor real (VPS)
+
+1. **Servidor**: Linux con Docker y Compose v2. Solo deben estar abiertos los puertos 80 y 443 (más
+   443/udp para HTTP/3) y el de SSH para administrarlo.
+2. **DNS**: un registro A (y AAAA si hay IPv6) del dominio apuntando al servidor.
+3. **Configuración**:
+   - `cp .env.example .env`.
+   - Poner `DOMINIO=<dominio>` y `TLS_MODO=acme`.
+   - Generar contraseñas largas y aleatorias para `POSTGRES_PASSWORD`, `DB_OWNER_PASSWORD` y
+     `DB_APP_PASSWORD` (p. ej. `openssl rand -base64 32`).
+   - No hace falta tocar `ENTORNO`, `ORIGEN_PERMITIDO` ni `SESION_COOKIE_SEGURA`: el compose de
+     producción los fija a `produccion`, `https://<dominio>` y `true`.
+4. **Arranque**: `docker compose -f docker-compose.prod.yml --env-file .env up -d --build`. Caddy
+   obtiene y renueva el certificado automáticamente (FR-046).
+5. **Primer administrador**: `docker compose -f docker-compose.prod.yml exec api joyeria crear-admin
+   --usuario <usuario> --nombre "<nombre>"`. La contraseña temporal se entrega en persona.
+6. **Verificación**:
+   - `deploy/verificar-produccion.sh <dominio>`.
+   - SC-011 se completa con un análisis público de la configuración TLS (p. ej. SSL Labs), que
+     debe dar calificación A o superior.
+
+> ⚠️ **Copias de seguridad**: quedan fuera de alcance en esta feature (riesgo asumido). DEBEN
+> configurarse antes de cargar datos reales, porque la conservación de datos fiscales es obligatoria.
+
+### Cambio de las contraseñas de la base de datos (FR-048)
+
+```bash
+# 1. Generar la nueva contraseña y cambiarla en PostgreSQL (como superusuario)
+NUEVA=$(openssl rand -base64 32)
+docker compose -f docker-compose.prod.yml exec -T db sh -c \
+  'psql -U "$POSTGRES_USER" -d postgres -v pwd="$1" -c "ALTER ROLE jb_app PASSWORD :'"'"'pwd'"'"'"' _ "$NUEVA"
+# 2. Actualizar DB_APP_PASSWORD en .env con el mismo valor
+# 3. Recrear los servicios que la usan
+docker compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate api
+```
+
+El procedimiento es análogo para `jb_owner` (actualizar `DB_OWNER_PASSWORD` y recrear `migrate` y
+`api`). El volumen de datos conserva la contraseña del superusuario inicial: para cambiarla, se
+usa `ALTER ROLE` como con los demás roles y se actualiza `POSTGRES_PASSWORD`.

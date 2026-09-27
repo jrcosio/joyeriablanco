@@ -25,6 +25,11 @@
     outline-offset: 2px;
   }
 
+  /* Regla que React Aria inyectaría en un <style> en línea (usePress); aquí respeta la CSP. */
+  [data-react-aria-pressable] {
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+
   ::selection {
     background-color: color-mix(in srgb, var(--color-primary-container) 45%, transparent);
     color: var(--color-on-surface);

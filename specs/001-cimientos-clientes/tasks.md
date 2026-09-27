@@ -391,20 +391,20 @@ del repositorio.
 **Independent Test**: se ejecuta quickstart §4 en local con `tls internal`. La redirección a HTTPS,
 las cabeceras y la ausencia de puertos de BD se verifican con un script.
 
-- [ ] T102 [US8] Crear `deploy/caddy/Caddyfile` (research R-14):
+- [X] T102 [US8] Crear `deploy/caddy/Caddyfile` (research R-14):
   - `{$DOMINIO}` con `tls internal` si `TLS_MODO=internal`.
   - Redirección de HTTP a HTTPS.
   - Cabeceras HSTS, CSP, `nosniff`, `frame-ancestors 'none'`, `Referrer-Policy` y `Permissions-Policy`.
   - `reverse_proxy /api/* api:8000`.
   - `try_files {path} /index.html` para la SPA y caché larga de los recursos con hash.
-- [ ] T103 [US8] Crear `deploy/caddy/Dockerfile`: etapa `node:26-trixie-slim` con `npm ci` y `npm run build` de `joyeriablanco_web` → imagen `caddy:2.11-alpine` con `/srv`
-- [ ] T104 [US8] Crear `docker-compose.prod.yml` con cuatro servicios:
+- [X] T103 [US8] Crear `deploy/caddy/Dockerfile`: etapa `node:26-trixie-slim` con `npm ci` y `npm run build` de `joyeriablanco_web` → imagen `caddy:2.11-alpine` con `/srv`
+- [X] T104 [US8] Crear `docker-compose.prod.yml` con cuatro servicios:
   - `db`: sin `ports`, volumen y healthcheck.
   - `migrate`: se ejecuta una vez, `alembic upgrade head` como `jb_owner`.
   - `api`: target `prod`, `ENTORNO=produccion`, `--forwarded-allow-ips` de la red interna y cookie segura.
   - `caddy`: puertos 80 y 443 (y 443/udp), volúmenes `caddy_data` y `caddy_config`.
-- [ ] T105 [US8] Crear `deploy/verificar-produccion.sh`: comprueba el 308 de HTTP a HTTPS, la presencia de HSTS, CSP, `nosniff`, `Referrer-Policy` y `frame-ancestors`, que `db` no tiene puertos publicados, que `/api/salud` responde y que `/api/v1/sesion` sin cookie da 401. Ejecutarlo contra la simulación local (quickstart §4, SC-011 local)
-- [ ] T106 [US8] Documentar en `specs/001-cimientos-clientes/quickstart.md` el despliegue en un VPS real (DNS, puertos, `.env` de producción) y el **procedimiento de cambio de contraseñas de la BD** (FR-048). Recordar que las copias de seguridad son un riesgo asumido antes de cargar datos reales, e indicar que SC-011 se valida en el servidor real con un análisis público de TLS
+- [X] T105 [US8] Crear `deploy/verificar-produccion.sh`: comprueba el 308 de HTTP a HTTPS, la presencia de HSTS, CSP, `nosniff`, `Referrer-Policy` y `frame-ancestors`, que `db` no tiene puertos publicados, que `/api/salud` responde y que `/api/v1/sesion` sin cookie da 401. Ejecutarlo contra la simulación local (quickstart §4, SC-011 local)
+- [X] T106 [US8] Documentar en `specs/001-cimientos-clientes/quickstart.md` el despliegue en un VPS real (DNS, puertos, `.env` de producción) y el **procedimiento de cambio de contraseñas de la BD** (FR-048). Recordar que las copias de seguridad son un riesgo asumido antes de cargar datos reales, e indicar que SC-011 se valida en el servidor real con un análisis público de TLS
 
 **Checkpoint**: la producción simulada en local supera `verificar-produccion.sh`.
 

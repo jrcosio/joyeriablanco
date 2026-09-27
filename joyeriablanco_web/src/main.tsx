@@ -1,3 +1,4 @@
+import './zod-config' // primero: antes de que se construya ningún esquema
 import './styles/app.css'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
