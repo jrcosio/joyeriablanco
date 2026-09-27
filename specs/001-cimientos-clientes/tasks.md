@@ -210,15 +210,15 @@ y provincia incoherentes) y el conflicto de versión.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T054 [P] [US2] Test `backend/tests/unit/domain/test_identificacion.py` (research R-20):
+- [X] T054 [P] [US2] Test `backend/tests/unit/domain/test_identificacion.py` (research R-20):
   - **Normalización**: espacios, `-`, `.`, `/` y minúsculas.
   - **DNI**: `12345678Z` válido y `12345678A` inválido.
   - **NIE**: X, Y o Z con su letra.
   - **Estructura** de entidades (letras A–W admitidas; I, O, T rechazadas) y de K, L, M.
   - **NIF-IVA**: cada fila de la tabla oficial (`EL` para GR, `XI` para GB, RO sin ceros a la izquierda; ES rechazado) y adición del prefijo si falta.
   - **`allowed_identificacion_tipos`** para ES, un país UE y un país no UE.
-- [ ] T055 [P] [US2] Test `backend/tests/unit/domain/test_codigos_postales.py`: `29001` → 29 (Málaga); `51001` → Ceuta; `52001` → Melilla; `00123` y `53000` → error; formato distinto de 5 dígitos → error
-- [ ] T056 [P] [US2] Test `backend/tests/integration/test_clientes_alta_edicion.py`:
+- [X] T055 [P] [US2] Test `backend/tests/unit/domain/test_codigos_postales.py`: `29001` → 29 (Málaga); `51001` → Ceuta; `52001` → Melilla; `00123` y `53000` → error; formato distinto de 5 dígitos → error
+- [X] T056 [P] [US2] Test `backend/tests/integration/test_clientes_alta_edicion.py`:
   - **Alta válida**: 201, con `creado_por` y evento `cliente_creado`.
   - **Validaciones**: 422 con errores por campo en español (NIF inválido, obligatorios vacíos tras recortar, correo, teléfono, nombre de más de 120, combinación de país y tipo no admitida).
   - **Duplicado**: 409 `duplicado` con `cliente_existente`.
@@ -226,7 +226,7 @@ y provincia incoherentes) y el conflicto de versión.
   - **Normalización**: correo en minúsculas y textos recortados.
   - **Edición**: `PUT` con versión correcta → 200 y `cliente_editado` con el *diff*; con versión desfasada → 409 `conflicto-version`.
   - **Referencias** (FR-023 a FR-030, FR-055).
-- [ ] T057 [P] [US2] Test web `joyeriablanco_web/src/features/clientes/ClienteForm.test.tsx` con MSW:
+- [X] T057 [P] [US2] Test web `joyeriablanco_web/src/features/clientes/ClienteForm.test.tsx` con MSW:
   - Tipos de identificación filtrados por país según `ambito`.
   - Errores del servidor mapeados a su campo.
   - Aviso de cambios sin guardar.
@@ -235,30 +235,30 @@ y provincia incoherentes) y el conflicto de versión.
 
 ### Implementation for User Story 2
 
-- [ ] T058 [P] [US2] Implementar `backend/app/domain/identificacion.py`: `normalize_identificacion`, `classify_nif`, `validate_nif`, la tabla `NIF_IVA_ESTRUCTURAS` (literal de la nota 1, con referencia a F-3), `validate_nif_iva(pais, numero) -> canónico` y `allowed_identificacion_tipos(pais)`
-- [ ] T059 [P] [US2] Implementar `backend/app/domain/codigos_postales.py`: `provincia_from_codigo_postal(cp) -> str` (01–52; F-7 y R-20.3)
-- [ ] T060 [US2] Crear los modelos `backend/app/models/provincia.py` y `backend/app/models/cliente.py` según data-model.md (CHECK de país y tipo, forma del NIF, provincia según el país, CP español, `version_id_col`, `texto_busqueda` generada)
-- [ ] T061 [US2] Crear la migración `backend/alembic/versions/0003_provincias_clientes.py`:
+- [X] T058 [P] [US2] Implementar `backend/app/domain/identificacion.py`: `normalize_identificacion`, `classify_nif`, `validate_nif`, la tabla `NIF_IVA_ESTRUCTURAS` (literal de la nota 1, con referencia a F-3), `validate_nif_iva(pais, numero) -> canónico` y `allowed_identificacion_tipos(pais)`
+- [X] T059 [P] [US2] Implementar `backend/app/domain/codigos_postales.py`: `provincia_from_codigo_postal(cp) -> str` (01–52; F-7 y R-20.3)
+- [X] T060 [US2] Crear los modelos `backend/app/models/provincia.py` y `backend/app/models/cliente.py` según data-model.md (CHECK de país y tipo, forma del NIF, provincia según el país, CP español, `version_id_col`, `texto_busqueda` generada)
+- [X] T061 [US2] Crear la migración `backend/alembic/versions/0003_provincias_clientes.py`:
   - Tabla `provincias` con los 52 registros de research R-20.3 (`nombre` literal INE y `nombre_visible`) y solo `SELECT` para `jb_app`.
   - Tabla `clientes` con restricciones, `UNIQUE` de la identificación y columna generada `texto_busqueda = inmutable_unaccent(lower(nombre || ' ' || identificacion_numero || ' ' || coalesce(localidad,'')))`.
   - Índices: GIN trigram, `(activo, nombre, id)`, `provincia_codigo`, `tipo` y `(creado_en, id)`.
-- [ ] T062 [US2] Implementar `backend/app/repositories/catalogos.py` (provincias), `backend/app/services/catalogos.py` (provincias, países de pycountry, `paises_nif_iva` y `tipos_identificacion` con `ambito`) y `backend/app/schemas/catalogos.py`
-- [ ] T063 [US2] Implementar `backend/app/repositories/clientes.py` con `get`, `get_by_identificacion`, `create` y `update` (captura `StaleDataError` y la convierte en conflicto de versión)
-- [ ] T064 [US2] Implementar `create_cliente` y `update_cliente` en `backend/app/services/clientes.py`:
+- [X] T062 [US2] Implementar `backend/app/repositories/catalogos.py` (provincias), `backend/app/services/catalogos.py` (provincias, países de pycountry, `paises_nif_iva` y `tipos_identificacion` con `ambito`) y `backend/app/schemas/catalogos.py`
+- [X] T063 [US2] Implementar `backend/app/repositories/clientes.py` con `get`, `get_by_identificacion`, `create` y `update` (captura `StaleDataError` y la convierte en conflicto de versión)
+- [X] T064 [US2] Implementar `create_cliente` y `update_cliente` en `backend/app/services/clientes.py`:
   - Recorte de textos y conversión de vacíos en `None`, normalización y validaciones de dominio.
   - Derivación y coherencia de la provincia; limpieza según el país.
   - Detección de duplicados con `cliente_existente`.
   - Trazabilidad y auditoría con el *diff*.
-- [ ] T065 [P] [US2] Crear los esquemas `backend/app/schemas/cliente.py` (`ClienteEntrada`, `ClienteEdicionEntrada`, `ClienteResumenSalida`, `ClienteSalida`, `ProblemaDuplicado`) según el contrato, sin exponer modelos ORM
-- [ ] T066 [US2] Implementar `backend/app/api/v1/catalogos.py` (`GET /v1/catalogos`) y, en `backend/app/api/v1/clientes.py`, `POST /v1/clientes`, `GET /v1/clientes/{id}` y `PUT /v1/clientes/{id}`
-- [ ] T067 [US2] Regenerar los tipos (`exportar-openapi` + `gen:api`) y crear las queries y mutaciones de TanStack Query en `joyeriablanco_web/src/api/queries/catalogos.ts` y `joyeriablanco_web/src/api/queries/clientes.ts` (alta, ficha, edición, invalidaciones)
-- [ ] T068 [US2] Crear `joyeriablanco_web/src/features/clientes/ClienteForm.tsx` (React Hook Form + Zod de forma):
+- [X] T065 [P] [US2] Crear los esquemas `backend/app/schemas/cliente.py` (`ClienteEntrada`, `ClienteEdicionEntrada`, `ClienteResumenSalida`, `ClienteSalida`, `ProblemaDuplicado`) según el contrato, sin exponer modelos ORM
+- [X] T066 [US2] Implementar `backend/app/api/v1/catalogos.py` (`GET /v1/catalogos`) y, en `backend/app/api/v1/clientes.py`, `POST /v1/clientes`, `GET /v1/clientes/{id}` y `PUT /v1/clientes/{id}`
+- [X] T067 [US2] Regenerar los tipos (`exportar-openapi` + `gen:api`) y crear las queries y mutaciones de TanStack Query en `joyeriablanco_web/src/api/queries/catalogos.ts` y `joyeriablanco_web/src/api/queries/clientes.ts` (alta, ficha, edición, invalidaciones)
+- [X] T068 [US2] Crear `joyeriablanco_web/src/features/clientes/ClienteForm.tsx` (React Hook Form + Zod de forma):
   - Selector de país con `lib/paises.ts` y tipos de identificación filtrados por `ambito`.
   - Provincia rellenada desde el CP con el catálogo, como previsualización; la verdad la decide el servidor.
   - Errores de servidor en su campo.
   - Guarda de cambios sin guardar.
   - Diálogo de conflicto (FR-030) y enlace al cliente existente ante un duplicado.
-- [ ] T069 [US2] Crear `joyeriablanco_web/src/features/clientes/ClientePanel.tsx` (Drawer de nivel 2, pantalla completa en móvil, sección de trazabilidad con fechas en formato es-ES, avisos al guardar) y las rutas `joyeriablanco_web/src/routes/_app/clientes/nuevo.tsx` y `joyeriablanco_web/src/routes/_app/clientes/$clienteId.tsx`
+- [X] T069 [US2] Crear `joyeriablanco_web/src/features/clientes/ClientePanel.tsx` (Drawer de nivel 2, pantalla completa en móvil, sección de trazabilidad con fechas en formato es-ES, avisos al guardar) y las rutas `joyeriablanco_web/src/routes/_app/clientes/nuevo.tsx` y `joyeriablanco_web/src/routes/_app/clientes/$clienteId.tsx`
 
 **Checkpoint**: US1 + US2. Se pueden crear y editar clientes válidos desde la web.
 

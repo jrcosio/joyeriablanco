@@ -61,3 +61,52 @@ export function conSesion(sesion: SesionSalida | null): void {
     ),
   )
 }
+
+export const CATALOGOS = {
+  provincias: [
+    { codigo: '18', nombre: 'Granada', nombre_visible: 'Granada' },
+    { codigo: '29', nombre: 'Málaga', nombre_visible: 'Málaga' },
+  ],
+  paises: ['DE', 'ES', 'FR', 'US'],
+  paises_nif_iva: ['DE', 'FR'],
+  tipos_identificacion: [
+    { codigo: 'NIF', descripcion: 'NIF (DNI, NIE o NIF de entidad)', ambito: 'solo_espana' },
+    { codigo: '02', descripcion: 'NIF-IVA', ambito: 'paises_nif_iva' },
+    { codigo: '03', descripcion: 'Pasaporte', ambito: 'cualquiera' },
+    { codigo: '04', descripcion: 'Documento oficial', ambito: 'fuera_de_espana' },
+    { codigo: '05', descripcion: 'Certificado de residencia', ambito: 'fuera_de_espana' },
+    { codigo: '06', descripcion: 'Otro documento probatorio', ambito: 'fuera_de_espana' },
+  ],
+} as const
+
+export function conCatalogos(): void {
+  server.use(http.get('*/api/v1/catalogos', () => HttpResponse.json(CATALOGOS)))
+}
+
+export function crearCliente(parcial: Record<string, unknown> = {}) {
+  return {
+    id: '0192f0c0-0000-7000-8000-00000000c001',
+    tipo: 'particular',
+    nombre: 'María López García',
+    identificacion_pais: 'ES',
+    identificacion_tipo: 'NIF',
+    identificacion_numero: '12345678Z',
+    localidad: 'Málaga',
+    provincia_nombre: 'Málaga',
+    telefono: '675 432 198',
+    correo: 'maria.lopez@gmail.com',
+    activo: true,
+    direccion: null,
+    codigo_postal: '29005',
+    provincia_codigo: '29',
+    provincia_texto: null,
+    pais_residencia: 'ES',
+    observaciones: null,
+    version: 1,
+    creado_en: '2026-05-27T10:00:00Z',
+    creado_por: { id: 'u1', nombre: 'Ana García' },
+    actualizado_en: '2026-05-27T10:00:00Z',
+    actualizado_por: { id: 'u1', nombre: 'Ana García' },
+    ...parcial,
+  }
+}

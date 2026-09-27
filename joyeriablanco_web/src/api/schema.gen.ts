@@ -57,6 +57,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalogos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Catalogos */
+        get: operations["obtener_catalogos_api_v1_catalogos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clientes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crear Cliente */
+        post: operations["crear_cliente_api_v1_clientes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clientes/{cliente_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Cliente */
+        get: operations["obtener_cliente_api_v1_clientes__cliente_id__get"];
+        /** Editar Cliente */
+        put: operations["editar_cliente_api_v1_clientes__cliente_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -67,6 +119,141 @@ export interface components {
             contrasena_actual: string;
             /** Contrasena Nueva */
             contrasena_nueva: string;
+        };
+        /** CatalogosSalida */
+        CatalogosSalida: {
+            /** Provincias */
+            provincias: components["schemas"]["ProvinciaSalida"][];
+            /** Paises */
+            paises: string[];
+            /** Paises Nif Iva */
+            paises_nif_iva: string[];
+            /** Tipos Identificacion */
+            tipos_identificacion: components["schemas"]["TipoIdentificacionSalida"][];
+        };
+        /** ClienteEdicionEntrada */
+        ClienteEdicionEntrada: {
+            tipo: components["schemas"]["TipoCliente"];
+            /** Nombre */
+            nombre: string;
+            /**
+             * Identificacion Pais
+             * @default ES
+             */
+            identificacion_pais: string;
+            identificacion_tipo: components["schemas"]["TipoIdentificacion"];
+            /** Identificacion Numero */
+            identificacion_numero: string;
+            /** Direccion */
+            direccion?: string | null;
+            /** Codigo Postal */
+            codigo_postal?: string | null;
+            /** Localidad */
+            localidad?: string | null;
+            /** Provincia Codigo */
+            provincia_codigo?: string | null;
+            /** Provincia Texto */
+            provincia_texto?: string | null;
+            /**
+             * Pais Residencia
+             * @default ES
+             */
+            pais_residencia: string;
+            /** Telefono */
+            telefono?: string | null;
+            /** Correo */
+            correo?: string | null;
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Version */
+            version: number;
+        };
+        /** ClienteEntrada */
+        ClienteEntrada: {
+            tipo: components["schemas"]["TipoCliente"];
+            /** Nombre */
+            nombre: string;
+            /**
+             * Identificacion Pais
+             * @default ES
+             */
+            identificacion_pais: string;
+            identificacion_tipo: components["schemas"]["TipoIdentificacion"];
+            /** Identificacion Numero */
+            identificacion_numero: string;
+            /** Direccion */
+            direccion?: string | null;
+            /** Codigo Postal */
+            codigo_postal?: string | null;
+            /** Localidad */
+            localidad?: string | null;
+            /** Provincia Codigo */
+            provincia_codigo?: string | null;
+            /** Provincia Texto */
+            provincia_texto?: string | null;
+            /**
+             * Pais Residencia
+             * @default ES
+             */
+            pais_residencia: string;
+            /** Telefono */
+            telefono?: string | null;
+            /** Correo */
+            correo?: string | null;
+            /** Observaciones */
+            observaciones?: string | null;
+        };
+        /** ClienteSalida */
+        ClienteSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            tipo: components["schemas"]["TipoCliente"];
+            /** Nombre */
+            nombre: string;
+            /** Identificacion Pais */
+            identificacion_pais: string;
+            identificacion_tipo: components["schemas"]["TipoIdentificacion"];
+            /** Identificacion Numero */
+            identificacion_numero: string;
+            /** Localidad */
+            localidad: string | null;
+            /** Provincia Nombre */
+            provincia_nombre: string | null;
+            /** Telefono */
+            telefono: string | null;
+            /** Correo */
+            correo: string | null;
+            /** Activo */
+            activo: boolean;
+            /** Direccion */
+            direccion: string | null;
+            /** Codigo Postal */
+            codigo_postal: string | null;
+            /** Provincia Codigo */
+            provincia_codigo: string | null;
+            /** Provincia Texto */
+            provincia_texto: string | null;
+            /** Pais Residencia */
+            pais_residencia: string;
+            /** Observaciones */
+            observaciones: string | null;
+            /** Version */
+            version: number;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
+            creado_por: components["schemas"]["UsuarioReferencia"];
+            /**
+             * Actualizado En
+             * Format: date-time
+             */
+            actualizado_en: string;
+            actualizado_por: components["schemas"]["UsuarioReferencia"];
         };
         /** CredencialesEntrada */
         CredencialesEntrada: {
@@ -79,6 +266,15 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ProvinciaSalida */
+        ProvinciaSalida: {
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Nombre Visible */
+            nombre_visible: string;
         };
         /**
          * Rol
@@ -105,6 +301,38 @@ export interface components {
             expira_en: string;
             /** Inactividad Segundos */
             inactividad_segundos: number;
+        };
+        /**
+         * TipoCliente
+         * @enum {string}
+         */
+        TipoCliente: "particular" | "empresa";
+        /**
+         * TipoIdentificacion
+         * @description `NIF` o clave de la lista L7 de DsRegistroVeriFactu.xlsx v1.0 (spec F-2).
+         *
+         *     El 07 ("No censado") no se guarda en la ficha: se decide al generar el registro de
+         *     facturación (research R-20.1).
+         * @enum {string}
+         */
+        TipoIdentificacion: "NIF" | "02" | "03" | "04" | "05" | "06";
+        /** TipoIdentificacionSalida */
+        TipoIdentificacionSalida: {
+            codigo: components["schemas"]["TipoIdentificacion"];
+            /** Descripcion */
+            descripcion: string;
+            /** Ambito */
+            ambito: string;
+        };
+        /** UsuarioReferencia */
+        UsuarioReferencia: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Nombre */
+            nombre: string;
         };
         /** UsuarioSalida */
         UsuarioSalida: {
@@ -264,6 +492,125 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_catalogos_api_v1_catalogos_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogosSalida"];
+                };
+            };
+        };
+    };
+    crear_cliente_api_v1_clientes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClienteEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClienteSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_cliente_api_v1_clientes__cliente_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClienteSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editar_cliente_api_v1_clientes__cliente_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClienteEdicionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClienteSalida"];
+                };
             };
             /** @description Validation Error */
             422: {
