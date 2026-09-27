@@ -18,7 +18,8 @@ Sobre esa base se entregan:
   `SameSite=Strict`, token CSRF sincronizador, Argon2id, bloqueo por cuenta y por origen, y dos
   roles.
 - **Gestión de usuarios** y **auditoría** inalterable, con doble cierre en la BD y consulta para
-  administradores.
+  administradores. Los usuarios desactivados se pueden eliminar con una lápida que conserva la
+  trazabilidad de lo que registraron (ajuste de cierre del 2026-09-28, FR-061, R-21).
 - **Gestión de clientes**: identificación fiscal validada y alineada con el diseño de registro
   oficial de la AEAT, búsqueda sin tildes, indicadores, concurrencia optimista y baja lógica.
 
@@ -87,6 +88,12 @@ clientes (SC-003). El login responde en menos de 1 s, incluido el coste de Argon
 
 **Re-check post-diseño** (tras data-model, contracts y quickstart): sin violaciones nuevas. La tabla
 de complejidad queda vacía.
+
+**Re-check del ajuste de cierre** (2026-09-28, FR-061): sin violaciones.
+- **III**: la eliminación de usuarios no toca la auditoría. La lápida mantiene válidas sus FK, en
+  lugar de exigir `UPDATE` o `DELETE` sobre ella (R-21).
+- **V**: la regla vive en `services/usuarios.py`; el router solo delega.
+- **VIII**: `DELETE /v1/usuarios/{id}`, columna `eliminado_en` y evento `usuario_eliminado`.
 
 ## Project Structure
 
@@ -196,6 +203,11 @@ fijados en CLAUDE.md). La infraestructura compartida va en la raíz (`docker-com
 6. **Datos de ejemplo** y E2E (US7).
 7. **Logo e iconos**, **producción** (Caddy, compose de producción y verificación de cabeceras) y
    quickstart validado (US8).
+8. **Ajuste de cierre**, eliminación de usuarios desactivados (FR-061, R-21):
+   - Migración 0004 y reglas de servicio con `FOR UPDATE`.
+   - `DELETE /v1/usuarios/{id}` y `incluir_eliminados`.
+   - Marca "(eliminado)" en la web.
+   - Pruebas unitarias, de integración y E2E.
 
 ## Complexity Tracking
 

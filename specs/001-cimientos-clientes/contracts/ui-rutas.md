@@ -12,8 +12,8 @@ Rutas de la aplicación web, quién puede acceder y qué endpoints de
 | `/clientes` | Sesión | Indicadores, filtros, tabla y paginación. Panel de alta y edición | `GET /v1/clientes`, `GET /v1/clientes/indicadores`, `GET /v1/catalogos` |
 | `/clientes/nuevo` | Sesión | Panel de alta (nivel 2) sobre `/clientes` | `POST /v1/clientes` |
 | `/clientes/$clienteId` | Sesión | Panel de ficha y edición, con trazabilidad y acciones de desactivar, reactivar y borrar (solo admin) | `GET/PUT/DELETE /v1/clientes/{id}`, `POST …/desactivacion`, `POST …/reactivacion` |
-| `/configuracion/usuarios` | Administrador | Listado y alta de usuarios, cambio de rol, desactivación y reactivación, restablecimiento de contraseña | `/v1/usuarios…` |
-| `/configuracion/auditoria` | Administrador | Consulta filtrable y paginada, con detalle de cada evento | `GET /v1/auditoria` |
+| `/configuracion/usuarios` | Administrador | Listado y alta de usuarios, cambio de rol, desactivación y reactivación, restablecimiento de contraseña y eliminación de los desactivados (FR-061) | `/v1/usuarios…`, `DELETE /v1/usuarios/{id}` |
+| `/configuracion/auditoria` | Administrador | Consulta filtrable y paginada, con detalle de cada evento. El filtro de usuario incluye a los eliminados, marcados "(eliminado)" | `GET /v1/auditoria`, `GET /v1/usuarios?incluir_eliminados=true` |
 | `/cuenta` | Sesión | Mi cuenta: cambio de contraseña | `PUT /v1/cuenta/contrasena` |
 | `/acceso-denegado` | Sesión | Pantalla 403 | — |
 | `*` | — | Pantalla 404 | — |
@@ -40,6 +40,9 @@ Rutas de la aplicación web, quién puede acceder y qué endpoints de
   - Configuración solo para administradores.
   - Cabecera con "Gestión de facturación", la fecha larga en `es-ES` (zona `Europe/Madrid`, primera
     letra en mayúscula) y el menú de usuario con iniciales.
+- **Usuarios eliminados** (FR-061): dondequiera que aparezca una referencia a un usuario eliminado
+  (ficha del cliente, auditoría y su filtro), se muestra su nombre seguido de "(eliminado)". La
+  acción "Eliminar" solo se ofrece en el menú de un usuario desactivado.
 - **Estado en la URL**: los filtros, la búsqueda, el orden y la página del listado de clientes
   viven en los *search params* de la ruta. Se pueden compartir y sobreviven a una recarga.
 
@@ -58,7 +61,7 @@ Los tokens se nombran como en el frontmatter de [`docs/DESIGN.md`](../../../docs
 | Tabla | Contenedor `surface-container-low`; cabecera `surface-container` | Cabecera en `label-md` en mayúsculas; nombre en `title-md`; tipo en `label-sm` en `primary`; datos en `body-md` con cifras tabulares | Hover: `surface-container-high`. Solo filetes horizontales. Filas con 1rem × 1.5rem de relleno |
 | Chips de estado | 1 px de borde, radio 0 | `label-sm` | Activo: `success`. Inactivo: `danger`. Próximamente y contraseña temporal: `warning` |
 | Panel de alta y edición | Nivel 2 · `surface-container-high`, borde `tertiary` @ 35 %, sombra de DESIGN.md | Título en Bodoni `headline-md` | Lateral derecho de 560 px en escritorio y tableta; pantalla completa en móvil |
-| Diálogos de confirmación | Nivel 2 | `title-lg` y `body-md` | Borrado: campo de confirmación con la identificación y botón destructivo |
+| Diálogos de confirmación | Nivel 2 | `title-lg` y `body-md` | Borrado de cliente: campo de confirmación con la identificación y botón destructivo. Eliminación de usuario: campo de confirmación con el nombre de usuario y botón destructivo |
 | Avisos breves | Nivel 3 · `surface-container-lowest` con borde de 1 px en `primary-container` | `body-md` | Esquina inferior derecha, 5 s, se pueden cerrar |
 | Botones | Primario, Secundario y Ghost/Destructivo de DESIGN.md | `label-lg` en mayúsculas | "Nuevo cliente" es el primario |
 | Foco visible (FR-052) | Controles que no son campos: contorno de 1 px en `tertiary` con separación de 2 px | — | Los campos usan su propio foco de DESIGN.md |

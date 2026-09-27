@@ -451,3 +451,56 @@ NIF de entidad la detectará la consulta al censo de la AEAT en una feature post
    guarda la forma canónica con prefijo y puede derivar ambas.
 4. **Algoritmo del carácter de control** de entidades y K, L y M: no publicado. Si la AEAT lo
    publicara, se añadiría.
+
+## R-21. Eliminación de usuarios (ajuste de cierre, 2026-09-28)
+
+**Decisión**: eliminación **lógica con lápida**, no borrado físico de la fila (FR-061).
+- **Marca**: columna `usuarios.eliminado_en` (`timestamptz NULL`), con `CHECK (eliminado_en IS
+  NULL OR NOT activo)`: un eliminado nunca está activo.
+- **Al eliminar**, dentro de una transacción y con la fila leída con `SELECT … FOR UPDATE`:
+  - Se comprueba que el usuario sigue inactivo y que no es quien actúa.
+  - `eliminado_en=now()`.
+  - `hash_contrasena` pasa a un marcador que no es un hash Argon2 (`!eliminado`). El verificador
+    lo rechaza siempre (`InvalidHashError` → `False`).
+  - Se limpian `contrasena_temporal`, `contrasena_temporal_expira_en`, `intentos_fallidos` y
+    `bloqueado_hasta`.
+  - Se borran todas sus filas de `sesiones`, que ya estaban revocadas desde la desactivación.
+  - Se registra `usuario_eliminado` con `usuario_afectado_id` y una instantánea (`nombre_usuario`,
+    `nombre`, `rol`) en `detalle`.
+- **Qué se conserva**: `nombre`, `nombre_usuario` y `rol`, para que clientes, auditoría y futuros
+  documentos sigan mostrando quién hizo cada cosa.
+- **Nombre de usuario libre** (clarificación del 2026-09-28): el índice único pasa a ser parcial,
+  `lower(nombre_usuario) WHERE eliminado_en IS NULL`.
+- **Fuera de la gestión**: estas operaciones excluyen a los eliminados:
+  - El acceso por nombre de usuario, que responde con el mensaje genérico.
+  - `restablecer-admin` de la CLI.
+  - La comprobación de duplicados en el alta.
+  - Todas las operaciones por id, que responden 404.
+  - El listado, salvo `incluir_eliminados=true`, que usa el filtro de la auditoría.
+- **Concurrencia**: editar, desactivar, reactivar, restablecer y eliminar leen al usuario con
+  `SELECT … FOR UPDATE`. Si una reactivación y una eliminación coinciden, la segunda en obtener el
+  bloqueo ve el estado final de la primera: o bien 409 `usuario-activo`, o bien 404. El `CHECK` de
+  la BD es la segunda barrera.
+- **Presentación**: `UsuarioReferencia` y `UsuarioSalida` llevan `eliminado`. La web muestra
+  "Nombre (eliminado)".
+
+**Razón**:
+- **El borrado físico es inviable sin romper otras reglas**:
+  - `eventos_auditoria.actor_id` y `usuario_afectado_id` tienen FK a `usuarios` y la tabla es
+    inalterable (R-10). Ni `ON DELETE SET NULL` ni `CASCADE` pueden aplicarse sobre ella.
+  - Además, todo usuario tiene al menos su evento `usuario_creado`.
+  - `clientes.creado_por_id` y `actualizado_por_id` son `NOT NULL`. Ponerlos a NULL "afectaría a
+    lo que han creado", justo lo que el responsable pidió evitar.
+  - Las facturas y los registros de facturación futuros, inalterables por el principio III,
+    tendrán el mismo problema.
+- **La lápida mantiene la integridad referencial** sin excepciones y descarta lo que ya no hace
+  falta: la credencial y las sesiones.
+
+**Alternativas descartadas**:
+- **Borrado físico quitando las FK de la auditoría** (como `cliente_id`) y poniendo a NULL la
+  autoría de los clientes: pierde la trazabilidad y obligaría a copiar el nombre en cada tabla que
+  referencie usuarios, incluidas las facturas.
+- **Anonimizar el nombre del eliminado**: rompe la trazabilidad pedida. Además, la auditoría
+  inalterable ya contiene su nombre de usuario en eventos anteriores.
+- **Reservar para siempre el nombre de usuario**: descartado por el responsable (clarificación del
+  2026-09-28).

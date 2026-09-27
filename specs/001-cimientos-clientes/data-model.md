@@ -18,6 +18,7 @@
 usuarios 1───* sesiones
 usuarios 1───* eventos_auditoria (actor_id, nullable)
 usuarios 1───* clientes (creado_por_id, actualizado_por_id)
+(un usuario eliminado conserva su fila como lápida: todas las FK siguen siendo válidas, R-21)
 provincias 1───* clientes (provincia_codigo, nullable)
 eventos_auditoria ···> clientes (cliente_id SIN FK: sobrevive al borrado físico)
 ```
@@ -29,13 +30,14 @@ eventos_auditoria ···> clientes (cliente_id SIN FK: sobrevive al borrado fís
 | Columna | Tipo | Restricciones | Notas |
 |---|---|---|---|
 | id | uuid | PK | |
-| nombre_usuario | varchar(50) | NOT NULL, único sobre `lower(nombre_usuario)` | Formato `^[a-z0-9._-]{3,50}$`, normalizado a minúsculas |
+| nombre_usuario | varchar(50) | NOT NULL, único sobre `lower(nombre_usuario)` entre los no eliminados | Formato `^[a-z0-9._-]{3,50}$`, normalizado a minúsculas. Índice único parcial `WHERE eliminado_en IS NULL`: el de un eliminado queda libre (FR-061) |
 | nombre | varchar(120) | NOT NULL | Nombre visible; de él salen las iniciales del menú |
 | rol | varchar(20) | NOT NULL, CHECK IN (`administrador`, `empleado`) | FR-012 |
 | hash_contrasena | text | NOT NULL | Argon2id (R-7) |
 | contrasena_temporal | boolean | NOT NULL DEFAULT true | Obliga a cambiarla (FR-009) |
 | contrasena_temporal_expira_en | timestamptz | NULL | Alta o restablecimiento + 72 h (FR-015). Si ha vencido, el acceso falla con el mensaje genérico |
 | activo | boolean | NOT NULL DEFAULT true | |
+| eliminado_en | timestamptz | NULL, CHECK `eliminado_en IS NULL OR NOT activo` | Momento de la eliminación (FR-061, R-21). Un eliminado nunca está activo |
 | intentos_fallidos | smallint | NOT NULL DEFAULT 0, CHECK ≥ 0 | FR-006 |
 | bloqueado_hasta | timestamptz | NULL | |
 | ultimo_acceso_en | timestamptz | NULL | |
@@ -51,12 +53,22 @@ eventos_auditoria ···> clientes (cliente_id SIN FK: sobrevive al borrado fís
   revocación de todas sus sesiones.
 - **Cambio de rol**: revoca todas las sesiones del afectado (FR-016). Un administrador no puede
   cambiar su propio rol (FR-017).
+- **Eliminación** (FR-061, R-21): solo de un usuario inactivo, leído con `SELECT … FOR UPDATE`.
+  Fija `eliminado_en=now()`, sustituye `hash_contrasena` por un marcador que ningún verificador
+  acepta, pone `contrasena_temporal=false`, `contrasena_temporal_expira_en=NULL`,
+  `intentos_fallidos=0` y `bloqueado_hasta=NULL`, y borra todas sus filas de `sesiones`. Conserva
+  `nombre`, `nombre_usuario` y `rol` como referencia histórica.
+- **Eliminados fuera de la gestión**: el acceso, la CLI, el alta (comprobación de duplicado) y las
+  operaciones por id excluyen a los usuarios con `eliminado_en`. Las operaciones que modifican un
+  usuario lo leen con `SELECT … FOR UPDATE`, para no cruzarse con una eliminación.
 
 **Estados**:
 
 ```
 activo ──desactivar──> inactivo ──reactivar──> activo
-(desactivar revoca todas las sesiones; el último admin y uno mismo no se pueden desactivar)
+                          └──eliminar──> eliminado (final e irreversible)
+(desactivar revoca todas las sesiones; el último admin y uno mismo no se pueden desactivar;
+ eliminar exige estar inactivo y descarta contraseña y sesiones)
 ```
 
 ## sesiones
@@ -104,7 +116,8 @@ API y con la CLI. No son registros fiscales ni de auditoría.
   `actor_nombre_usuario='consola'` y `detalle.origen='consola'`.
 - **Contraseñas**: `contrasena_cambiada`, `contrasena_restablecida`.
 - **Usuarios**: `usuario_creado`, `usuario_rol_cambiado`, `usuario_desactivado`,
-  `usuario_reactivado`.
+  `usuario_reactivado`, `usuario_eliminado`. Este último lleva en `detalle` el `nombre_usuario`, el
+  `nombre` y el `rol` del eliminado (migración 0004 amplía el CHECK del catálogo).
 - **Clientes**: `cliente_creado`, `cliente_editado`, `cliente_desactivado`, `cliente_reactivado`,
   `cliente_borrado`.
 

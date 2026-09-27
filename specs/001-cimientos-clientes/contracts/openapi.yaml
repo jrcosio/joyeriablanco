@@ -35,6 +35,7 @@ info:
     | `ultimo-administrador` | 409 |
     | `autogestion` | 409, no se permite sobre la propia cuenta |
     | `cliente-con-documentos` | 409 |
+    | `usuario-activo` | 409, hay que desactivar el usuario antes de eliminarlo (FR-061) |
     | `limite-origen` | 429 |
     | `interno` | 500, sin detalles |
 
@@ -137,6 +138,13 @@ paths:
     get:
       tags: [usuarios]
       summary: Listar usuarios (solo administradores)
+      description: |
+        Por defecto excluye a los usuarios eliminados (FR-061). Con `incluir_eliminados=true`
+        también los devuelve, marcados con `eliminado`, para el filtro de la auditoría.
+      parameters:
+        - name: incluir_eliminados
+          in: query
+          schema: { type: boolean, default: false }
       responses:
         "200":
           description: Usuarios
@@ -168,6 +176,8 @@ paths:
 
   /v1/usuarios/{usuarioId}:
     parameters: [{ $ref: "#/components/parameters/UsuarioId" }]
+    description: |
+      Un usuario eliminado se trata como inexistente en todas las operaciones de gestión (404).
     get:
       tags: [usuarios]
       summary: Detalle de usuario (solo administradores)
@@ -198,6 +208,20 @@ paths:
         "404": { $ref: "#/components/responses/NoEncontrado" }
         "409": { description: Dejaría el sistema sin administrador activo, $ref: "#/components/responses/Problema" }
         "422": { $ref: "#/components/responses/Validacion" }
+    delete:
+      tags: [usuarios]
+      summary: Eliminar un usuario desactivado (FR-061)
+      description: |
+        Irreversible. El usuario desaparece de la gestión, no puede volver a identificarse y su
+        nombre de usuario queda libre. Se descartan su contraseña y sus sesiones. Lo que registró
+        (clientes, auditoría) se conserva sin cambios y sus referencias pasan a llevar
+        `eliminado: true`. Queda el evento `usuario_eliminado` en la auditoría.
+      parameters: [{ $ref: "#/components/parameters/Csrf" }]
+      responses:
+        "204": { description: Usuario eliminado }
+        "403": { $ref: "#/components/responses/Prohibido" }
+        "404": { description: No existe o ya está eliminado, $ref: "#/components/responses/NoEncontrado" }
+        "409": { description: "`usuario-activo` (hay que desactivarlo antes) o `autogestion`", $ref: "#/components/responses/Problema" }
 
   /v1/usuarios/{usuarioId}/desactivacion:
     parameters: [{ $ref: "#/components/parameters/UsuarioId" }]
@@ -540,6 +564,7 @@ components:
         [acceso_correcto, acceso_fallido, acceso_bloqueado, acceso_limitado, cierre_sesion,
          contrasena_cambiada, contrasena_restablecida,
          usuario_creado, usuario_rol_cambiado, usuario_desactivado, usuario_reactivado,
+         usuario_eliminado,
          cliente_creado, cliente_editado, cliente_desactivado, cliente_reactivado, cliente_borrado]
 
     CredencialesEntrada:
@@ -567,13 +592,14 @@ components:
 
     UsuarioSalida:
       type: object
-      required: [id, nombre_usuario, nombre, rol, activo, contrasena_temporal, bloqueado, creado_en]
+      required: [id, nombre_usuario, nombre, rol, activo, eliminado, contrasena_temporal, bloqueado, creado_en]
       properties:
         id: { type: string, format: uuid }
         nombre_usuario: { type: string }
         nombre: { type: string }
         rol: { $ref: "#/components/schemas/Rol" }
         activo: { type: boolean }
+        eliminado: { type: boolean, description: "Solo aparece a true con incluir_eliminados (FR-061)" }
         contrasena_temporal: { type: boolean }
         bloqueado: { type: boolean, description: Bloqueo temporal vigente }
         ultimo_acceso_en: { type: [string, "null"], format: date-time }
@@ -660,10 +686,11 @@ components:
             actualizado_por: { $ref: "#/components/schemas/UsuarioReferencia" }
     UsuarioReferencia:
       type: object
-      required: [id, nombre]
+      required: [id, nombre, eliminado]
       properties:
         id: { type: string, format: uuid }
         nombre: { type: string }
+        eliminado: { type: boolean, description: "La web muestra el nombre con la marca «(eliminado)» (FR-061)" }
     PaginaClientes:
       type: object
       required: [elementos, total, pagina, tamano]
