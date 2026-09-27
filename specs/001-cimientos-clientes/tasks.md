@@ -436,7 +436,7 @@ cierran y la actual sigue.
 - [X] T114 Actualizar `CLAUDE.md`, sección "Comandos de desarrollo", con los comandos reales fijados en la feature 001 (compose, `uv run joyeria …`, `npm run …`, e2e, producción) y quitar la nota "intención, no referencia"
 - [X] T115 Ejecutar las puertas de calidad completas: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy .`, `uv run pytest`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, `npm run check:tokens` y `npx playwright test`. Todo en verde (constitución IX, SC-012)
 - [X] T116 Revisión final de conformidad: recorrer quickstart §2 (10 validaciones manuales), cronometrar SC-001 (localizar un cliente en menos de 10 s) y SC-002 (alta en menos de 2 min). *Hecho el 2026-09-27: las 10 validaciones quedan cubiertas por los E2E (acceso, clientes, ciclo de vida, usuarios, teclado y responsive) y la comparación con el mockup se hizo a 1672×941. SC-001 y SC-002 se aproximaron con los recorridos automáticos (alta completa en unos 2 s y búsqueda al instante); **queda pendiente una confirmación cronometrada por una persona**.* y comparar la pantalla Clientes con `specs/001-cimientos-clientes/assets/mockup-clientes.png` y con la tabla de desviaciones de la spec
-- [ ] T117 Preguntar al responsable si se puede eliminar `temporal/` (su contenido ya está en `tools/brand/fuente/` y `specs/001-cimientos-clientes/assets/`)
+- [X] T117 Preguntar al responsable si se puede eliminar `temporal/` (su contenido ya está en `tools/brand/fuente/` y `specs/001-cimientos-clientes/assets/`). *Hecho: por decisión del responsable se borró el contenido (copias verificadas por SHA-256) y se conserva la carpeta, ignorada por git, como zona de intercambio para próximas features.*
 
 ---
 
