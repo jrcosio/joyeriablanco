@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.api.deps import CurrentSession, DbDep, OrigenDep, get_current_session
+from app.api.deps import AdminSession, CurrentSession, DbDep, OrigenDep, get_current_session
 from app.domain.tipos import TipoCliente
 from app.schemas.cliente import (
     ClienteEdicionEntrada,
@@ -16,6 +16,7 @@ from app.schemas.cliente import (
 )
 from app.schemas.comunes import Pagina
 from app.services import clientes
+from app.services.documentos import ClienteDocumentosChecker, get_documentos_checker
 
 router = APIRouter(
     prefix="/clientes", tags=["clientes"], dependencies=[Depends(get_current_session)]
@@ -82,3 +83,32 @@ async def editar_cliente(
         db, cliente_id, datos, actor=sesion.usuario, origen=origen
     )
     return ClienteSalida.from_model(cliente)
+
+
+@router.post("/{cliente_id}/desactivacion")
+async def desactivar_cliente(
+    cliente_id: uuid.UUID, sesion: CurrentSession, db: DbDep, origen: OrigenDep
+) -> ClienteSalida:
+    cliente = await clientes.deactivate_cliente(db, cliente_id, actor=sesion.usuario, origen=origen)
+    return ClienteSalida.from_model(cliente)
+
+
+@router.post("/{cliente_id}/reactivacion")
+async def reactivar_cliente(
+    cliente_id: uuid.UUID, sesion: CurrentSession, db: DbDep, origen: OrigenDep
+) -> ClienteSalida:
+    cliente = await clientes.reactivate_cliente(db, cliente_id, actor=sesion.usuario, origen=origen)
+    return ClienteSalida.from_model(cliente)
+
+
+@router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def borrar_cliente(
+    cliente_id: uuid.UUID,
+    sesion: AdminSession,
+    db: DbDep,
+    origen: OrigenDep,
+    documentos: Annotated[ClienteDocumentosChecker, Depends(get_documentos_checker)],
+) -> None:
+    await clientes.delete_cliente(
+        db, cliente_id, actor=sesion.usuario, origen=origen, documentos=documentos
+    )

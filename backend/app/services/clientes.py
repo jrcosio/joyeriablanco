@@ -12,7 +12,14 @@ from typing import Final
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import CampoError, ConflictoVersion, DatosNoValidos, Duplicado, NoEncontrado
+from app.core.errors import (
+    CampoError,
+    ClienteConDocumentos,
+    ConflictoVersion,
+    DatosNoValidos,
+    Duplicado,
+    NoEncontrado,
+)
 from app.core.http import Origen
 from app.domain.codigos_postales import provincia_from_codigo_postal
 from app.domain.identificacion import validate_identificacion
@@ -24,6 +31,7 @@ from app.repositories import catalogos as catalogos_repo
 from app.repositories import clientes as repo
 from app.schemas.cliente import ClienteEdicionEntrada, ClienteEntrada, ClienteExistente
 from app.services.auditoria import diff, record_event
+from app.services.documentos import ClienteDocumentosChecker
 
 _TELEFONO: Final = re.compile(r"[0-9 +()\-]+")
 MIN_DIGITOS_TELEFONO: Final = 6
@@ -280,3 +288,72 @@ async def list_clientes(db: AsyncSession, filtros: FiltrosClientes) -> tuple[lis
 async def indicadores(db: AsyncSession) -> tuple[int, int]:
     """Indicadores globales: no dependen de la búsqueda ni de los filtros (FR-034)."""
     return await repo.count_indicadores(db, get_settings().zona_horaria)
+
+
+# --------------------------------------------------------------------------- ciclo de vida (US4)
+
+
+async def _cambiar_estado(
+    db: AsyncSession,
+    cliente_id: uuid.UUID,
+    *,
+    activo: bool,
+    actor: Usuario,
+    origen: Origen,
+) -> Cliente:
+    cliente = await get_cliente(db, cliente_id)
+    if cliente.activo is activo:
+        return cliente  # idempotente: sin error ni evento nuevo (FR-030)
+    cliente.activo = activo
+    cliente.actualizado_por_id = actor.id
+    await repo.save(db, cliente)
+    await record_event(
+        db,
+        TipoEvento.CLIENTE_REACTIVADO if activo else TipoEvento.CLIENTE_DESACTIVADO,
+        origen=origen,
+        actor=actor,
+        cliente_id=cliente.id,
+    )
+    return cliente
+
+
+async def deactivate_cliente(
+    db: AsyncSession, cliente_id: uuid.UUID, *, actor: Usuario, origen: Origen
+) -> Cliente:
+    return await _cambiar_estado(db, cliente_id, activo=False, actor=actor, origen=origen)
+
+
+async def reactivate_cliente(
+    db: AsyncSession, cliente_id: uuid.UUID, *, actor: Usuario, origen: Origen
+) -> Cliente:
+    return await _cambiar_estado(db, cliente_id, activo=True, actor=actor, origen=origen)
+
+
+async def delete_cliente(
+    db: AsyncSession,
+    cliente_id: uuid.UUID,
+    *,
+    actor: Usuario,
+    origen: Origen,
+    documentos: ClienteDocumentosChecker,
+) -> None:
+    """Borrado definitivo, solo sin documentos; la auditoría guarda una instantánea (FR-037)."""
+    cliente = await get_cliente(db, cliente_id)
+    if await documentos.tiene_documentos(db, cliente.id):
+        raise ClienteConDocumentos
+    instantanea = {
+        "nombre": cliente.nombre,
+        "tipo": cliente.tipo,
+        "identificacion_pais": cliente.identificacion_pais,
+        "identificacion_tipo": cliente.identificacion_tipo,
+        "identificacion_numero": cliente.identificacion_numero,
+    }
+    await repo.delete(db, cliente)
+    await record_event(
+        db,
+        TipoEvento.CLIENTE_BORRADO,
+        origen=origen,
+        actor=actor,
+        cliente_id=cliente_id,
+        detalle={"instantanea": instantanea},
+    )

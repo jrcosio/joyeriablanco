@@ -53,6 +53,11 @@ async def add(session: AsyncSession, cliente: Cliente) -> Cliente:
     return cliente
 
 
+async def delete(session: AsyncSession, cliente: Cliente) -> None:
+    await session.delete(cliente)
+    await session.flush()
+
+
 async def save(session: AsyncSession, cliente: Cliente) -> Cliente:
     await _flush(session)
     await session.refresh(cliente)

@@ -4,6 +4,8 @@ import { useCatalogos } from '../../../api/queries/catalogos'
 import { clienteQuery, useEditarCliente } from '../../../api/queries/clientes'
 import { ErrorState } from '../../../components/ui/ErrorState'
 import { toast } from '../../../components/ui/toast-store'
+import { useSesion } from '../../../auth/session'
+import { AccionesCliente } from '../../../features/clientes/AccionesCliente'
 import { ClientePanel } from '../../../features/clientes/ClientePanel'
 
 export const Route = createFileRoute('/_app/clientes/$clienteId')({
@@ -16,6 +18,7 @@ function FichaCliente() {
   const catalogos = useCatalogos()
   const ficha = useQuery(clienteQuery(clienteId))
   const editar = useEditarCliente(clienteId)
+  const { usuario } = useSesion()
   const cerrar = () => {
     void navigate({ to: '/clientes', search: (previa) => previa })
   }
@@ -37,6 +40,15 @@ function FichaCliente() {
       {...(ficha.data ? { cliente: ficha.data } : {})}
       cargando={ficha.isPending}
       onCerrar={cerrar}
+      acciones={
+        ficha.data ? (
+          <AccionesCliente
+            cliente={ficha.data}
+            esAdmin={usuario.rol === 'administrador'}
+            onBorrado={cerrar}
+          />
+        ) : null
+      }
       onGuardar={async (cuerpo) => {
         if (!ficha.data) return
         await editar.mutateAsync({ ...cuerpo, version: ficha.data.version })

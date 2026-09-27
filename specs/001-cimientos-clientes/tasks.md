@@ -332,15 +332,15 @@ a la aplicación en marcha con administrador y datos de ejemplo. Los E2E de US1�
 **Independent Test**: se desactiva, se encuentra con "Inactivos" y se reactiva. Se borra como
 administrador un cliente sin documentos. Un empleado no puede borrar.
 
-- [ ] T085 [P] [US4] Test `backend/tests/integration/test_clientes_ciclo_vida.py`:
+- [X] T085 [P] [US4] Test `backend/tests/integration/test_clientes_ciclo_vida.py`:
   - **Desactivar y reactivar**: idempotentes, sin evento duplicado, y cambian los indicadores.
   - **Borrado como administrador**: 204, con instantánea en la auditoría y `cliente_id` conservado sin FK.
   - **Borrado como empleado**: 403.
   - **Con documentos**: con `ClienteDocumentosChecker` falso que devuelve `True` → 409 `cliente-con-documentos` (FR-036, FR-037).
-- [ ] T086 [US4] Crear el puerto `backend/app/services/documentos.py` (`ClienteDocumentosChecker`, protocolo con una implementación nula que devuelve `False` e inyección por dependencia) e implementar `deactivate`, `reactivate` y `delete` en `backend/app/services/clientes.py` y `backend/app/repositories/clientes.py`
-- [ ] T087 [US4] Añadir `POST /v1/clientes/{id}/desactivacion`, `POST /v1/clientes/{id}/reactivacion` y `DELETE /v1/clientes/{id}` (con `require_admin`) en `backend/app/api/v1/clientes.py`
-- [ ] T088 [US4] Añadir a `ClientePanel.tsx` las acciones Desactivar (confirmación), Reactivar y Borrar (solo admin; confirmación reforzada escribiendo la identificación), con avisos. En `ClienteForm.tsx`, ante un duplicado inactivo, ofrecer "Reactivar" (FR-058). Tests en `joyeriablanco_web/src/features/clientes/ClientePanel.test.tsx`
-- [ ] T089 [P] [US4] E2E `joyeriablanco_web/e2e/clientes-ciclo-vida.spec.ts`: desactivar → sale del listado → aparece con "Inactivos" → reactivar; borrado reforzado como administrador; el empleado no ve Borrar
+- [X] T086 [US4] Crear el puerto `backend/app/services/documentos.py` (`ClienteDocumentosChecker`, protocolo con una implementación nula que devuelve `False` e inyección por dependencia) e implementar `deactivate`, `reactivate` y `delete` en `backend/app/services/clientes.py` y `backend/app/repositories/clientes.py`
+- [X] T087 [US4] Añadir `POST /v1/clientes/{id}/desactivacion`, `POST /v1/clientes/{id}/reactivacion` y `DELETE /v1/clientes/{id}` (con `require_admin`) en `backend/app/api/v1/clientes.py`
+- [X] T088 [US4] Añadir a `ClientePanel.tsx` las acciones Desactivar (confirmación), Reactivar y Borrar (solo admin; confirmación reforzada escribiendo la identificación), con avisos. En `ClienteForm.tsx`, ante un duplicado inactivo, ofrecer "Reactivar" (FR-058). Tests en `joyeriablanco_web/src/features/clientes/ClientePanel.test.tsx`
+- [X] T089 [P] [US4] E2E `joyeriablanco_web/e2e/clientes-ciclo-vida.spec.ts`: desactivar → sale del listado → aparece con "Inactivos" → reactivar; borrado reforzado como administrador; el empleado no ve Borrar
 
 **Checkpoint**: US4 funciona de forma independiente.
 

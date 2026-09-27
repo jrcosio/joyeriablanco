@@ -72,3 +72,28 @@ export const indicadoresQuery = queryOptions({
   queryKey: [...CLIENTES_KEY, 'indicadores'],
   queryFn: () => unwrap(api.GET('/api/v1/clientes/indicadores')),
 })
+
+function useAccionCliente(accion: 'desactivacion' | 'reactivacion') {
+  const invalidar = useInvalidarClientes()
+  return useMutation({
+    mutationFn: (id: string) =>
+      unwrap(
+        api.POST(`/api/v1/clientes/{cliente_id}/${accion}`, {
+          params: { path: { cliente_id: id } },
+        }),
+      ),
+    onSuccess: invalidar,
+  })
+}
+
+export const useDesactivarCliente = () => useAccionCliente('desactivacion')
+export const useReactivarCliente = () => useAccionCliente('reactivacion')
+
+export function useBorrarCliente() {
+  const invalidar = useInvalidarClientes()
+  return useMutation({
+    mutationFn: (id: string) =>
+      unwrap(api.DELETE('/api/v1/clientes/{cliente_id}', { params: { path: { cliente_id: id } } })),
+    onSuccess: invalidar,
+  })
+}
