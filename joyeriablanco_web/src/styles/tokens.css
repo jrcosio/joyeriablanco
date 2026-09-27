@@ -65,12 +65,13 @@
 
   /* ------------------------------------------------------ espaciado y rejilla */
   --spacing: 0.25rem;
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2.5rem;
-  --spacing-xxl: 4rem;
+  /* Nombres de DESIGN.md con prefijo `space-` para no chocar con max-w-md, max-w-lg… */
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2.5rem;
+  --spacing-space-xxl: 4rem;
   --spacing-gutter: 1.5rem;
   --spacing-gutter-mobile: 1rem;
   --spacing-margin: 2.5rem;

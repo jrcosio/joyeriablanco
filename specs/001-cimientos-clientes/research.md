@@ -132,7 +132,12 @@ fuerte y ya tenemos estado).
 - **Lista de contraseñas comunes**: la top 100.000 de contraseñas filtradas publicada por el NCSC
   británico (`PwnedPasswordsTop100k`, Open Government Licence v3), más una lista propia pequeña
   (`joyeria`, `blanco`, `joyeriablanco`, `contraseña`…). Se versiona en `backend/app/resources/`.
-  En `implement` se registran la URL y la huella SHA-256 del fichero descargado.
+  - **Descarga (2026-09-27)**: la URL oficial del NCSC respondía 404 ("Site currently
+    unavailable"), así que se tomó la copia archivada de esa misma URL en el Internet Archive
+    (`web.archive.org/web/2024id_/…/PwnedPasswordsTop100k.txt`).
+  - SHA-256: `f68c289c93bbaefd6f6700c7ba3035077ffe4d402b571708ff595258f2d93e15`.
+  - El fichero resultante tiene 97.800 entradas (minúsculas y sin duplicados). Detalle en
+    `backend/app/resources/README.md`.
 - **Contraseña temporal**: 16 caracteres de un alfabeto sin ambigüedades, agrupados de 4 en 4. Se
   muestra una sola vez.
 - **Tiempo constante**: si el usuario no existe, se verifica igualmente contra un hash ficticio, de

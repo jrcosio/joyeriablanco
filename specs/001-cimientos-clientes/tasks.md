@@ -124,20 +124,20 @@ accede a nada. También los bloqueos, la caducidad y las pantallas 403 y 404.
 
 ### Tests for User Story 1 ⚠️ (escribir primero, deben fallar)
 
-- [ ] T031 [P] [US1] Test `backend/tests/unit/domain/test_contrasenas.py`:
+- [X] T031 [P] [US1] Test `backend/tests/unit/domain/test_contrasenas.py`:
   - Longitudes 11, 12, 128 y 129.
   - Contraseña de la lista común en mayúsculas o minúsculas.
   - Contraseña que contiene el usuario sin distinguir mayúsculas.
   - Ausencia de reglas de composición.
   - La temporal generada cumple la política (FR-008, FR-015).
-- [ ] T032 [P] [US1] Test `backend/tests/unit/test_security.py`: el hash Argon2id se verifica y se hace *rehash*; el token tiene 256 bits y su SHA-256 es estable; la comparación es en tiempo constante
-- [ ] T033 [P] [US1] Test `backend/tests/integration/test_sesion_login.py`:
+- [X] T032 [P] [US1] Test `backend/tests/unit/test_security.py`: el hash Argon2id se verifica y se hace *rehash*; el token tiene 256 bits y su SHA-256 es estable; la comparación es en tiempo constante
+- [X] T033 [P] [US1] Test `backend/tests/integration/test_sesion_login.py`:
   - **Login correcto**: cookie `HttpOnly` y `SameSite=Strict`, cuyo nombre depende de `SESION_COOKIE_SEGURA`. La respuesta trae `csrf_token`.
   - **Mensajes genéricos idénticos** para usuario inexistente, contraseña errónea, cuenta bloqueada, cuenta desactivada y temporal caducada (72 h).
   - **Bloqueo por cuenta**: el quinto fallo bloquea 15 minutos, también con la contraseña correcta. El contador se reinicia con un acceso correcto (FR-006, FR-007, FR-015).
   - **Límite por origen**: 20 fallos en 10 minutos → 429 `limite-origen` con mensaje propio y evento `acceso_limitado`, que no suma al límite.
   - **Origen**: `Origin` no permitido → 403 `origen`.
-- [ ] T034 [P] [US1] Test `backend/tests/integration/test_sesion_ciclo.py`:
+- [X] T034 [P] [US1] Test `backend/tests/integration/test_sesion_ciclo.py`:
   - **Sin sesión**: `GET /v1/sesion` → 401.
   - **Inactividad**: pasados 30 minutos, 401. La actividad se registra como mucho una vez por minuto.
   - **Caducidad absoluta**: a las 10 horas, 401.
@@ -146,50 +146,50 @@ accede a nada. También los bloqueos, la caducidad y las pantallas 403 y 404.
   - **CSRF**: sin `X-CSRF-Token` o con uno erróneo → 403 `csrf`.
   - **Cambio de contraseña**: `PUT /v1/cuenta/contrasena` revoca las demás sesiones y conserva la actual.
   - **Auditoría**: se registran `acceso_correcto`, `acceso_fallido`, `acceso_bloqueado`, `cierre_sesion` y `contrasena_cambiada` (FR-003 a FR-005, FR-009, FR-011, FR-019, FR-020).
-- [ ] T035 [P] [US1] Test `backend/tests/integration/test_cli.py`:
+- [X] T035 [P] [US1] Test `backend/tests/integration/test_cli.py`:
   - `crear-admin`: crea un administrador con temporal de 72 h y muestra la contraseña una vez.
   - `restablecer-admin`: restablece y levanta el bloqueo.
   - `purgar-sesiones`: borra solo las caducadas o revocadas de más de 30 días.
   - Los eventos llevan `actor_nombre_usuario='consola'` (FR-018, FR-020, FR-054).
-- [ ] T036 [P] [US1] Tests web:
+- [X] T036 [P] [US1] Tests web:
   - `joyeriablanco_web/src/features/acceso/LoginPage.test.tsx`: errores genéricos, mensaje de 429 y redirección a `volver`.
   - `joyeriablanco_web/src/components/layout/Sidebar.test.tsx`: Facturas y Presupuestos deshabilitados con "Próximamente"; Configuración solo para administradores.
   - `joyeriablanco_web/src/components/layout/UserMenu.test.tsx`: iniciales, nombre, rol y opciones.
 
 ### Implementation for User Story 1
 
-- [ ] T037 [P] [US1] Descargar la lista top 100k del NCSC (`PwnedPasswordsTop100k`, OGL v3) en `backend/app/resources/contrasenas_comunes.txt` y añadir las entradas propias (`joyeria`, `blanco`, `joyeriablanco`, `contraseña`…). Registrar la URL, la fecha y el SHA-256 en `backend/app/resources/README.md` y en research R-7
-- [ ] T038 [P] [US1] Implementar `backend/app/domain/contrasenas.py`: `validate_password(contrasena, nombre_usuario) -> list[str]` con mensajes en español y `generate_temporary_password()` (16 caracteres sin ambigüedades en grupos de 4)
-- [ ] T039 [P] [US1] Implementar `backend/app/core/security.py`: `PasswordHasher` Argon2id (parámetros por defecto de argon2-cffi), `hash_password`, `verify_password` con `needs_rehash`, `DUMMY_HASH`, `new_session_token()`, `token_fingerprint()` y `constant_time_equals()`
-- [ ] T040 [US1] Implementar `backend/app/repositories/usuarios.py` (búsqueda por `lower(nombre_usuario)`, contadores de fallos, bloqueo) y `backend/app/repositories/sesiones.py` (crear, buscar por huella, `touch` con umbral de 60 s, revocar una, revocar todas salvo una, purgar)
-- [ ] T041 [US1] Implementar `backend/app/services/auth.py` con `login`, `validate_session`, `logout` y `change_own_password`:
+- [X] T037 [P] [US1] Descargar la lista top 100k del NCSC (`PwnedPasswordsTop100k`, OGL v3) en `backend/app/resources/contrasenas_comunes.txt` y añadir las entradas propias (`joyeria`, `blanco`, `joyeriablanco`, `contraseña`…). Registrar la URL, la fecha y el SHA-256 en `backend/app/resources/README.md` y en research R-7
+- [X] T038 [P] [US1] Implementar `backend/app/domain/contrasenas.py`: `validate_password(contrasena, nombre_usuario) -> list[str]` con mensajes en español y `generate_temporary_password()` (16 caracteres sin ambigüedades en grupos de 4)
+- [X] T039 [P] [US1] Implementar `backend/app/core/security.py`: `PasswordHasher` Argon2id (parámetros por defecto de argon2-cffi), `hash_password`, `verify_password` con `needs_rehash`, `DUMMY_HASH`, `new_session_token()`, `token_fingerprint()` y `constant_time_equals()`
+- [X] T040 [US1] Implementar `backend/app/repositories/usuarios.py` (búsqueda por `lower(nombre_usuario)`, contadores de fallos, bloqueo) y `backend/app/repositories/sesiones.py` (crear, buscar por huella, `touch` con umbral de 60 s, revocar una, revocar todas salvo una, purgar)
+- [X] T041 [US1] Implementar `backend/app/services/auth.py` con `login`, `validate_session`, `logout` y `change_own_password`:
   - **Login**: límite por origen sobre la auditoría, verificación de la contraseña contra el hash (o contra `DUMMY_HASH` si el usuario no existe), bloqueo por cuenta, control de temporal caducada y rotación de la sesión.
   - **Validación**: ventanas de inactividad y absoluta, usuario activo.
   - **Auditoría**: un evento por cada caso.
-- [ ] T042 [US1] Implementar `backend/app/api/deps.py`:
+- [X] T042 [US1] Implementar `backend/app/api/deps.py`:
   - `get_current_session`: lee la cookie, valida la sesión, aplica la regla de contraseña temporal y la puerta de `Origin` y CSRF en los métodos que modifican datos.
   - `require_admin`.
   - `get_client_origin` (IP y agente).
-- [ ] T043 [P] [US1] Crear los esquemas `backend/app/schemas/comunes.py` (`Problema`, `Pagina[T]`), `backend/app/schemas/sesion.py` (`CredencialesEntrada`, `SesionSalida`, `CambioContrasenaEntrada`) y `backend/app/schemas/usuario.py` (`UsuarioSalida`, `UsuarioReferencia`) según `contracts/openapi.yaml`
-- [ ] T044 [US1] Implementar `backend/app/api/v1/sesion.py` (`POST`, `GET` y `DELETE /v1/sesion`, con `Set-Cookie` y borrado de la cookie) y `backend/app/api/v1/cuenta.py` (`PUT /v1/cuenta/contrasena`), sin lógica de negocio en el router (principio V)
-- [ ] T045 [US1] Añadir a `backend/app/cli.py` los comandos `crear-admin --usuario --nombre`, `restablecer-admin --usuario` y `purgar-sesiones`, auditados como consola. La purga también se ejecuta en el arranque de la API (FR-054)
-- [ ] T046 [P] [US1] Crear `tools/brand/procesar_logo.py` (PEP 723, Pillow) según research R-18:
+- [X] T043 [P] [US1] Crear los esquemas `backend/app/schemas/comunes.py` (`Problema`, `Pagina[T]`), `backend/app/schemas/sesion.py` (`CredencialesEntrada`, `SesionSalida`, `CambioContrasenaEntrada`) y `backend/app/schemas/usuario.py` (`UsuarioSalida`, `UsuarioReferencia`) según `contracts/openapi.yaml`
+- [X] T044 [US1] Implementar `backend/app/api/v1/sesion.py` (`POST`, `GET` y `DELETE /v1/sesion`, con `Set-Cookie` y borrado de la cookie) y `backend/app/api/v1/cuenta.py` (`PUT /v1/cuenta/contrasena`), sin lógica de negocio en el router (principio V)
+- [X] T045 [US1] Añadir a `backend/app/cli.py` los comandos `crear-admin --usuario --nombre`, `restablecer-admin --usuario` y `purgar-sesiones`, auditados como consola. La purga también se ejecuta en el arranque de la API (FR-054)
+- [X] T046 [P] [US1] Crear `tools/brand/procesar_logo.py` (PEP 723, Pillow) según research R-18:
   - Máscara circular antialiasada ×4.
   - Neutralización del bisel gris.
   - Recorte al contenido.
   - Exportación de `joyeriablanco_web/src/assets/brand/logo.png` (512 px) y en `joyeriablanco_web/public/` de `favicon.ico` (16/32/48), `favicon-32.png`, `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png` y `manifest.webmanifest`.
 
   Ejecutarlo y revisar visualmente el resultado.
-- [ ] T047 [US1] Regenerar los tipos (`uv run joyeria exportar-openapi` + `npm run gen:api`). Implementar `joyeriablanco_web/src/auth/session.ts`: query `useSession` sobre `GET /v1/sesion` y almacén del `csrf_token` para el cliente HTTP. Implementar `joyeriablanco_web/src/auth/guards.ts` con `requireSession`, `requireAdmin` y `requireTemporaryPasswordChange` para `beforeLoad`, y redirecciones a `/acceso?volver=`, `/cambiar-contrasena` y `/acceso-denegado`
-- [ ] T048 [US1] Conectar en `joyeriablanco_web/src/api/client.ts` el manejo global de 401 y de `csrf`: vaciar la caché, mostrar el aviso "Tu sesión ha caducado" y navegar a `/acceso?volver=<ruta>` conservando el estado de los formularios abiertos (FR-004, FR-011)
-- [ ] T049 [US1] Crear `joyeriablanco_web/src/features/acceso/LoginPage.tsx` y la ruta `joyeriablanco_web/src/routes/acceso.tsx`: logo, formulario accesible, mensajes genéricos y de límite, redirección a `volver`. Sin shell
-- [ ] T050 [US1] Crear `joyeriablanco_web/src/features/cuenta/CambioContrasenaForm.tsx` (contraseña actual, nueva y confirmación, con los motivos de rechazo del servidor por campo) y la ruta `joyeriablanco_web/src/routes/cambiar-contrasena.tsx`, sin shell (FR-009, FR-056)
-- [ ] T051 [US1] Crear `joyeriablanco_web/src/components/layout/Sidebar.tsx`:
+- [X] T047 [US1] Regenerar los tipos (`uv run joyeria exportar-openapi` + `npm run gen:api`). Implementar `joyeriablanco_web/src/auth/session.ts`: query `useSession` sobre `GET /v1/sesion` y almacén del `csrf_token` para el cliente HTTP. Implementar `joyeriablanco_web/src/auth/guards.ts` con `requireSession`, `requireAdmin` y `requireTemporaryPasswordChange` para `beforeLoad`, y redirecciones a `/acceso?volver=`, `/cambiar-contrasena` y `/acceso-denegado`
+- [X] T048 [US1] Conectar en `joyeriablanco_web/src/api/client.ts` el manejo global de 401 y de `csrf`: vaciar la caché, mostrar el aviso "Tu sesión ha caducado" y navegar a `/acceso?volver=<ruta>` sin conservar borradores, según el caso límite de la spec y `contracts/ui-rutas.md` (FR-004, FR-011)
+- [X] T049 [US1] Crear `joyeriablanco_web/src/features/acceso/LoginPage.tsx` y la ruta `joyeriablanco_web/src/routes/acceso.tsx`: logo, formulario accesible, mensajes genéricos y de límite, redirección a `volver`. Sin shell
+- [X] T050 [US1] Crear `joyeriablanco_web/src/features/cuenta/CambioContrasenaForm.tsx` (contraseña actual, nueva y confirmación, con los motivos de rechazo del servidor por campo) y la ruta `joyeriablanco_web/src/routes/cambiar-contrasena.tsx`, sin shell (FR-009, FR-056)
+- [X] T051 [US1] Crear `joyeriablanco_web/src/components/layout/Sidebar.tsx`:
   - Logo con texto alternativo y "JOYERÍA BLANCO" con filete dorado.
   - Entradas activas, deshabilitadas con el chip "Próximamente", y Configuración solo para administradores.
   - Cajón accesible por teclado por debajo de 1024 px.
-- [ ] T052 [US1] Crear `joyeriablanco_web/src/components/layout/Header.tsx` (contexto "Gestión de facturación", fecha larga que se recalcula al cambiar de día y **sin campana de notificaciones**, FR-039), `joyeriablanco_web/src/components/layout/UserMenu.tsx` (iniciales, nombre, rol, Mi cuenta y Cerrar sesión con `DELETE /v1/sesion`) y `joyeriablanco_web/src/components/layout/AppShell.tsx`
-- [ ] T053 [US1] Crear las rutas protegidas:
+- [X] T052 [US1] Crear `joyeriablanco_web/src/components/layout/Header.tsx` (contexto "Gestión de facturación", fecha larga que se recalcula al cambiar de día y **sin campana de notificaciones**, FR-039), `joyeriablanco_web/src/components/layout/UserMenu.tsx` (iniciales, nombre, rol, Mi cuenta y Cerrar sesión con `DELETE /v1/sesion`) y `joyeriablanco_web/src/components/layout/AppShell.tsx`
+- [X] T053 [US1] Crear las rutas protegidas:
   - `joyeriablanco_web/src/routes/_app.tsx`: layout con `requireSession` y AppShell.
   - `joyeriablanco_web/src/routes/_app/index.tsx`: redirige a `/clientes`.
   - `joyeriablanco_web/src/routes/_app/clientes.tsx`: provisional con el título "Clientes", el botón "Nuevo cliente" y `<Outlet/>` para los paneles de US2; se completa en US3.

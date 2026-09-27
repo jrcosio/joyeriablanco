@@ -30,12 +30,11 @@ from sqlalchemy.ext.asyncio import (  # noqa: E402
     AsyncConnection,
     AsyncEngine,
     AsyncSession,
-    create_async_engine,
 )
 from sqlalchemy.pool import NullPool  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
-from app.core.db import get_db  # noqa: E402
+from app.core.db import build_engine, get_db  # noqa: E402
 from app.main import create_app  # noqa: E402
 
 ORIGEN = "http://localhost:5173"
@@ -52,14 +51,14 @@ def _esquema_limpio() -> None:
 
 @pytest.fixture(scope="session")
 async def engine_app() -> AsyncIterator[AsyncEngine]:
-    engine = create_async_engine(get_settings().url_app, poolclass=NullPool)
+    engine = build_engine(get_settings().url_app, poolclass=NullPool)
     yield engine
     await engine.dispose()
 
 
 @pytest.fixture(scope="session")
 async def engine_owner() -> AsyncIterator[AsyncEngine]:
-    engine = create_async_engine(get_settings().url_owner, poolclass=NullPool)
+    engine = build_engine(get_settings().url_owner, poolclass=NullPool)
     yield engine
     await engine.dispose()
 
@@ -123,3 +122,123 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
         headers={"Origin": ORIGEN},
     ) as cliente:
         yield cliente
+
+
+# ------------------------------------------------------------------ factorías y utilidades
+
+from collections.abc import Awaitable, Callable  # noqa: E402
+from datetime import timedelta  # noqa: E402
+from typing import Protocol  # noqa: E402
+
+from fastapi import APIRouter, Depends  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+
+from app.core.security import hash_password  # noqa: E402
+from app.core.tiempo import ahora  # noqa: E402
+from app.domain.tipos import Rol, TipoEvento  # noqa: E402
+from app.models import EventoAuditoria, Usuario  # noqa: E402
+
+CONTRASENA_VALIDA = "Cuarzo-Rubí-Esmeralda-42"
+_HASH_VALIDO = hash_password(CONTRASENA_VALIDA)
+
+
+class CrearUsuario(Protocol):
+    def __call__(
+        self,
+        nombre_usuario: str = ...,
+        *,
+        rol: Rol = ...,
+        nombre: str = ...,
+        temporal: bool = ...,
+        activo: bool = ...,
+    ) -> Awaitable[Usuario]: ...
+
+
+@pytest.fixture
+def crear_usuario(db: AsyncSession) -> CrearUsuario:
+    async def _crear(
+        nombre_usuario: str = "ana.garcia",
+        *,
+        rol: Rol = Rol.EMPLEADO,
+        nombre: str = "Ana García",
+        temporal: bool = False,
+        activo: bool = True,
+    ) -> Usuario:
+        usuario = Usuario(
+            nombre_usuario=nombre_usuario,
+            nombre=nombre,
+            rol=rol.value,
+            hash_contrasena=_HASH_VALIDO,
+            contrasena_temporal=temporal,
+            contrasena_temporal_expira_en=ahora() + timedelta(hours=72) if temporal else None,
+            activo=activo,
+        )
+        db.add(usuario)
+        await db.commit()
+        return usuario
+
+    return _crear
+
+
+IniciarSesion = Callable[..., Awaitable[str]]
+
+
+@pytest.fixture
+def iniciar_sesion() -> IniciarSesion:
+    """Inicia sesión con el cliente dado y devuelve el token CSRF."""
+
+    async def _iniciar(
+        cliente: AsyncClient, nombre_usuario: str, contrasena: str = CONTRASENA_VALIDA
+    ) -> str:
+        respuesta = await cliente.post(
+            "/api/v1/sesion", json={"nombre_usuario": nombre_usuario, "contrasena": contrasena}
+        )
+        assert respuesta.status_code == 200, respuesta.text
+        return str(respuesta.json()["csrf_token"])
+
+    return _iniciar
+
+
+async def eventos(db: AsyncSession, tipo: TipoEvento) -> list[EventoAuditoria]:
+    resultado = await db.execute(
+        select(EventoAuditoria)
+        .where(EventoAuditoria.tipo == tipo.value)
+        .order_by(EventoAuditoria.ocurrido_en)
+    )
+    return list(resultado.scalars())
+
+
+@pytest.fixture
+def ruta_protegida(app: FastAPI) -> None:
+    """Añade rutas de prueba protegidas para verificar las puertas comunes (sesión, CSRF...)."""
+    from app.api.deps import CurrentSession, get_current_session, require_admin
+
+    router = APIRouter(dependencies=[Depends(get_current_session)])
+
+    @router.get("/_prueba")
+    async def _leer(sesion: CurrentSession) -> dict[str, str]:
+        return {"usuario": sesion.usuario.nombre_usuario}
+
+    @router.post("/_prueba")
+    async def _escribir(sesion: CurrentSession) -> dict[str, str]:
+        return {"usuario": sesion.usuario.nombre_usuario}
+
+    @router.get("/_prueba/admin", dependencies=[Depends(require_admin)])
+    async def _admin() -> dict[str, bool]:
+        return {"admin": True}
+
+    app.include_router(router, prefix="/api/v1")
+
+
+@pytest.fixture
+def otro_cliente(app: FastAPI) -> Callable[[], AsyncClient]:
+    """Fábrica de clientes adicionales (otro navegador) sobre la misma app."""
+
+    def _nuevo() -> AsyncClient:
+        return AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="https://testserver",
+            headers={"Origin": ORIGEN},
+        )
+
+    return _nuevo

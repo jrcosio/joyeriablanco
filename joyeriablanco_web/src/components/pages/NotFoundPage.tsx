@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+
 /** Pantalla de página no encontrada (FR-041). */
 export function NotFoundPage() {
   return (
@@ -7,12 +9,12 @@ export function NotFoundPage() {
       <p className="max-w-md body-lg text-on-surface-variant">
         La dirección que has abierto no existe o ha cambiado.
       </p>
-      <a
-        href="/clientes"
+      <Link
+        to="/clientes"
         className="mt-4 inline-flex h-11 items-center bg-primary px-6 label-lg text-on-primary hover:bg-tertiary"
       >
         Volver a Clientes
-      </a>
+      </Link>
     </main>
   )
 }

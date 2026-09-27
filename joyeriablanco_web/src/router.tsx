@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 import { ApiError } from './api/client'
+import { configurarPerdidaDeSesion } from './auth/perdida'
 import { NotFoundPage } from './components/pages/NotFoundPage'
 import { routeTree } from './routeTree.gen'
 
@@ -25,6 +26,8 @@ export const router = createRouter({
   scrollRestoration: true,
   defaultNotFoundComponent: NotFoundPage,
 })
+
+configurarPerdidaDeSesion(queryClient, router)
 
 declare module '@tanstack/react-router' {
   interface Register {

@@ -60,7 +60,9 @@ async def test_ni_siquiera_el_propietario_puede_modificar_la_auditoria(
 async def test_rol_app_si_puede_insertar_y_consultar(conexion: AsyncConnection) -> None:
     await _insertar_evento(conexion)
 
-    total = (await conexion.execute(text("SELECT count(*) FROM eventos_auditoria"))).scalar_one()
+    total: int = (
+        await conexion.execute(text("SELECT count(*) FROM eventos_auditoria"))
+    ).scalar_one()
 
     assert total >= 1
 

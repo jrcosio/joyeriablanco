@@ -9,27 +9,205 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AccesoRouteImport } from './routes/acceso'
+import { Route as CambiarContrasenaRouteImport } from './routes/cambiar-contrasena'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAccesoDenegadoRouteImport } from './routes/_app/acceso-denegado'
+import { Route as AppClientesRouteImport } from './routes/_app/clientes'
+import { Route as AppConfiguracionRouteImport } from './routes/_app/configuracion'
+import { Route as AppCuentaRouteImport } from './routes/_app/cuenta'
 
-export interface FileRoutesByFullPath {}
-export interface FileRoutesByTo {}
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccesoRoute = AccesoRouteImport.update({
+  id: '/acceso',
+  path: '/acceso',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CambiarContrasenaRoute = CambiarContrasenaRouteImport.update({
+  id: '/cambiar-contrasena',
+  path: '/cambiar-contrasena',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccesoDenegadoRoute = AppAccesoDenegadoRouteImport.update({
+  id: '/acceso-denegado',
+  path: '/acceso-denegado',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppClientesRoute = AppClientesRouteImport.update({
+  id: '/clientes',
+  path: '/clientes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppConfiguracionRoute = AppConfiguracionRouteImport.update({
+  id: '/configuracion',
+  path: '/configuracion',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCuentaRoute = AppCuentaRouteImport.update({
+  id: '/cuenta',
+  path: '/cuenta',
+  getParentRoute: () => AppRoute,
+} as any)
+
+export interface FileRoutesByFullPath {
+  '/': typeof AppIndexRoute
+  '/acceso': typeof AccesoRoute
+  '/cambiar-contrasena': typeof CambiarContrasenaRoute
+  '/acceso-denegado': typeof AppAccesoDenegadoRoute
+  '/clientes': typeof AppClientesRoute
+  '/configuracion': typeof AppConfiguracionRoute
+  '/cuenta': typeof AppCuentaRoute
+}
+export interface FileRoutesByTo {
+  '/acceso': typeof AccesoRoute
+  '/cambiar-contrasena': typeof CambiarContrasenaRoute
+  '/acceso-denegado': typeof AppAccesoDenegadoRoute
+  '/clientes': typeof AppClientesRoute
+  '/configuracion': typeof AppConfiguracionRoute
+  '/cuenta': typeof AppCuentaRoute
+  '/': typeof AppIndexRoute
+}
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_app': typeof AppRouteWithChildren
+  '/acceso': typeof AccesoRoute
+  '/cambiar-contrasena': typeof CambiarContrasenaRoute
+  '/_app/acceso-denegado': typeof AppAccesoDenegadoRoute
+  '/_app/clientes': typeof AppClientesRoute
+  '/_app/configuracion': typeof AppConfiguracionRoute
+  '/_app/cuenta': typeof AppCuentaRoute
+  '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: never
+  fullPaths:
+    | '/'
+    | '/acceso'
+    | '/cambiar-contrasena'
+    | '/acceso-denegado'
+    | '/clientes'
+    | '/configuracion'
+    | '/cuenta'
   fileRoutesByTo: FileRoutesByTo
-  to: never
-  id: '__root__'
+  to:
+    | '/acceso'
+    | '/cambiar-contrasena'
+    | '/acceso-denegado'
+    | '/clientes'
+    | '/configuracion'
+    | '/cuenta'
+    | '/'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/acceso'
+    | '/cambiar-contrasena'
+    | '/_app/acceso-denegado'
+    | '/_app/clientes'
+    | '/_app/configuracion'
+    | '/_app/cuenta'
+    | '/_app/'
   fileRoutesById: FileRoutesById
 }
-export interface RootRouteChildren {}
-
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {}
+export interface RootRouteChildren {
+  AppRoute: typeof AppRouteWithChildren
+  AccesoRoute: typeof AccesoRoute
+  CambiarContrasenaRoute: typeof CambiarContrasenaRoute
 }
 
-const rootRouteChildren: RootRouteChildren = {}
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/acceso': {
+      id: '/acceso'
+      path: '/acceso'
+      fullPath: '/acceso'
+      preLoaderRoute: typeof AccesoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cambiar-contrasena': {
+      id: '/cambiar-contrasena'
+      path: '/cambiar-contrasena'
+      fullPath: '/cambiar-contrasena'
+      preLoaderRoute: typeof CambiarContrasenaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/acceso-denegado': {
+      id: '/_app/acceso-denegado'
+      path: '/acceso-denegado'
+      fullPath: '/acceso-denegado'
+      preLoaderRoute: typeof AppAccesoDenegadoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/clientes': {
+      id: '/_app/clientes'
+      path: '/clientes'
+      fullPath: '/clientes'
+      preLoaderRoute: typeof AppClientesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/configuracion': {
+      id: '/_app/configuracion'
+      path: '/configuracion'
+      fullPath: '/configuracion'
+      preLoaderRoute: typeof AppConfiguracionRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cuenta': {
+      id: '/_app/cuenta'
+      path: '/cuenta'
+      fullPath: '/cuenta'
+      preLoaderRoute: typeof AppCuentaRouteImport
+      parentRoute: typeof AppRoute
+    }
+  }
+}
+
+interface AppRouteChildren {
+  AppAccesoDenegadoRoute: typeof AppAccesoDenegadoRoute
+  AppClientesRoute: typeof AppClientesRoute
+  AppConfiguracionRoute: typeof AppConfiguracionRoute
+  AppCuentaRoute: typeof AppCuentaRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAccesoDenegadoRoute: AppAccesoDenegadoRoute,
+  AppClientesRoute: AppClientesRoute,
+  AppConfiguracionRoute: AppConfiguracionRoute,
+  AppCuentaRoute: AppCuentaRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  AppRoute: AppRouteWithChildren,
+  AccesoRoute: AccesoRoute,
+  CambiarContrasenaRoute: CambiarContrasenaRoute,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()

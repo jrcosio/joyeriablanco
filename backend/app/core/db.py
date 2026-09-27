@@ -2,7 +2,9 @@
 
 from collections.abc import AsyncIterator
 from functools import lru_cache
+from typing import Any
 
+from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -13,9 +15,14 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import get_settings
 
 
+def build_engine(url: URL, **opciones: Any) -> AsyncEngine:
+    """Motor asíncrono con las opciones comunes (las IP de tipo inet se leen como texto)."""
+    return create_async_engine(url, native_inet_types=False, **opciones)
+
+
 @lru_cache
 def get_engine() -> AsyncEngine:
-    return create_async_engine(get_settings().url_app, pool_pre_ping=True, pool_size=5)
+    return build_engine(get_settings().url_app, pool_pre_ping=True, pool_size=5)
 
 
 @lru_cache

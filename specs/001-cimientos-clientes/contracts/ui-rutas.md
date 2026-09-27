@@ -27,8 +27,11 @@ Rutas de la aplicación web, quién puede acceder y qué endpoints de
 
   Las guardas son solo comodidad; la API decide (FR-013).
 - **401 durante el uso**, por sesión caducada o revocada: se vacía la caché, aparece el aviso
-  "Tu sesión ha caducado" y se redirige a `/acceso?volver=…` (FR-004). Los formularios abiertos
-  conservan lo tecleado mientras la página no se recargue.
+  "Tu sesión ha caducado" y se redirige a `/acceso?volver=…` (FR-004).
+  - **Lo tecleado no se conserva**, conforme al caso límite de la spec ("los datos del formulario no
+    se guardan"). Así se evita que otra persona que se identifique en el mismo equipo herede un
+    borrador ajeno.
+  - **Errores de red o de servidor**: aquí sí se conserva lo tecleado (FR-057).
 - **CSRF**: el cliente HTTP añade `X-CSRF-Token` (obtenido de `SesionSalida`) a toda petición que
   modifica datos.
 - **Shell**:

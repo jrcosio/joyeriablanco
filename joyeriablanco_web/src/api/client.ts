@@ -71,16 +71,22 @@ function problemaGenerico(response: Response): Problema {
   }
 }
 
-export async function leerProblema(response: Response): Promise<Problema> {
-  try {
-    const cuerpo = (await response.clone().json()) as Partial<Problema>
-    if (typeof cuerpo.type === 'string' && typeof cuerpo.title === 'string') {
-      return { ...cuerpo, status: response.status } as Problema
+function comoProblema(cuerpo: unknown, response: Response): Problema {
+  if (typeof cuerpo === 'object' && cuerpo !== null) {
+    const posible = cuerpo as Partial<Problema>
+    if (typeof posible.type === 'string' && typeof posible.title === 'string') {
+      return { ...posible, status: response.status } as Problema
     }
-  } catch {
-    // cuerpo no JSON
   }
   return problemaGenerico(response)
+}
+
+export async function leerProblema(response: Response): Promise<Problema> {
+  try {
+    return comoProblema(await response.clone().json(), response)
+  } catch {
+    return problemaGenerico(response) // cuerpo no JSON
+  }
 }
 
 const middleware: Middleware = {
@@ -103,16 +109,18 @@ const middleware: Middleware = {
   },
 }
 
-export const api = createClient<paths>({ baseUrl: window.location.origin })
+export const api = createClient<paths>({
+  baseUrl: window.location.origin,
+  // Se resuelve en cada llamada (permite interceptarlo en pruebas y entornos instrumentados).
+  fetch: (peticion: Request) => globalThis.fetch(peticion),
+})
 api.use(middleware)
 
-type Resultado<T> =
-  | { data: T; error?: never; response: Response }
-  | { data?: never; error: unknown; response: Response }
-
 /** Devuelve los datos o lanza `ApiError` con el problema del servidor. */
-export async function unwrap<T>(peticion: Promise<Resultado<T>>): Promise<T> {
-  let resultado: Resultado<T>
+export async function unwrap<R extends { data?: unknown; error?: unknown; response: Response }>(
+  peticion: Promise<R>,
+): Promise<Exclude<R['data'], undefined>> {
+  let resultado: R
   try {
     resultado = await peticion
   } catch {
@@ -125,7 +133,8 @@ export async function unwrap<T>(peticion: Promise<Resultado<T>>): Promise<T> {
     })
   }
   if (!resultado.response.ok) {
-    throw new ApiError(await leerProblema(resultado.response))
+    // openapi-fetch ya ha leído el cuerpo del error y lo deja en `error`.
+    throw new ApiError(comoProblema(resultado.error, resultado.response))
   }
-  return resultado.data as T
+  return resultado.data as Exclude<R['data'], undefined>
 }
