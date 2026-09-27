@@ -1,0 +1,138 @@
+# Quickstart y validación — 001
+
+Guía para levantar el sistema y comprobar que la feature funciona de extremo a extremo (SC-010).
+Detalle de endpoints en [contracts/openapi.yaml](contracts/openapi.yaml), de rutas en
+[contracts/ui-rutas.md](contracts/ui-rutas.md) y de tablas en [data-model.md](data-model.md).
+
+## Requisitos previos
+
+- Docker con Compose v2.
+- `uv` 0.12 o superior (Python 3.13 lo instala uv).
+- Node.js 26.
+- Puertos libres en `127.0.0.1`: 5432, 8000, 8001, 5173 y 5174 (E2E); 80 y 443 para la simulación de producción.
+
+## 1. Entorno de desarrollo
+
+```bash
+cp .env.example .env                  # revisar y cambiar las contraseñas de ejemplo
+docker compose up -d --build          # db + api (el entorno virtual está en el PATH del contenedor)
+docker compose exec api alembic upgrade head          # migraciones como jb_owner (idempotente)
+docker compose exec api joyeria crear-admin --usuario admin --nombre "Administrador"
+#   → muestra una contraseña temporal UNA vez
+docker compose exec api joyeria cargar-datos-ejemplo  # 40 clientes y usuarios *.demo (temporales)
+cd joyeriablanco_web && npm ci && npm run dev          # http://localhost:5173
+```
+
+**Medición SC-010** (2026-09-27, desde volúmenes vacíos y con las imágenes ya descargadas):
+- El backend queda listo en 11 s, con migraciones, administrador y datos de ejemplo.
+- `npm ci` tarda unos 30 s.
+- La primera vez se suma la descarga de las imágenes base: unos minutos, según la conexión.
+
+**Resultado esperado**:
+1. Al entrar como `admin`, pide cambiar la contraseña temporal.
+2. Después aparece la pantalla Clientes, con el menú a la izquierda, los indicadores y unos 40
+   clientes de ejemplo.
+
+## 2. Validaciones manuales clave
+
+| # | Paso | Resultado esperado | Requisito |
+|---|---|---|---|
+| 1 | Usuario inexistente y, después, contraseña errónea | Mismo mensaje genérico en ambos casos | FR-007 |
+| 2 | 5 fallos seguidos con `empleado.demo` y luego la contraseña correcta | Rechazado durante 15 minutos | FR-006 |
+| 3 | Buscar "maria lopez" | Aparece "María López García" (ejemplo) | FR-032 |
+| 4 | Alta con NIF `12345678A` | Error de carácter de control en el campo | FR-024 |
+| 5 | Alta con CP `29001` y país España | Provincia "Málaga" asignada | FR-028 |
+| 6 | Editar un cliente en dos pestañas y guardar en ambas | La segunda recibe el aviso de conflicto | FR-030 |
+| 7 | Como admin, desactivar `empleado.demo` mientras tiene sesión abierta en otra ventana | Su siguiente acción lleva al inicio de sesión | FR-016 |
+| 8 | Configuración → Auditoría y filtrar por tipo `acceso_fallido` | Aparecen los intentos de los pasos 1 y 2 con IP y fecha | FR-051 |
+| 9 | Como empleado, abrir `/configuracion/usuarios` | Pantalla de acceso denegado | FR-013 |
+| 10 | Ventana a 360 px | Cajón de menú y sin desplazamiento horizontal | FR-040, SC-008 |
+| 11 | Como admin, eliminar `empleado.demo` sin desactivarlo; después desactivarlo y eliminarlo escribiendo su nombre de usuario | El menú solo ofrece "Eliminar" tras desactivarlo. Desaparece de la lista, sus clientes muestran "(eliminado)" en la trazabilidad y se puede crear otro `empleado.demo` | FR-061, SC-013 |
+
+## 3. Pruebas automáticas
+
+```bash
+# Backend (dentro de backend/; usa la BD joyeriablanco_test del servicio db)
+uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest
+
+# Web (dentro de joyeriablanco_web/)
+npm run lint && npm run typecheck && npm run test && npm run build
+
+# E2E: globalSetup levanta api-e2e, reconstruye su BD y carga datos con contraseña conocida.
+# Vite se arranca solo en el puerto 5174, con proxy a la API de E2E en el 8001.
+npx playwright install chromium    # solo la primera vez
+npx playwright test
+```
+
+**Resultado esperado**: todo en verde. La inalterabilidad de la auditoría se prueba con `UPDATE` y
+`DELETE` directos como `jb_app` y como `jb_owner`: ambos fallan (FR-022).
+
+### Rendimiento (SC-003)
+
+```bash
+docker compose --profile e2e exec api-e2e joyeria reiniciar-bd-e2e
+docker compose --profile e2e exec api-e2e joyeria cargar-datos-ejemplo --clientes 10000 --contrasena-demo '<contraseña>'
+cd backend && uv run python scripts/medir_busqueda.py --contrasena '<contraseña>'
+```
+
+**Medición del 2026-09-27** (portátil de desarrollo, pila `api-e2e`, 10.000 clientes):
+
+| Medida | Resultado | Objetivo |
+|---|---|---|
+| Carga de 10.000 clientes | 14 s | — |
+| Búsquedas y filtros (100 variadas) | mediana 6 ms, p95 14–17 ms, máximo 27 ms | p95 < 1000 ms |
+| Acceso (Argon2id) | 36 ms | < 1000 ms |
+
+## 4. Producción en local (simulación)
+
+```bash
+DOMINIO=localhost TLS_MODO=internal docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+deploy/verificar-produccion.sh localhost      # 13 comprobaciones: redirección, cabeceras, CSP, BD sin puertos…
+docker compose -f docker-compose.prod.yml exec api joyeria crear-admin --usuario jefa --nombre "Jefa"
+```
+
+**Resultado esperado** (verificado el 2026-09-27):
+- `verificar-produccion.sh` termina con "Todas las comprobaciones han pasado".
+- Un recorrido por https://localhost (acceso, cambio de contraseña temporal, alta de cliente,
+  auditoría) no produce ninguna violación de CSP. Las tipografías se sirven desde el propio origen.
+- La cookie es `__Host-jb_sesion` con `Secure`, `HttpOnly` y `SameSite=Strict` (FR-046 a FR-048).
+
+## 5. Despliegue en un servidor real (VPS)
+
+1. **Servidor**: Linux con Docker y Compose v2. Solo deben estar abiertos los puertos 80 y 443 (más
+   443/udp para HTTP/3) y el de SSH para administrarlo.
+2. **DNS**: un registro A (y AAAA si hay IPv6) del dominio apuntando al servidor.
+3. **Configuración**:
+   - `cp .env.example .env`.
+   - Poner `DOMINIO=<dominio>` y `TLS_MODO=acme`.
+   - Generar contraseñas largas y aleatorias para `POSTGRES_PASSWORD`, `DB_OWNER_PASSWORD` y
+     `DB_APP_PASSWORD` (p. ej. `openssl rand -base64 32`).
+   - No hace falta tocar `ENTORNO`, `ORIGEN_PERMITIDO` ni `SESION_COOKIE_SEGURA`: el compose de
+     producción los fija a `produccion`, `https://<dominio>` y `true`.
+4. **Arranque**: `docker compose -f docker-compose.prod.yml --env-file .env up -d --build`. Caddy
+   obtiene y renueva el certificado automáticamente (FR-046).
+5. **Primer administrador**: `docker compose -f docker-compose.prod.yml exec api joyeria crear-admin
+   --usuario <usuario> --nombre "<nombre>"`. La contraseña temporal se entrega en persona.
+6. **Verificación**:
+   - `deploy/verificar-produccion.sh <dominio>`.
+   - SC-011 se completa con un análisis público de la configuración TLS (p. ej. SSL Labs), que
+     debe dar calificación A o superior.
+
+> ⚠️ **Copias de seguridad**: quedan fuera de alcance en esta feature (riesgo asumido). DEBEN
+> configurarse antes de cargar datos reales, porque la conservación de datos fiscales es obligatoria.
+
+### Cambio de las contraseñas de la base de datos (FR-048)
+
+```bash
+# 1. Generar la nueva contraseña y cambiarla en PostgreSQL (como superusuario)
+NUEVA=$(openssl rand -base64 32)
+docker compose -f docker-compose.prod.yml exec -T db sh -c \
+  'psql -U "$POSTGRES_USER" -d postgres -v pwd="$1" -c "ALTER ROLE jb_app PASSWORD :'"'"'pwd'"'"'"' _ "$NUEVA"
+# 2. Actualizar DB_APP_PASSWORD en .env con el mismo valor
+# 3. Recrear los servicios que la usan
+docker compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate api
+```
+
+El procedimiento es análogo para `jb_owner` (actualizar `DB_OWNER_PASSWORD` y recrear `migrate` y
+`api`). El volumen de datos conserva la contraseña del superusuario inicial: para cambiarla, se
+usa `ALTER ROLE` como con los demás roles y se actualiza `POSTGRES_PASSWORD`.

@@ -1,0 +1,87 @@
+# Entorno de PRODUCCIÓN (research R-15). Uso:
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# Simulación local:  DOMINIO=localhost TLS_MODO=internal docker compose -f docker-compose.prod.yml ...
+name: joyeriablanco-prod
+
+x-backend: &backend
+  build:
+    context: ./backend
+    target: prod
+  env_file: .env
+  environment: &entorno-backend
+    ENTORNO: produccion
+    DB_HOST: db
+    DB_NAME: joyeriablanco
+    ORIGEN_PERMITIDO: https://${DOMINIO:?Falta DOMINIO}
+    SESION_COOKIE_SEGURA: "true"
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs:
+    - /tmp
+
+services:
+  db:
+    image: postgres:18.6-trixie
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Falta DB_OWNER_PASSWORD}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?Falta DB_APP_PASSWORD}
+      JB_BASES: joyeriablanco
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+    # Sin `ports`: la base de datos no es accesible desde fuera del servidor (FR-047).
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # Migraciones como jb_owner; se ejecuta y termina antes de arrancar la API.
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *backend
+    environment:
+      <<: *entorno-backend
+      # Solo Caddy llega a la API (red interna, sin puertos publicados).
+      FORWARDED_ALLOW_IPS: "*"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  caddy:
+    build:
+      context: .
+      dockerfile: deploy/caddy/Dockerfile
+    environment:
+      DOMINIO: ${DOMINIO:?Falta DOMINIO}
+      TLS_MODO: ${TLS_MODO:-acme}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

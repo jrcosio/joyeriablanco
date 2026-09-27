@@ -1,0 +1,13 @@
+# Contexto de la imagen de Caddy (raíz del repositorio)
+**/node_modules
+**/.venv
+**/__pycache__
+.git
+.env
+.env.*
+!.env.example
+temporal
+joyeriablanco_android
+joyeriablanco_web/dist
+joyeriablanco_web/test-results
+joyeriablanco_web/playwright-report

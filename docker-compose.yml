@@ -1,0 +1,59 @@
+# Entorno de DESARROLLO (research R-15). Producción: docker-compose.prod.yml
+name: joyeriablanco
+
+x-api: &api
+  build:
+    context: ./backend
+    target: dev
+  env_file: .env
+  volumes:
+    - ./backend:/app
+    - ./joyeriablanco_web/src/api:/web-api   # destino de `joyeria exportar-openapi`
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:18.6-trixie
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Falta DB_OWNER_PASSWORD en .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?Falta DB_APP_PASSWORD en .env}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"   # solo accesible desde el propio equipo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *api
+    environment:
+      DB_HOST: db
+      DB_NAME: joyeriablanco
+      OPENAPI_DESTINO: /web-api/openapi.json
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  # API aislada para las pruebas E2E (Playwright), con su propia base de datos.
+  api-e2e:
+    <<: *api
+    profiles: [e2e]
+    environment:
+      ENTORNO: e2e
+      DB_HOST: db
+      DB_NAME: joyeriablanco_e2e
+      ORIGEN_PERMITIDO: http://localhost:5174
+      OPENAPI_DESTINO: /web-api/openapi.json
+    ports:
+      - "127.0.0.1:8001:8000"
+
+volumes:
+  pgdata:

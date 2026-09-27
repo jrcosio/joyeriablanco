@@ -1,27 +1,37 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Cambio de version: (plantilla sin rellenar) -> 1.0.0
-Motivo del bump: adopcion inicial. El fichero contenia unicamente los marcadores
-de la plantilla; esta es la primera ratificacion con contenido real del proyecto.
+Cambio de version: 1.1.0 -> 2.0.0
+Motivo del bump: MAJOR. Se redefine parte del principio I (NO NEGOCIABLE): desaparece la
+puerta de revision humana obligatoria entre fases. Decision explicita del responsable del
+proyecto (2026-09-27): "no me preguntes cada paso del sdd hazlo... y lo que me tengas que
+preguntar que sea para aclarar dudas".
 
-Principios definidos (9, frente a los 5 de la plantilla base):
-  I.    Desarrollo dirigido por especificacion (SDD)   [NUEVO]
-  II.   Integridad monetaria                            [NUEVO]
-  III.  Inalterabilidad de los documentos emitidos      [NUEVO]
-  IV.   Cumplimiento Verifactu por diseno               [NUEVO]
-  V.    Arquitectura en capas                           [NUEVO]
-  VI.   El servidor es la fuente de verdad              [NUEVO]
-  VII.  Cobertura de test obligatoria                   [NUEVO]
-  VIII. Espanol en el dominio                           [NUEVO]
-  IX.   Calidad automatizada                            [NUEVO]
+Principios modificados:
+  - I. Desarrollo dirigido por especificacion (SDD) - mismo titulo, cambio de fondo:
+      ANTES: "Entre fase y fase se PARA y se espera revision humana. No se encadenan comandos
+             sin que el artefacto anterior haya sido aprobado."
+      AHORA: las fases se encadenan sin aprobacion intermedia; solo se detiene la ejecucion
+             para consultar dudas que requieren decision humana (clarify, ambiguedades de
+             dominio/normativas, contradicciones con la spec). Cada fase termina con un commit
+             atomico en la rama de la feature. implement exige un tasks.md que haya superado
+             analyze sin problemas criticos (sustituye a "tasks.md aprobado").
+    Se mantienen: ciclo completo obligatorio, clarify y analyze no opcionales, parada y
+    correccion de la spec ante contradicciones durante implement, rama propia por feature.
 
-Secciones anadidas:
-  - Restricciones tecnicas            (ocupa [SECTION_2_NAME])
-  - Flujo de trabajo y puertas de calidad (ocupa [SECTION_3_NAME])
-  - Governance
+Secciones modificadas:
+  - Flujo de trabajo y puertas de calidad, punto 2: alineado con el nuevo principio I.
 
-Secciones eliminadas: ninguna.
+Secciones anadidas: ninguna. Secciones eliminadas: ninguna.
+
+Artefactos dependientes:
+  - CLAUDE.md                       actualizado: "Como se trabaja aqui" sin paradas entre fases
+  - .specify/templates/*.md         sin cambios: leen la constitucion en tiempo de ejecucion
+  - .claude/skills/speckit-*        sin cambios: no imponen paradas por si mismos
+
+Historico:
+  - 1.1.0 (2026-09-27) restriccion "Sistema de diseno" (docs/DESIGN.md normativo).
+  - 1.0.0 (2026-09-12) adopcion inicial con los principios I-IX.
 
 TODO pendientes (no bloquean la ratificacion, se resuelven en el clarify de su feature):
   - TODO(MODALIDAD_VERIFACTU): elegir entre VERI*FACTU y no VERI*FACTU. El principio IV
@@ -38,7 +48,8 @@ Sistema de gestión de Joyería Blanco. Fase 1: facturación y presupuestos.
 
 ### I. Desarrollo dirigido por especificación (SDD) — NO NEGOCIABLE
 
-Ninguna línea de código se escribe fuera de `/speckit.implement` sobre un `tasks.md` aprobado.
+Ninguna línea de código se escribe fuera de `/speckit.implement`. Además, el `tasks.md` sobre el
+que trabaja tiene que haber superado `/speckit.analyze` sin problemas críticos pendientes.
 
 Cada feature DEBE recorrer el ciclo completo, sin saltarse pasos:
 `specify → clarify → plan → checklist → tasks → analyze → implement`.
@@ -46,8 +57,18 @@ Cada feature DEBE recorrer el ciclo completo, sin saltarse pasos:
 `clarify` y `analyze` NO son opcionales en este proyecto: la facturación tiene reglas fiscales y de
 negocio con demasiada ambigüedad como para prescindir de esas puertas de calidad.
 
-Entre fase y fase se PARA y se espera revisión humana. No se encadenan comandos sin que el artefacto
-anterior haya sido aprobado.
+Las fases se ENCADENAN sin pedir aprobación entre una y otra. La ejecución solo se DETIENE para
+consultar al responsable del proyecto cuando surge una duda que requiere decisión humana:
+
+- Las preguntas de `clarify`.
+- Las ambigüedades de dominio o normativas.
+- Las contradicciones con la spec.
+
+Tras la respuesta, la ejecución se reanuda. Nada que requiera decisión humana se resuelve por
+suposición.
+
+Cada fase se cierra con un commit atómico en la rama de la feature. El responsable revisa los
+artefactos cuando lo considere oportuno sobre ese historial.
 
 Si durante `implement` aparece algo que contradice la spec, se DETIENE la implementación y se corrige
 la spec primero, nunca al revés.
@@ -174,6 +195,29 @@ desarrollo con servicio `api`, servicio `db` (PostgreSQL con volumen persistente
 
 **Web**: React con TypeScript y Vite.
 
+**Sistema de diseño**: toda interfaz de usuario del proyecto (la web ahora, y cualquier otra UI
+cuando entre en alcance) DEBE cumplir el sistema de diseño "Haute Joaillerie Atelier" definido en
+`docs/DESIGN.md`. Eso incluye:
+
+- Tokens de color.
+- Tipografías: Bodoni Moda para titulares y cifras destacadas, Manrope para texto operativo y datos.
+- Escala de espaciado y rejilla.
+- Esquinas a 0 px.
+- Elevación por planos y filetes de 1 px, sin más sombras que las que el propio documento define.
+- Especificación de componentes.
+
+Esos valores se definen UNA sola vez como tokens centralizados y se consumen desde ahí; no se
+repiten como literales dispersos por el código.
+
+Los mockups y capturas de referencia son orientativos. Ante un conflicto, mandan `docs/DESIGN.md`
+y las decisiones registradas en la spec de la feature, nunca el mockup. Ejemplo: en la feature 001
+la navegación lateral va a la izquierda aunque el mockup de clientes la muestre a la derecha.
+
+Cualquier desviación de `docs/DESIGN.md` se justifica por escrito en la spec de la feature. Si la
+desviación pasa a ser general, o si se detecta una incoherencia interna en el propio documento, se
+corrige `docs/DESIGN.md` con aprobación del responsable del proyecto. Nunca se resuelve sobre la
+marcha en el código.
+
 **Numeración**: correlativa por año natural y por serie, sin huecos y sin reutilización, segura
 frente a concurrencia mediante secuencia de base de datos o bloqueo explícito sobre una tabla de
 contadores. Queda PROHIBIDO `MAX(numero)+1` sin lock. La estrategia elegida se justifica en la spec
@@ -184,11 +228,13 @@ de la feature correspondiente.
 ## Flujo de trabajo y puertas de calidad
 
 1. El ciclo SDD del principio I es obligatorio y completo para cada feature.
-2. Se PARA entre fase y fase a esperar revisión humana del artefacto generado.
+2. Las fases se encadenan sin aprobación intermedia. Solo se para para consultar dudas que
+   requieren decisión humana, y cada fase termina con un commit atómico revisable.
 3. Ninguna feature se cierra sin sus tests en verde.
 4. Ante contradicción entre el código y la spec, MANDA LA SPEC: se detiene la implementación, se
    corrige la especificación y se reanuda desde ahí.
-5. Toda revisión de `spec.md`, `plan.md` y `tasks.md` verifica el cumplimiento de esta constitución.
+5. Toda revisión de `spec.md`, `plan.md` y `tasks.md` verifica el cumplimiento de esta constitución
+   y, en las features con interfaz de usuario, la conformidad con `docs/DESIGN.md`.
 
 ## Governance
 
@@ -202,10 +248,13 @@ y versionado semántico:
 - **PATCH**: aclaraciones, redacción, correcciones sin cambio de fondo.
 
 **Cumplimiento**: toda revisión de artefactos (`spec.md`, `plan.md`, `tasks.md`) debe verificar la
-conformidad con esta constitución. Cualquier desviación debe justificarse por escrito en el
-artefacto correspondiente.
+conformidad con esta constitución y, en las features con interfaz de usuario, con `docs/DESIGN.md`.
+Cualquier desviación debe justificarse por escrito en el artefacto correspondiente.
 
 `CLAUDE.md`, en la raíz del repositorio, es la guía operativa de desarrollo del día a día y está
 subordinado a esta constitución.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-12
+`docs/DESIGN.md` es la especificación normativa del sistema de diseño y está subordinado a esta
+constitución. Sus cambios materiales requieren aprobación explícita del responsable del proyecto.
+
+**Version**: 2.0.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-27

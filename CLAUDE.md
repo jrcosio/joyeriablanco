@@ -13,8 +13,8 @@ factura.
 
 ## Cómo se trabaja aquí — LEE ESTO PRIMERO
 
-**Todo el desarrollo pasa por Spec Kit (SDD). No se escribe código fuera de `/speckit.implement`
-sobre un `tasks.md` aprobado.**
+**Todo el desarrollo pasa por Spec Kit (SDD). No se escribe código fuera de `/speckit.implement`,
+y el `tasks.md` que se implementa tiene que haber superado `/speckit.analyze`.**
 
 Ciclo obligatorio por feature, sin saltarse pasos:
 
@@ -26,7 +26,11 @@ Ciclo obligatorio por feature, sin saltarse pasos:
 Reglas:
 
 - `/speckit.clarify` y `/speckit.analyze` **no son opcionales**.
-- **Se para entre fase y fase a esperar revisión humana.** No se encadenan comandos.
+- **Las fases se encadenan sin pedir aprobación entre ellas.** Solo se para para preguntar las
+  dudas que requieren decisión humana: las preguntas de `clarify` y las ambigüedades de dominio o
+  normativas. Después se continúa.
+- Cada fase se cierra con un **commit atómico** en la rama de la feature. No se hace push sin
+  pedirlo.
 - Si durante `implement` algo contradice la spec, **se detiene y se corrige la spec primero**,
   nunca al revés.
 - Cada feature vive en `specs/NNN-nombre-feature/` y se cierra con sus tests en verde antes de
@@ -36,7 +40,7 @@ Reglas:
 `SPECIFY_FEATURE`. Hay que crear la rama a mano antes de empezar:
 
 ```bash
-git checkout -b 001-cimientos-backend
+git checkout -b 002-nombre-feature
 ```
 
 ## Estructura del monorepo
@@ -46,41 +50,46 @@ git checkout -b 001-cimientos-backend
 ├── backend/               API REST: FastAPI + PostgreSQL, gestionado con uv
 ├── joyeriablanco_web/     Aplicación web de gestión: React + TypeScript + Vite
 ├── joyeriablanco_android/ App móvil — FUERA DE ALCANCE, NO TOCAR
+├── docs/                  Documentación normativa transversal (DESIGN.md)
 ├── specs/                 Una carpeta por feature (NNN-nombre-feature/)
 └── .specify/              Spec Kit: constitución, plantillas y scripts
 ```
 
 ## Comandos de desarrollo
 
-Todo el backend (API + base de datos) corre en Docker.
+Todo el backend (API + base de datos) corre en Docker. La guía completa está en
+`specs/001-cimientos-clientes/quickstart.md`.
 
 ```bash
-# Entorno completo
-docker compose up -d              # levanta api + db
+# Entorno de desarrollo (raíz del repo)
+cp .env.example .env                          # y cambiar las contraseñas
+docker compose up -d --build                  # db (PostgreSQL 18) + api (FastAPI con recarga)
+docker compose exec api alembic upgrade head  # migraciones como jb_owner
+docker compose exec api joyeria crear-admin --usuario admin --nombre "Administrador"
+docker compose exec api joyeria cargar-datos-ejemplo   # clientes y usuarios *.demo ficticios
 docker compose logs -f api
-docker compose down
+docker compose down                           # -v para borrar también los datos
 
-# Backend (dentro de backend/)
-uv sync                           # instala dependencias
-uv run uvicorn app.main:app --reload
-uv run pytest                     # tests
-uv run pytest -k numeracion       # un subconjunto
-uv run ruff check .               # lint
-uv run ruff format .              # formato
-uv run mypy .                     # tipado estricto
-
-# Migraciones
-uv run alembic upgrade head
-uv run alembic revision --autogenerate -m "descripcion"
+# Backend (dentro de backend/; los tests usan la BD joyeriablanco_test del servicio db)
+uv sync
+uv run pytest                     # tests contra PostgreSQL real
+uv run pytest -k clientes         # un subconjunto
+uv run ruff check . && uv run ruff format --check . && uv run mypy .   # calidad (obligatoria)
+uv run alembic revision -m "descripcion"   # nueva migración (escrita a mano y revisada)
+uv run joyeria --help             # CLI: crear-admin, restablecer-admin, purgar-sesiones,
+                                  # cargar-datos-ejemplo, reiniciar-bd-e2e, exportar-openapi
 
 # Web (dentro de joyeriablanco_web/)
-npm run dev
-npm run build
-npm run test
-```
+npm ci
+npm run dev                       # http://localhost:5173, proxy de /api a la API
+npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens
+uv --directory ../backend run joyeria exportar-openapi && npm run gen:api  # regenerar tipos
+npx playwright test               # E2E: levanta api-e2e con BD propia y Vite en :5174
 
-> Los comandos concretos se fijan en la feature 001. Hasta entonces, esta sección es la intención,
-> no una referencia ya operativa.
+# Producción (ver quickstart §4 y §5)
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+deploy/verificar-produccion.sh <dominio>
+```
 
 ## Convenciones de código
 
@@ -99,6 +108,19 @@ routers → services → repositories/modelos
 - **Cero lógica de negocio en los routers.** Los routers validan, delegan y serializan.
 - Esquemas Pydantic **separados para entrada y salida**. Nunca se expone un modelo ORM.
 - La lógica fiscal debe poder testearse sin levantar HTTP.
+
+### Interfaz de usuario
+
+Toda la UI cumple **`docs/DESIGN.md`**, el sistema de diseño "Haute Joaillerie Atelier"
+(normativo desde la constitución 1.1.0).
+
+- **Tokens definidos una sola vez.** Colores, tipografías (Bodoni Moda y Manrope), espaciado y
+  elevación se declaran una vez y se consumen desde ahí. No se repiten como literales.
+- **Esquinas a 0 px** y filetes de 1 px. Sin sombras difusas fuera de las definidas en el documento.
+- **Los mockups son orientativos.** Mandan `docs/DESIGN.md` y la spec. Por ejemplo, la navegación
+  lateral va a la **izquierda**.
+- **Desviaciones.** Toda desviación se justifica en la spec de la feature. Las incoherencias del
+  propio DESIGN.md se corrigen en el documento, con aprobación, nunca sobre la marcha en el código.
 
 ### Dinero
 

@@ -35,3 +35,12 @@ joyeriablanco_android/.idea/
 # ---- Salidas generadas por la aplicacion ----
 # PDFs de facturas generados en desarrollo
 backend/var/
+
+# ---- Web: artefactos de pruebas y tipos generados ----
+joyeriablanco_web/playwright-report/
+joyeriablanco_web/test-results/
+joyeriablanco_web/blob-report/
+joyeriablanco_web/src/api/openapi.json
+
+# ---- Material temporal aportado (no versionado) ----
+temporal/

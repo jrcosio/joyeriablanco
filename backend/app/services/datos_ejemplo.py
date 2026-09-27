@@ -1,0 +1,235 @@
+"""Datos de ejemplo ficticios para desarrollo y E2E (US7; FR-045, research R-19).
+
+- Se niega a ejecutarse en producción.
+- Es idempotente: si ya existe el usuario `admin.demo`, no hace nada.
+- Los NIF de particulares llevan la letra calculada con el algoritmo oficial. Los de empresa solo
+  cumplen la estructura: el algoritmo de su carácter de control no está publicado (R-20.2).
+- Todo pasa por los servicios, así que cada alta queda validada y auditada.
+"""
+
+import random
+from dataclasses import dataclass, field
+from datetime import timedelta
+from typing import TYPE_CHECKING, Final
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.errors import Duplicado, SinPermiso
+from app.core.http import Origen
+from app.core.security import hash_password
+from app.core.tiempo import ahora
+from app.domain.tipos import Rol, TipoCliente, TipoIdentificacion
+from app.models.usuario import Usuario
+from app.repositories import usuarios as usuarios_repo
+from app.schemas.cliente import ClienteEntrada
+from app.services import clientes as clientes_srv
+from app.services import usuarios
+
+if TYPE_CHECKING:
+    from faker import Faker
+
+MARCADOR: Final = "(EJEMPLO)"
+ORIGEN: Final = Origen(ip=None, agente="joyeria cargar-datos-ejemplo")
+_LETRAS_DNI: Final = "TRWAGMYFPDXBNJZSQVHLCKE"
+
+USUARIOS_DEMO: Final = (
+    ("admin.demo", "Luis Martín", Rol.ADMINISTRADOR),
+    ("empleado.demo", "Lucía Moreno", Rol.EMPLEADO),
+    ("vendedor.demo", "Pablo Ortega", Rol.EMPLEADO),
+)
+
+LOCALIDADES_ES: Final = (
+    ("18001", "Granada"),
+    ("18600", "Motril"),
+    ("29001", "Málaga"),
+    ("29600", "Marbella"),
+    ("29620", "Torremolinos"),
+    ("14001", "Córdoba"),
+    ("41001", "Sevilla"),
+    ("41700", "Dos Hermanas"),
+    ("04001", "Almería"),
+    ("23001", "Jaén"),
+    ("11001", "Cádiz"),
+    ("11401", "Jerez de la Frontera"),
+    ("21001", "Huelva"),
+    ("28001", "Madrid"),
+    ("08001", "Barcelona"),
+    ("46001", "Valencia"),
+    ("03001", "Alicante"),
+    ("30001", "Murcia"),
+    ("48001", "Bilbao"),
+    ("15001", "A Coruña"),
+    ("50001", "Zaragoza"),
+    ("35001", "Las Palmas de Gran Canaria"),
+    ("07001", "Palma"),
+)
+
+# (país, CP, localidad, región, tipo de identificación, generador de número)
+EXTRANJEROS: Final = (
+    ("FR", "13001", "Marseille", "Provence-Alpes-Côte d'Azur", TipoIdentificacion.NIF_IVA),
+    ("DE", "10115", "Berlin", "Berlin", TipoIdentificacion.NIF_IVA),
+    ("PT", "1100-148", "Lisboa", "Lisboa", TipoIdentificacion.NIF_IVA),
+    ("IT", "20121", "Milano", "Lombardia", TipoIdentificacion.NIF_IVA),
+    ("US", "10001", "New York", "New York", TipoIdentificacion.PASAPORTE),
+    ("GB", "SW1A 1AA", "London", "England", TipoIdentificacion.PASAPORTE),
+    ("MX", "06600", "Ciudad de México", "CDMX", TipoIdentificacion.PASAPORTE),
+)
+_NIF_IVA_CUERPO: Final = {"FR": 11, "DE": 9, "PT": 9, "IT": 11}
+
+
+@dataclass(slots=True)
+class ResumenCarga:
+    clientes_creados: int = 0
+    ya_cargados: bool = False
+    contrasenas_temporales: dict[str, str] = field(default_factory=dict)
+
+
+def _dni(rng: random.Random) -> str:
+    numero = rng.randrange(10_000_000, 99_999_999)
+    return f"{numero:08d}{_LETRAS_DNI[numero % 23]}"
+
+
+def _nie(rng: random.Random) -> str:
+    prefijo = rng.choice("XYZ")
+    numero = rng.randrange(0, 9_999_999)
+    valor = int(f"{'XYZ'.index(prefijo)}{numero:07d}")
+    return f"{prefijo}{numero:07d}{_LETRAS_DNI[valor % 23]}"
+
+
+def _nif_entidad(rng: random.Random) -> str:
+    return f"{rng.choice('ABF')}{rng.randrange(0, 9_999_999):07d}{rng.randrange(10)}"
+
+
+def _telefono(rng: random.Random) -> str:
+    primero = rng.choice("6796")
+    resto = f"{rng.randrange(0, 99_999_999):08d}"
+    return f"{primero}{resto[:2]} {resto[2:5]} {resto[5:]}"
+
+
+def _slug(texto: str) -> str:
+    tabla = str.maketrans("áéíóúüñÁÉÍÓÚÜÑ", "aeiouunAEIOUUN")
+    return "".join(c for c in texto.translate(tabla).lower() if c.isalnum() or c == ".")
+
+
+def _entrada(rng: random.Random, fake: "Faker", indice: int) -> ClienteEntrada:
+    tirada = rng.random()
+    observaciones = f"{MARCADOR} Cliente ficticio n.º {indice + 1}."
+    if tirada < 0.08:  # extranjero
+        pais, cp, localidad, region, tipo_id = rng.choice(EXTRANJEROS)
+        if tipo_id is TipoIdentificacion.NIF_IVA:
+            longitud = _NIF_IVA_CUERPO[pais]
+            numero = "".join(str(rng.randrange(1, 10)) for _ in range(longitud))
+            nombre = f"{fake.last_name()} {rng.choice(['SARL', 'GmbH', 'Lda.', 'S.r.l.'])}"
+            tipo = TipoCliente.EMPRESA
+        else:
+            numero = f"{rng.choice('ABCKLP')}{rng.randrange(1_000_000, 99_999_999)}"
+            nombre = f"{fake.first_name()} {fake.last_name()}"
+            tipo = TipoCliente.PARTICULAR
+        return ClienteEntrada(
+            tipo=tipo,
+            nombre=nombre,
+            identificacion_pais=pais,
+            identificacion_tipo=tipo_id,
+            identificacion_numero=numero,
+            codigo_postal=cp,
+            localidad=localidad,
+            provincia_texto=region,
+            pais_residencia=pais,
+            telefono=f"+{rng.randrange(30, 99)} {rng.randrange(100_000_000, 999_999_999)}",
+            correo=f"{_slug(nombre.split()[0])}{indice}@example.com",
+            observaciones=observaciones,
+        )
+
+    cp, localidad = rng.choice(LOCALIDADES_ES)
+    if tirada < 0.30:  # empresa española
+        nombre = (
+            f"{rng.choice(['Joyería', 'Relojería', 'Platería', 'Orfebrería', 'Distribuciones'])} "
+            f"{fake.last_name()}{rng.choice([' S.L.', ' S.A.', ''])}"
+        )
+        tipo, numero = TipoCliente.EMPRESA, _nif_entidad(rng)
+        correo = f"info@{_slug(nombre.split()[1])}{indice}.example.com"
+    else:  # particular
+        nombre = f"{fake.first_name()} {fake.last_name()} {fake.last_name()}"
+        tipo = TipoCliente.PARTICULAR
+        numero = _nie(rng) if rng.random() < 0.15 else _dni(rng)
+        correo = f"{_slug(nombre.split()[0])}.{_slug(nombre.split()[1])}{indice}@example.com"
+    return ClienteEntrada(
+        tipo=tipo,
+        nombre=nombre,
+        identificacion_pais="ES",
+        identificacion_tipo=TipoIdentificacion.NIF,
+        identificacion_numero=numero,
+        direccion=f"{fake.street_name()} {rng.randrange(1, 120)}",
+        codigo_postal=cp,
+        localidad=localidad,
+        pais_residencia="ES",
+        telefono=_telefono(rng),
+        correo=correo,
+        observaciones=observaciones,
+    )
+
+
+async def _crear_usuarios(
+    db: AsyncSession, contrasena_demo: str | None, resumen: ResumenCarga
+) -> Usuario:
+    admin: Usuario | None = None
+    for nombre_usuario, nombre, rol in USUARIOS_DEMO:
+        usuario, temporal = await usuarios.create_usuario(
+            db, nombre_usuario=nombre_usuario, nombre=nombre, rol=rol, actor=admin, origen=ORIGEN
+        )
+        if contrasena_demo:
+            usuario.hash_contrasena = hash_password(contrasena_demo)
+            usuario.contrasena_temporal = False
+            usuario.contrasena_temporal_expira_en = None
+        else:
+            resumen.contrasenas_temporales[nombre_usuario] = temporal
+        admin = admin or usuario
+    await db.flush()
+    if admin is None:  # pragma: no cover — USUARIOS_DEMO nunca está vacío
+        msg = "No se ha creado el administrador de ejemplo."
+        raise RuntimeError(msg)
+    return admin
+
+
+async def cargar(
+    db: AsyncSession,
+    *,
+    clientes: int = 40,
+    contrasena_demo: str | None = None,
+    semilla: int = 2026,
+) -> ResumenCarga:
+    if get_settings().es_produccion:
+        msg = "La carga de datos de ejemplo no está permitida en producción."
+        raise SinPermiso(msg)
+    resumen = ResumenCarga()
+    if await usuarios_repo.get_by_nombre_usuario(db, "admin.demo") is not None:
+        resumen.ya_cargados = True
+        return resumen
+
+    from faker import Faker
+
+    fake = Faker("es_ES")
+    fake.seed_instance(semilla)
+    rng = random.Random(semilla)  # noqa: S311 — datos ficticios, no criptográficos
+    admin = await _crear_usuarios(db, contrasena_demo, resumen)
+
+    momento = ahora()
+    indice = 0
+    while resumen.clientes_creados < clientes:
+        entrada = _entrada(rng, fake, indice)
+        indice += 1
+        try:
+            cliente = await clientes_srv.create_cliente(db, entrada, actor=admin, origen=ORIGEN)
+        except Duplicado:
+            continue
+        cliente.creado_en = momento - timedelta(
+            days=rng.randrange(0, 720), minutes=rng.randrange(1440)
+        )
+        cliente.actualizado_en = cliente.creado_en
+        cliente.activo = rng.random() >= 0.1
+        resumen.clientes_creados += 1
+        if resumen.clientes_creados % 500 == 0:
+            await db.flush()
+    await db.flush()
+    return resumen
