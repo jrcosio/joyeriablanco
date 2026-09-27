@@ -274,13 +274,13 @@ separadores), cada filtro y su combinación, las ordenaciones, la paginación y 
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T070 [P] [US3] Test `backend/tests/integration/test_clientes_listado.py`:
+- [X] T070 [P] [US3] Test `backend/tests/integration/test_clientes_listado.py`:
   - **Búsqueda**: "maria lopez" encuentra "María López García"; `12.345.678-Z` encuentra `12345678Z`; `%` y `_` se buscan literalmente; término de más de 100 caracteres → 422.
   - **Filtros**: provincia, tipo y estado (activos por defecto), combinados con la búsqueda.
   - **Orden**: las cuatro ordenaciones, con desempate por `id` sin duplicados entre páginas.
   - **Paginación**: página posterior a la última → lista vacía con el total.
   - **Indicadores**: `activos` y `nuevos_este_anio` globales, con el límite de año en Europe/Madrid (FR-031 a FR-034).
-- [ ] T071 [P] [US3] Test web `joyeriablanco_web/src/features/clientes/ClientesPage.test.tsx` con MSW:
+- [X] T071 [P] [US3] Test web `joyeriablanco_web/src/features/clientes/ClientesPage.test.tsx` con MSW:
   - Esqueletos sin desplazamiento.
   - Estado vacío "no hay resultados" (con limpiar filtros) frente a "todavía no hay clientes".
   - Estado de error con Reintentar.
@@ -289,15 +289,15 @@ separadores), cada filtro y su combinación, las ordenaciones, la paginación y 
 
 ### Implementation for User Story 3
 
-- [ ] T072 [US3] Añadir a `backend/app/repositories/clientes.py` los métodos `list_clientes` (ILIKE sobre `texto_busqueda` con el término normalizado y escapado, también en su variante sin separadores; filtros; orden con desempate `id`; *offset* y total) y `count_indicadores` (Europe/Madrid)
-- [ ] T073 [US3] Añadir `list_clientes` e `indicadores` a `backend/app/services/clientes.py`, y `GET /v1/clientes` y `GET /v1/clientes/indicadores` a `backend/app/api/v1/clientes.py`, registradas antes de `/{id}`
-- [ ] T074 [P] [US3] Crear `joyeriablanco_web/src/features/clientes/IndicadoresClientes.tsx`: dos Kpi (iconos Lucide `Users` y `UserPlus`, cifra en Bodoni `headline-lg`) con esqueleto
-- [ ] T075 [P] [US3] Crear `joyeriablanco_web/src/features/clientes/FiltrosClientes.tsx`: búsqueda con espera de 300 ms, provincia (`nombre_visible`), tipo, estado y orden. Todo vinculado a los *search params*; apilado en móvil
-- [ ] T076 [P] [US3] Crear `joyeriablanco_web/src/features/clientes/TablaClientes.tsx`:
+- [X] T072 [US3] Añadir a `backend/app/repositories/clientes.py` los métodos `list_clientes` (ILIKE sobre `texto_busqueda` con el término normalizado y escapado, también en su variante sin separadores; filtros; orden con desempate `id`; *offset* y total) y `count_indicadores` (Europe/Madrid)
+- [X] T073 [US3] Añadir `list_clientes` e `indicadores` a `backend/app/services/clientes.py`, y `GET /v1/clientes` y `GET /v1/clientes/indicadores` a `backend/app/api/v1/clientes.py`, registradas antes de `/{id}`
+- [X] T074 [P] [US3] Crear `joyeriablanco_web/src/features/clientes/IndicadoresClientes.tsx`: dos Kpi (iconos Lucide `Users` y `UserPlus`, cifra en Bodoni `headline-lg`) con esqueleto
+- [X] T075 [P] [US3] Crear `joyeriablanco_web/src/features/clientes/FiltrosClientes.tsx`: búsqueda con espera de 300 ms, provincia (`nombre_visible`), tipo, estado y orden. Todo vinculado a los *search params*; apilado en móvil
+- [X] T076 [P] [US3] Crear `joyeriablanco_web/src/features/clientes/TablaClientes.tsx`:
   - Columnas de escritorio y tableta según FR-059, **sin columna "Facturas"** (FR-035); tarjetas en móvil.
   - Chip de estado y nombre en `title-md` con el tipo en `label-sm` color `primary`.
   - Acción de editar con etiqueta accesible "Editar cliente {nombre}" (FR-060).
-- [ ] T077 [US3] Crear `joyeriablanco_web/src/features/clientes/ClientesPage.tsx` (título Bodoni `headline-xl`, subtítulo, "Nuevo cliente", indicadores, filtros, tabla, paginación y los estados de FR-057) y completar `joyeriablanco_web/src/routes/_app/clientes.tsx` con `validateSearch` (Zod) y el `<Outlet/>` para los paneles
+- [X] T077 [US3] Crear `joyeriablanco_web/src/features/clientes/ClientesPage.tsx` (título Bodoni `headline-xl`, subtítulo, "Nuevo cliente", indicadores, filtros, tabla, paginación y los estados de FR-057) y completar `joyeriablanco_web/src/routes/_app/clientes.tsx` con `validateSearch` (Zod) y el `<Outlet/>` para los paneles
 
 **Checkpoint**: US1–US3. La pantalla Clientes es completa y conforme al mockup, con las desviaciones justificadas.
 

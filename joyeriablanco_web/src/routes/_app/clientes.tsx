@@ -1,29 +1,47 @@
-import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
-import { PageHeader } from '../../components/layout/PageHeader'
+import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
+import { useCallback } from 'react'
+import { z } from 'zod'
+import type { FiltrosClientes } from '../../api/queries/clientes'
+import { ClientesPage } from '../../features/clientes/ClientesPage'
+
+// Filtros, búsqueda, orden y página viven en la URL (contracts/ui-rutas.md).
+const busqueda = z.object({
+  q: z.string().max(100).optional().catch(undefined),
+  provincia: z
+    .string()
+    .regex(/^\d{2}$/)
+    .optional()
+    .catch(undefined),
+  tipo: z.enum(['particular', 'empresa']).optional().catch(undefined),
+  estado: z.enum(['activos', 'inactivos', 'todos']).default('activos').catch('activos'),
+  orden: z
+    .enum(['nombre_asc', 'nombre_desc', 'recientes', 'antiguos'])
+    .default('nombre_asc')
+    .catch('nombre_asc'),
+  pagina: z.coerce.number().int().min(1).default(1).catch(1),
+})
 
 export const Route = createFileRoute('/_app/clientes')({
+  validateSearch: busqueda,
   component: Clientes,
 })
 
 function Clientes() {
-  return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        title="Clientes"
-        subtitle="Gestiona tu cartera de clientes y consulta su historial de facturación."
-        actions={
-          <Link
-            to="/clientes/nuevo"
-            search={(previa) => previa}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 bg-primary px-6 label-lg text-on-primary transition-colors hover:bg-tertiary hover:shadow-aura sm:w-auto"
-          >
-            <Plus aria-hidden="true" className="size-4" />
-            Nuevo cliente
-          </Link>
-        }
-      />
-      <Outlet />
-    </div>
+  const filtros = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const cambiar = useCallback(
+    (cambios: Partial<FiltrosClientes>) => {
+      void navigate({
+        search: (previa) => ({
+          ...previa,
+          ...cambios,
+          // Cualquier cambio de filtro vuelve a la primera página.
+          pagina: cambios.pagina ?? 1,
+        }),
+        replace: true,
+      })
+    },
+    [navigate],
   )
+  return <ClientesPage filtros={filtros} onFiltros={cambiar} panel={<Outlet />} />
 }

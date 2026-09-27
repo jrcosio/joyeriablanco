@@ -11,6 +11,7 @@ from typing import Final
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import CampoError, ConflictoVersion, DatosNoValidos, Duplicado, NoEncontrado
 from app.core.http import Origen
 from app.domain.codigos_postales import provincia_from_codigo_postal
@@ -247,3 +248,35 @@ async def update_cliente(
         detalle={"cambios": cambios},
     )
     return cliente
+
+
+# --------------------------------------------------------------------------- listado (US3)
+
+
+@dataclass(frozen=True, slots=True)
+class FiltrosClientes:
+    q: str | None = None
+    provincia: str | None = None
+    tipo: str | None = None
+    estado: str = "activos"
+    orden: str = "nombre_asc"
+    pagina: int = 1
+    tamano: int = 25
+
+
+async def list_clientes(db: AsyncSession, filtros: FiltrosClientes) -> tuple[list[Cliente], int]:
+    return await repo.list_clientes(
+        db,
+        q=filtros.q,
+        provincia=filtros.provincia,
+        tipo=filtros.tipo,
+        estado=filtros.estado,
+        orden=filtros.orden,
+        pagina=filtros.pagina,
+        tamano=filtros.tamano,
+    )
+
+
+async def indicadores(db: AsyncSession) -> tuple[int, int]:
+    """Indicadores globales: no dependen de la búsqueda ni de los filtros (FR-034)."""
+    return await repo.count_indicadores(db, get_settings().zona_horaria)

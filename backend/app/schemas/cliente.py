@@ -133,3 +133,8 @@ class ClienteExistente(SalidaBase):
     id: uuid.UUID
     nombre: str
     activo: bool
+
+
+class IndicadoresSalida(SalidaBase):
+    activos: int
+    nuevos_este_anio: int

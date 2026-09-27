@@ -81,10 +81,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Listar Clientes */
+        get: operations["listar_clientes_api_v1_clientes_get"];
         put?: never;
         /** Crear Cliente */
         post: operations["crear_cliente_api_v1_clientes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clientes/indicadores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Indicadores */
+        get: operations["obtener_indicadores_api_v1_clientes_indicadores_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -203,6 +221,32 @@ export interface components {
             /** Observaciones */
             observaciones?: string | null;
         };
+        /** ClienteResumenSalida */
+        ClienteResumenSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            tipo: components["schemas"]["TipoCliente"];
+            /** Nombre */
+            nombre: string;
+            /** Identificacion Pais */
+            identificacion_pais: string;
+            identificacion_tipo: components["schemas"]["TipoIdentificacion"];
+            /** Identificacion Numero */
+            identificacion_numero: string;
+            /** Localidad */
+            localidad: string | null;
+            /** Provincia Nombre */
+            provincia_nombre: string | null;
+            /** Telefono */
+            telefono: string | null;
+            /** Correo */
+            correo: string | null;
+            /** Activo */
+            activo: boolean;
+        };
         /** ClienteSalida */
         ClienteSalida: {
             /**
@@ -266,6 +310,24 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** IndicadoresSalida */
+        IndicadoresSalida: {
+            /** Activos */
+            activos: number;
+            /** Nuevos Este Anio */
+            nuevos_este_anio: number;
+        };
+        /** Pagina[ClienteResumenSalida] */
+        Pagina_ClienteResumenSalida_: {
+            /** Elementos */
+            elementos: components["schemas"]["ClienteResumenSalida"][];
+            /** Total */
+            total: number;
+            /** Pagina */
+            pagina: number;
+            /** Tamano */
+            tamano: number;
         };
         /** ProvinciaSalida */
         ProvinciaSalida: {
@@ -524,6 +586,43 @@ export interface operations {
             };
         };
     };
+    listar_clientes_api_v1_clientes_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                provincia?: string | null;
+                tipo?: components["schemas"]["TipoCliente"] | null;
+                estado?: "activos" | "inactivos" | "todos";
+                orden?: "nombre_asc" | "nombre_desc" | "recientes" | "antiguos";
+                pagina?: number;
+                tamano?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pagina_ClienteResumenSalida_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     crear_cliente_api_v1_clientes_post: {
         parameters: {
             query?: never;
@@ -553,6 +652,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_indicadores_api_v1_clientes_indicadores_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndicadoresSalida"];
                 };
             };
         };
