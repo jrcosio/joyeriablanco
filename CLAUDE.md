@@ -46,6 +46,7 @@ git checkout -b 001-cimientos-backend
 ├── backend/               API REST: FastAPI + PostgreSQL, gestionado con uv
 ├── joyeriablanco_web/     Aplicación web de gestión: React + TypeScript + Vite
 ├── joyeriablanco_android/ App móvil — FUERA DE ALCANCE, NO TOCAR
+├── docs/                  Documentación normativa transversal (DESIGN.md)
 ├── specs/                 Una carpeta por feature (NNN-nombre-feature/)
 └── .specify/              Spec Kit: constitución, plantillas y scripts
 ```
@@ -99,6 +100,19 @@ routers → services → repositories/modelos
 - **Cero lógica de negocio en los routers.** Los routers validan, delegan y serializan.
 - Esquemas Pydantic **separados para entrada y salida**. Nunca se expone un modelo ORM.
 - La lógica fiscal debe poder testearse sin levantar HTTP.
+
+### Interfaz de usuario
+
+Toda la UI cumple **`docs/DESIGN.md`**, el sistema de diseño "Haute Joaillerie Atelier"
+(normativo desde la constitución 1.1.0).
+
+- **Tokens definidos una sola vez.** Colores, tipografías (Bodoni Moda y Manrope), espaciado y
+  elevación se declaran una vez y se consumen desde ahí. No se repiten como literales.
+- **Esquinas a 0 px** y filetes de 1 px. Sin sombras difusas fuera de las definidas en el documento.
+- **Los mockups son orientativos.** Mandan `docs/DESIGN.md` y la spec. Por ejemplo, la navegación
+  lateral va a la **izquierda**.
+- **Desviaciones.** Toda desviación se justifica en la spec de la feature. Las incoherencias del
+  propio DESIGN.md se corrigen en el documento, con aprobación, nunca sobre la marcha en el código.
 
 ### Dinero
 

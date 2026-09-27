@@ -1,27 +1,34 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Cambio de version: (plantilla sin rellenar) -> 1.0.0
-Motivo del bump: adopcion inicial. El fichero contenia unicamente los marcadores
-de la plantilla; esta es la primera ratificacion con contenido real del proyecto.
+Cambio de version: 1.0.0 -> 1.1.0
+Motivo del bump: MINOR. Se anade una restriccion nueva (Sistema de diseno) y se amplia
+materialmente la guia de revision de artefactos. No se elimina ni redefine ningun principio.
 
-Principios definidos (9, frente a los 5 de la plantilla base):
-  I.    Desarrollo dirigido por especificacion (SDD)   [NUEVO]
-  II.   Integridad monetaria                            [NUEVO]
-  III.  Inalterabilidad de los documentos emitidos      [NUEVO]
-  IV.   Cumplimiento Verifactu por diseno               [NUEVO]
-  V.    Arquitectura en capas                           [NUEVO]
-  VI.   El servidor es la fuente de verdad              [NUEVO]
-  VII.  Cobertura de test obligatoria                   [NUEVO]
-  VIII. Espanol en el dominio                           [NUEVO]
-  IX.   Calidad automatizada                            [NUEVO]
+Principios modificados: ninguno (I-IX se mantienen sin cambios de fondo).
 
 Secciones anadidas:
-  - Restricciones tecnicas            (ocupa [SECTION_2_NAME])
-  - Flujo de trabajo y puertas de calidad (ocupa [SECTION_3_NAME])
-  - Governance
+  - Restricciones tecnicas > "Sistema de diseno" (nueva restriccion). Hace normativo
+    docs/DESIGN.md ("Haute Joaillerie Atelier") para toda interfaz de usuario, fija la
+    precedencia DESIGN.md > mockups y exige justificar por escrito cualquier desviacion.
+
+Secciones ampliadas:
+  - Flujo de trabajo y puertas de calidad, punto 5: la revision de spec/plan/tasks
+    comprueba tambien la conformidad con docs/DESIGN.md en las features con UI.
+  - Governance > Cumplimiento: misma verificacion; docs/DESIGN.md queda como documento
+    normativo subordinado a esta constitucion, con cambios sujetos a aprobacion explicita.
 
 Secciones eliminadas: ninguna.
+
+Artefactos dependientes:
+  - docs/DESIGN.md                  actualizado: movido desde temporal/DESIGN.md y corregida su
+                                    incoherencia interna (mandan los tokens del frontmatter, como
+                                    el mockup; se anaden success/warning/danger). Aprobado por el
+                                    responsable el 2026-09-27. Ver su Changelog 1.1.
+  - CLAUDE.md                       actualizado: estructura del monorepo + seccion "Interfaz de usuario"
+  - .specify/templates/*.md         sin cambios: leen la constitucion en tiempo de ejecucion
+
+Historico: 1.0.0 (2026-09-12) adopcion inicial con los principios I-IX.
 
 TODO pendientes (no bloquean la ratificacion, se resuelven en el clarify de su feature):
   - TODO(MODALIDAD_VERIFACTU): elegir entre VERI*FACTU y no VERI*FACTU. El principio IV
@@ -174,6 +181,29 @@ desarrollo con servicio `api`, servicio `db` (PostgreSQL con volumen persistente
 
 **Web**: React con TypeScript y Vite.
 
+**Sistema de diseño**: toda interfaz de usuario del proyecto (la web ahora, y cualquier otra UI
+cuando entre en alcance) DEBE cumplir el sistema de diseño "Haute Joaillerie Atelier" definido en
+`docs/DESIGN.md`. Eso incluye:
+
+- Tokens de color.
+- Tipografías: Bodoni Moda para titulares y cifras destacadas, Manrope para texto operativo y datos.
+- Escala de espaciado y rejilla.
+- Esquinas a 0 px.
+- Elevación por planos y filetes de 1 px, sin más sombras que las que el propio documento define.
+- Especificación de componentes.
+
+Esos valores se definen UNA sola vez como tokens centralizados y se consumen desde ahí; no se
+repiten como literales dispersos por el código.
+
+Los mockups y capturas de referencia son orientativos. Ante un conflicto, mandan `docs/DESIGN.md`
+y las decisiones registradas en la spec de la feature, nunca el mockup. Ejemplo: en la feature 001
+la navegación lateral va a la izquierda aunque el mockup de clientes la muestre a la derecha.
+
+Cualquier desviación de `docs/DESIGN.md` se justifica por escrito en la spec de la feature. Si la
+desviación pasa a ser general, o si se detecta una incoherencia interna en el propio documento, se
+corrige `docs/DESIGN.md` con aprobación del responsable del proyecto. Nunca se resuelve sobre la
+marcha en el código.
+
 **Numeración**: correlativa por año natural y por serie, sin huecos y sin reutilización, segura
 frente a concurrencia mediante secuencia de base de datos o bloqueo explícito sobre una tabla de
 contadores. Queda PROHIBIDO `MAX(numero)+1` sin lock. La estrategia elegida se justifica en la spec
@@ -188,7 +218,8 @@ de la feature correspondiente.
 3. Ninguna feature se cierra sin sus tests en verde.
 4. Ante contradicción entre el código y la spec, MANDA LA SPEC: se detiene la implementación, se
    corrige la especificación y se reanuda desde ahí.
-5. Toda revisión de `spec.md`, `plan.md` y `tasks.md` verifica el cumplimiento de esta constitución.
+5. Toda revisión de `spec.md`, `plan.md` y `tasks.md` verifica el cumplimiento de esta constitución
+   y, en las features con interfaz de usuario, la conformidad con `docs/DESIGN.md`.
 
 ## Governance
 
@@ -202,10 +233,13 @@ y versionado semántico:
 - **PATCH**: aclaraciones, redacción, correcciones sin cambio de fondo.
 
 **Cumplimiento**: toda revisión de artefactos (`spec.md`, `plan.md`, `tasks.md`) debe verificar la
-conformidad con esta constitución. Cualquier desviación debe justificarse por escrito en el
-artefacto correspondiente.
+conformidad con esta constitución y, en las features con interfaz de usuario, con `docs/DESIGN.md`.
+Cualquier desviación debe justificarse por escrito en el artefacto correspondiente.
 
 `CLAUDE.md`, en la raíz del repositorio, es la guía operativa de desarrollo del día a día y está
 subordinado a esta constitución.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-12
+`docs/DESIGN.md` es la especificación normativa del sistema de diseño y está subordinado a esta
+constitución. Sus cambios materiales requieren aprobación explícita del responsable del proyecto.
+
+**Version**: 1.1.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-27
