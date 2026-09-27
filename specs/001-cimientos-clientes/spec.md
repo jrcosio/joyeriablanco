@@ -17,6 +17,23 @@ incorporadas abajo.
 **Referencias**: mockup [`assets/mockup-clientes.png`](assets/mockup-clientes.png) (orientativo) ·
 sistema de diseño [`docs/DESIGN.md`](../../docs/DESIGN.md) (normativo, constitución 1.1.0)
 
+## Clarifications
+
+### Session 2026-09-27
+
+- Q: ¿Puede haber dos clientes con la misma identificación fiscal (mismo país, tipo y número)?
+  → A: No. La identificación es única entre todos los clientes, activos e inactivos. Una empresa
+  con varias direcciones sigue siendo un solo cliente.
+- Q: ¿Cuánto debe durar la sesión en el mostrador? → A: Caduca tras 30 minutos de inactividad y,
+  en cualquier caso, a las 10 horas. Ambos valores son configurables (FR-003).
+- Q: ¿Debe el administrador poder consultar la auditoría desde la propia aplicación en esta
+  feature? → A: Sí, con una consulta básica. En Configuración → Auditoría, solo para
+  administradores, hay un listado de solo lectura con filtros por fecha, usuario, tipo de evento y
+  cliente (FR-051).
+- Q: ¿Qué nivel de accesibilidad debe cumplir la aplicación web? → A: Buenas prácticas básicas,
+  sin objetivo formal de cumplimiento (WCAG). Uso completo con teclado, formularios etiquetados y
+  foco visible (FR-052).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Acceso seguro y navegación por la aplicación (Priority: P1)
@@ -191,6 +208,11 @@ comprueba que su sesión abierta deja de funcionar.
    de alta otro igual, **Then** el sistema lo impide.
 7. **Given** un usuario desactivado, **When** un administrador lo reactiva, **Then** puede volver a
    entrar con su contraseña.
+8. **Given** un administrador en Configuración → Auditoría, **When** filtra por un rango de fechas,
+   un usuario, un tipo de evento o un cliente, **Then** ve los eventos que cumplen todos los filtros,
+   del más reciente al más antiguo, sin poder modificarlos ni borrarlos.
+9. **Given** un empleado, **When** intenta consultar la auditoría por cualquier vía, **Then** se le
+   deniega el acceso.
 
 ---
 
@@ -368,6 +390,12 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   - El objeto afectado y, en las ediciones, qué campos cambiaron.
 - **FR-022**: Los eventos de auditoría NO DEBEN poder modificarse ni borrarse desde la aplicación, y
   la restricción DEBE imponerse también en el almacenamiento de datos, no solo en la aplicación.
+- **FR-051**: Los administradores DEBEN poder consultar la auditoría en Configuración → Auditoría:
+  - Listado paginado de solo lectura, del evento más reciente al más antiguo.
+  - Filtros combinables por rango de fechas, usuario, tipo de evento y cliente afectado.
+  - Detalle de cada evento, incluidos los campos que cambiaron.
+
+  Los empleados NO DEBEN tener acceso.
 
 #### Clientes: datos y validación
 
@@ -446,7 +474,8 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
     - El nombre "JOYERÍA BLANCO" con un filete dorado.
     - Las entradas Facturas y Presupuestos, deshabilitadas y marcadas "Próximamente".
     - La entrada Clientes.
-    - La entrada Configuración, visible solo para administradores.
+    - La entrada Configuración, visible solo para administradores, con las secciones Usuarios y
+      Auditoría.
   - **Una cabecera** con:
     - El contexto "Gestión de facturación".
     - La fecha actual en formato largo en español (p. ej. "Martes, 27 de mayo de 2025").
@@ -468,6 +497,12 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   - **Iconos**: se usa también como icono de la pestaña del navegador y de la aplicación.
 - **FR-043**: Todos los textos, mensajes de error y formatos de fecha y número de la interfaz DEBEN
   estar en español de España.
+- **FR-052**: La interfaz DEBE seguir estas buenas prácticas básicas de accesibilidad, sin objetivo
+  formal de cumplimiento de WCAG:
+  - Todas las operaciones se pueden hacer solo con teclado.
+  - Cada campo de formulario tiene su etiqueta asociada.
+  - El foco del teclado siempre es visible.
+  - Los errores se anuncian junto al campo afectado.
 
 #### Plataforma, entornos y despliegue
 
@@ -598,8 +633,7 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   esta feature solo se alinean los datos identificativos del cliente con el formato oficial.
 - Doble factor de autenticación. Queda como mejora futura.
 - Recuperación de contraseña por correo electrónico y cualquier envío de correo.
-- Consulta de la auditoría desde la interfaz. En esta feature la auditoría se registra y se consulta
-  con herramientas de operación.
+- Exportar la auditoría. En esta feature solo se consulta en pantalla.
 - Integración continua y copias de seguridad automáticas.
 - Validación de identificaciones contra el censo de la AEAT o contra VIES.
 - La aplicación Android.
@@ -610,12 +644,11 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
 - La joyería tiene pocos usuarios simultáneos (menos de 10) y una cartera del orden de miles de
   clientes. Los objetivos de rendimiento se fijan para 10.000 clientes.
 - El tipo "07 No censado" de la lista L7 no se ofrece, porque el responsable exige identificación
-  fiscal siempre. Candidato a confirmar en `/speckit.clarify`.
-- La identificación es única por país, tipo y número. Una misma persona o entidad no se duplica
-  aunque tenga varias direcciones. Candidato a confirmar en `/speckit.clarify`.
-- Los tiempos de sesión (30 minutos de inactividad y 10 horas en total) y los umbrales de bloqueo
-  (5 fallos o 15 minutos; 20 intentos en 10 minutos por origen) son valores por defecto razonables y
-  configurables. Candidatos a confirmar en `/speckit.clarify`.
+  fiscal siempre. En `/speckit.plan` se contrasta con *Validaciones y errores* v1.2.2. Si la
+  normativa obligara a ofrecerlo en algún caso, se consultará al responsable antes de cambiarlo.
+- Los umbrales de bloqueo (5 fallos consecutivos, 15 minutos de bloqueo y 20 intentos en 10
+  minutos por origen) siguen las prácticas habituales de seguridad y son configurables. Los tiempos
+  de sesión están confirmados en Clarifications.
 - El nombre de usuario se usa solo para identificarse. No es un correo, porque no hay envío de
   correos.
 - La contraseña temporal la genera el sistema y el administrador se la entrega en persona. El
