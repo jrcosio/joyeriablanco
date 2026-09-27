@@ -149,7 +149,8 @@ fuerte y ya tenemos estado).
   consecutivo bloquea 15 minutos, y un acceso correcto reinicia el contador.
 - **Por origen**: se cuentan los eventos `acceso_fallido` de la auditoría desde la misma IP en los
   últimos 10 minutos (índice por `origen_ip, tipo, ocurrido_en`). Si llegan a 20, se rechaza sin
-  evaluar la contraseña.
+  evaluar la contraseña: se responde 429 con un mensaje propio y se registra `acceso_limitado`, que
+  no suma al límite.
 - **IP real detrás de Caddy**: `uvicorn --proxy-headers --forwarded-allow-ips=<red interna>`.
 
 **Razón**: no hace falta infraestructura adicional (Redis) y el estado sobrevive a reinicios y a
@@ -305,6 +306,131 @@ El original se conserva en `tools/brand/fuente/logo-original.png`.
 - Crea usuarios `admin.demo` y `empleado.demo`.
 - Es idempotente: primero comprueba si existe un marcador de carga.
 
-## R-20. Fuentes oficiales pendientes de verificación
+## R-20. Fuentes oficiales: identificación, provincias y código postal
 
-*(Se completa con el resultado de la verificación en fuentes oficiales; ver la sección siguiente.)*
+Verificación hecha el 2026-09-27 en fuentes oficiales (BOE, AEAT, INE y web de la Administración
+General del Estado). Cada fila indica su veredicto.
+
+### R-20.1 Validaciones AEAT del destinatario
+
+**Fuente (F-3)**: AEAT, *Sistemas Informáticos de Facturación y Sistemas VERI\*FACTU — Validaciones
+y errores*, **v1.2.2 (08/04/2026)**.
+- URL:
+  `https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Validaciones_Errores_Veri-Factu.pdf`.
+- SHA-256: `426eb926fc098a36a163f66ca5f40d9e0847ca23300bbe5008979832d3513440`.
+
+Apartado 3.1.3, punto 13 (`Destinatarios/IDDestinatario`, p. 10), **VERIFICADO**, literal:
+- «Si se cumplimenta NIF, no deberá existir la agrupación IDOtro y viceversa, pero es obligatorio
+  que se cumplimente uno de los dos.»
+- «Si el campo IDType = "02" (NIF-IVA), no será exigible el campo CodigoPais.»
+- «Si el campo IDType = "07" (No censado), el campo CodigoPais debe ser "ES".»
+- «… e IDType sea "02", se validará que el campo identificador se ajuste a la estructura de NIF-IVA
+  de alguno de los Estados Miembros y debe estar identificado. Ver nota (1).»
+- «… IDOtro y CodigoPais sea "ES", se validará que el campo IDType sea "03" o "07".»
+
+Nota (1) (pp. 17–18), tabla **"Estructura NIF-IVA"**, **VERIFICADO**:
+
+| País | Prefijo | Número |
+|---|---|---|
+| Alemania | DE | 9 numéricos |
+| Austria | AT | 9 alfanuméricos |
+| Bélgica | BE | 10 numéricos |
+| Bulgaria | BG | 9 o 10 numéricos |
+| Chipre | CY | 9 alfanuméricos |
+| Croacia | HR | 11 numéricos |
+| Dinamarca | DK | 8 numéricos |
+| Eslovaquia | SK | 10 numéricos |
+| Eslovenia | SI | 8 numéricos |
+| Estonia | EE | 9 numéricos |
+| Finlandia | FI | 8 numéricos |
+| Francia | FR | 11 alfanuméricos |
+| Grecia | **EL** (ISO: GR) | 9 numéricos |
+| Hungría | HU | 8 numéricos |
+| Irlanda | IE | 8 o 9 alfanuméricos |
+| Irlanda del Norte | **XI** (GB antes de 01/02/2021; ISO: GB) | 5, 9 o 12 alfanuméricos |
+| Italia | IT | 11 numéricos |
+| Letonia | LV | 11 numéricos |
+| Lituania | LT | 9 o 12 numéricos |
+| Luxemburgo | LU | 8 numéricos |
+| Malta | MT | 8 numéricos |
+| Países Bajos | NL | 12 alfanuméricos |
+| Polonia | PL | 10 numéricos |
+| Portugal | PT | 9 numéricos |
+| República Checa | CZ | 8, 9 o 10 numéricos |
+| Rumanía | RO | 2 a 10 numéricos, sin ceros a la izquierda |
+| Suecia | SE | 12 numéricos |
+
+Notas de la tabla:
+- España no figura.
+- «Sólo se admiten mayúsculas.»
+
+**Decisiones derivadas**:
+- **Combinaciones de país y tipo admitidas en la ficha de cliente** (FR-024, FR-025):
+
+  | País de identificación | Tipos admitidos |
+  |---|---|
+  | ES | `NIF` o `03` (pasaporte) |
+  | Estado de la tabla NIF-IVA (distinto de ES) | `02`, `03`, `04`, `05` o `06` |
+  | Resto de países | `03`, `04`, `05` o `06` |
+
+- **Tipo 02**:
+  - Se valida la estructura de la tabla oficial.
+  - Forma canónica almacenada: **prefijo NIF-IVA + número** (p. ej. `FR12345678901`, `EL123456789`,
+    `XI123456789`). Si el usuario lo teclea sin prefijo, se añade el del país elegido.
+  - El país de identificación se guarda siempre, aunque la AEAT no lo exija con 02, porque la ficha
+    lo necesita para saber qué estructura aplicar.
+- **Tipo 07 "No censado"**: no es un documento distinto. Es un NIF correcto de persona física que no
+  figura en el censo (apartado 4.3.1, p. 21; error 1131 de `errores.properties`: «El valor del
+  campo ID ha de ser el NIF de una persona física cuando el campo IDType tiene valor No Censado
+  (07)»). En la ficha, ese cliente se guarda con tipo `NIF`. La decisión de declararlo como 07 es
+  de la **generación del registro de facturación** (feature de facturas).
+
+### R-20.2 Composición y carácter de control del NIF
+
+| Tipo | Composición | Carácter de control | Fuente | Veredicto |
+|---|---|---|---|---|
+| DNI (españoles) | 8 dígitos + letra | Número mod 23 → `TRWAGMYFPDXBNJZSQVHLCKE` (ej.: 12345678 → Z) | RD 1065/2007 (BOE-A-2007-15984), art. 19.1; RD 255/2025 (BOE-A-2025-6601), art. 12. Algoritmo: Ministerio del Interior, «Cálculo del dígito de control del NIF/NIE» (interior.gob.es; acceso automático bloqueado, texto confirmado por extracto) y DGOJ, `https://www.ordenacionjuego.es/en/node/2988` | **VERIFICADO** en web oficial (no en BOE) |
+| NIE | X/Y/Z + 7 dígitos + letra | Se sustituye X→0, Y→1, Z→2 y se aplica el mismo algoritmo | Orden INT/2058/2008 (BOE-A-2008-12050): «letra inicial… siete dígitos… carácter de verificación alfabético»; sustitución: DGOJ (web oficial) | **VERIFICADO** en web oficial |
+| Personas jurídicas y entidades | Letra (A, B, C, D, E, F, G, H, J, P, Q, R, S, U, V; N extranjeras; W establecimientos permanentes) + 7 dígitos + carácter de control | **Algoritmo no publicado** | RD 1065/2007, art. 22.1; Orden EHA/451/2008 (BOE-A-2008-3580), arts. 2–5, redacción de la Orden HAP/5/2016 (BOE-A-2016-358) | Composición **VERIFICADA**; algoritmo **NO VERIFICADO** |
+| K, L (españoles sin DNI) y M (extranjeros sin NIE) | Letra + 7 alfanuméricos + letra de verificación | **Algoritmo no publicado** | RD 1065/2007, arts. 19.2 y 20.2 | Composición **VERIFICADA**; algoritmo **NO VERIFICADO** |
+
+**Decisión** (consultada con el responsable el 2026-09-27): DNI y NIE se validan con su letra. El
+NIF de entidades y el de K, L y M se validan **solo por estructura**, con estos patrones:
+- Entidades: `^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-Z]$`.
+- K, L y M: `^[KLM][0-9A-Z]{7}[A-Z]$`.
+
+Así lo exige la constitución (principio IV: no se deduce de fuentes no oficiales). Una errata en un
+NIF de entidad la detectará la consulta al censo de la AEAT en una feature posterior.
+
+### R-20.3 Provincias y código postal
+
+- **Provincias (F-6)**: INE, «Relación de provincias con sus códigos», **a 1 de enero de 2026**
+  (publicada el 04/02/2026). **VERIFICADO**.
+  - URL: `https://www.ine.es/daco/daco42/codmun/cod_provincia.htm`.
+  - Contrastada con `diccionario26.xlsx`: 52 códigos del 01 al 52.
+  - Se cargan los 52 literales INE tal cual (p. ej. `Araba/Álava`, `Coruña, A`, `Balears, Illes`,
+    `Palmas, Las`, `Rioja, La`, `Valencia/València`).
+  - Para ordenar y mostrar, el literal con coma se presenta en orden natural ("A Coruña"). Es una
+    decisión de presentación; el literal oficial se conserva en la BD.
+- **Código postal (F-7)**:
+  - Orden de 23 de enero de 1984 (BOE-A-1984-3487), art. 2: «Los dos primeros identifican la
+    provincia según el código geográfico nacional».
+  - Orden de 27 de septiembre de 1995 (BOE-A-1995-21835): «En los casos de las ciudades de Ceuta y
+    Melilla, los dos primeros dígitos serán el 51 y 52, respectivamente».
+  - **VERIFICADO**.
+  - La equivalencia entre "código geográfico nacional" y codificación provincial del INE no está
+    escrita literalmente. Se infiere de la coincidencia de Ceuta (51) y Melilla (52) con la tabla
+    INE. Registrado como **interpretación**.
+  - Riesgo: si existiera una excepción, un código postal válido sería rechazado. Mitigación: la
+    tabla de correspondencia es un dato versionado que se corrige sin tocar código.
+
+### R-20.4 Preguntas abiertas (para features posteriores; no bloquean la 001)
+
+1. **"FormatoNIF"**: no está definido más allá de 9 caracteres (diseño de registro y XSD
+   `NIFType length 9`). La 001 aplica los patrones de R-20.2.
+2. **NIF de destinatario no censado**: el error 1193 (rechazo) y el 2001 (aceptado con errores) de
+   `errores.properties` se contradicen. Se resolverá en la feature de facturas.
+3. **Tipo 02 en el registro**: queda por confirmar si `IDOtro/ID` lleva el prefijo NIF-IVA. La ficha
+   guarda la forma canónica con prefijo y puede derivar ambas.
+4. **Algoritmo del carácter de control** de entidades y K, L y M: no publicado. Si la AEAT lo
+   publicara, se añadiría.

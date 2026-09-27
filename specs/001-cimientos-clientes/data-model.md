@@ -34,6 +34,7 @@ eventos_auditoria ···> clientes (cliente_id SIN FK: sobrevive al borrado fís
 | rol | varchar(20) | NOT NULL, CHECK IN (`administrador`, `empleado`) | FR-012 |
 | hash_contrasena | text | NOT NULL | Argon2id (R-7) |
 | contrasena_temporal | boolean | NOT NULL DEFAULT true | Obliga a cambiarla (FR-009) |
+| contrasena_temporal_expira_en | timestamptz | NULL | Alta o restablecimiento + 72 h (FR-015). Si ha vencido, el acceso falla con el mensaje genérico |
 | activo | boolean | NOT NULL DEFAULT true | |
 | intentos_fallidos | smallint | NOT NULL DEFAULT 0, CHECK ≥ 0 | FR-006 |
 | bloqueado_hasta | timestamptz | NULL | |
@@ -45,8 +46,11 @@ eventos_auditoria ···> clientes (cliente_id SIN FK: sobrevive al borrado fís
 - **Último administrador** (FR-017): no puede quedar ningún momento sin al menos un
   `rol='administrador' AND activo`. Se aplica en el servicio con `SELECT … FOR UPDATE` (R-9).
 - **Autodesactivación**: un administrador no puede desactivarse a sí mismo.
-- **Restablecer la contraseña**: nuevo hash, `contrasena_temporal=true`, `intentos_fallidos=0`,
-  `bloqueado_hasta=NULL` y revocación de todas sus sesiones.
+- **Restablecer la contraseña**: nuevo hash, `contrasena_temporal=true`,
+  `contrasena_temporal_expira_en=now()+72h`, `intentos_fallidos=0`, `bloqueado_hasta=NULL` y
+  revocación de todas sus sesiones.
+- **Cambio de rol**: revoca todas las sesiones del afectado (FR-016). Un administrador no puede
+  cambiar su propio rol (FR-017).
 
 **Estados**:
 
@@ -94,7 +98,10 @@ API y con la CLI. No son registros fiscales ni de auditoría.
 | detalle | jsonb | NOT NULL DEFAULT '{}' | Campos cambiados `{campo: [antes, después]}` o instantánea del cliente borrado. Nunca contraseñas |
 
 **Catálogo `tipo`**:
-- **Acceso**: `acceso_correcto`, `acceso_fallido`, `acceso_bloqueado`, `cierre_sesion`.
+- **Acceso**: `acceso_correcto`, `acceso_fallido`, `acceso_bloqueado`, `acceso_limitado` (rechazo
+  por límite de origen; no cuenta para ese límite), `cierre_sesion`.
+- **Consola**: los eventos lanzados por la CLI llevan `actor_id=NULL`,
+  `actor_nombre_usuario='consola'` y `detalle.origen='consola'`.
 - **Contraseñas**: `contrasena_cambiada`, `contrasena_restablecida`.
 - **Usuarios**: `usuario_creado`, `usuario_rol_cambiado`, `usuario_desactivado`,
   `usuario_reactivado`.
@@ -116,10 +123,11 @@ API y con la CLI. No son registros fiscales ni de auditoría.
 
 | Columna | Tipo | Restricciones | Notas |
 |---|---|---|---|
-| codigo | char(2) | PK, CHECK `^[0-9]{2}$` | Código INE (01–52) |
-| nombre | varchar(60) | NOT NULL | Denominación oficial INE (ver research R-20) |
+| codigo | char(2) | PK, CHECK `^[0-9]{2}$` | Código INE (01–52) = dos primeros dígitos del CP (F-7) |
+| nombre | varchar(60) | NOT NULL | Literal oficial INE a 01/01/2026 (p. ej. `Coruña, A`) |
+| nombre_visible | varchar(60) | NOT NULL | Orden natural para mostrar y ordenar (p. ej. `A Coruña`) |
 
-Se carga en la migración con los 52 registros verificados. El rol de aplicación solo tiene
+Se carga en la migración con los 52 registros de research R-20.3. El rol de aplicación solo tiene
 `SELECT`.
 
 ## clientes
@@ -130,8 +138,8 @@ Se carga en la migración con los 52 registros verificados. El rol de aplicació
 | tipo | varchar(12) | NOT NULL, CHECK IN (`particular`, `empresa`) | |
 | nombre | varchar(120) | NOT NULL, CHECK `length(trim(nombre)) > 0` | `NombreRazon`, alfanumérico (120) (F-1) |
 | identificacion_pais | char(2) | NOT NULL DEFAULT 'ES' | ISO 3166-1 alfa-2, validado contra pycountry |
-| identificacion_tipo | varchar(3) | NOT NULL, CHECK IN (`NIF`, `02`, `03`, `04`, `05`, `06`) | `NIF` o clave L7 (F-2). `07` excluido (supuesto de la spec) |
-| identificacion_numero | varchar(20) | NOT NULL | Normalizado: mayúsculas, sin espacios, guiones ni puntos |
+| identificacion_tipo | varchar(3) | NOT NULL, CHECK IN (`NIF`, `02`, `03`, `04`, `05`, `06`) | `NIF` o clave L7 (F-2). El 07 es decisión del registro de facturación (R-20.1) |
+| identificacion_numero | varchar(20) | NOT NULL | Normalizado: mayúsculas, sin espacios, guiones, puntos ni barras. Tipo 02: con prefijo NIF-IVA |
 | direccion | varchar(200) | NULL | |
 | codigo_postal | varchar(10) | NULL | España: `^[0-9]{5}$` |
 | localidad | varchar(100) | NULL | |
@@ -150,11 +158,12 @@ Se carga en la migración con los 52 registros verificados. El rol de aplicació
 **Restricciones de tabla**:
 - **Identificación única** (FR-026 y clarificación del 2026-09-27): `UNIQUE (identificacion_pais,
   identificacion_tipo, identificacion_numero)`.
-- **Coherencia del NIF**: `CHECK ((identificacion_pais = 'ES') = (identificacion_tipo = 'NIF'))`.
-  Si el país es España el tipo es NIF, y viceversa (FR-024 y FR-025), sujeto a lo que confirme
-  R-20.
-- **Longitud del NIF**: `CHECK (identificacion_tipo <> 'NIF' OR identificacion_numero ~
-  '^[0-9A-Z]{9}$')`. El carácter de control se valida en el dominio (R-20).
+- **País y tipo** (FR-024, FR-025, F-3):
+  - `CHECK (identificacion_tipo <> 'NIF' OR identificacion_pais = 'ES')`.
+  - `CHECK (identificacion_pais <> 'ES' OR identificacion_tipo IN ('NIF','03'))`.
+  - La pertenencia del país a la tabla NIF-IVA para el tipo 02 se valida en el dominio.
+- **Forma del NIF**: `CHECK (identificacion_tipo <> 'NIF' OR identificacion_numero ~
+  '^[0-9A-Z]{9}$')`. La clase y el carácter de control se validan en el dominio (R-20.2).
 - **Provincia según el país**: `CHECK (pais_residencia = 'ES' OR provincia_codigo IS NULL)` y
   `CHECK (pais_residencia <> 'ES' OR provincia_texto IS NULL)`.
 - **Código postal español**: `CHECK (pais_residencia <> 'ES' OR codigo_postal IS NULL OR
@@ -162,10 +171,14 @@ Se carga en la migración con los 52 registros verificados. El rol de aplicació
 
 **Reglas de dominio**, en `app/domain/`, puras y testables sin HTTP:
 - `normalize_identificacion(texto)`: mayúsculas y sin espacios, guiones ni puntos.
-- `validate_nif(numero)`: distingue DNI, NIE y NIF de entidad y valida el carácter de control con
-  el algoritmo verificado en R-20.
+- `validate_nif(numero)`: clasifica el NIF (DNI, NIE, entidad o K/L/M) y valida:
+  - La letra de control en DNI y NIE (mod 23, R-20.2).
+  - Solo la estructura en entidades y K/L/M.
+- `validate_nif_iva(pais, numero)`: aplica la tabla oficial de estructuras (R-20.1) y devuelve la
+  forma canónica con prefijo. Mapea el ISO al prefijo: `GR→EL` y `GB→XI`. España no se admite.
+- `allowed_identificacion_tipos(pais)`: combinaciones de país y tipo de R-20.1.
 - `provincia_from_codigo_postal(cp)`: devuelve la provincia de los dos primeros dígitos (01–52) o
-  error. La regla está pendiente de verificación en R-20.
+  error, según F-7 y la interpretación de R-20.3.
 
 **Estados**:
 

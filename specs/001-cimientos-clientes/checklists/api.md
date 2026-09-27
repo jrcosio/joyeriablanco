@@ -65,3 +65,28 @@ búsqueda, errores y concurrencia.
 - Add comments or findings inline
 - Link to relevant resources or documentation
 - Items are numbered sequentially for easy reference
+
+## Resolución asistida (2026-09-27, pendiente de revisión)
+
+Los ítems siguen sin marcar: marcarlos corresponde al revisor.
+
+- **Identificación y fuentes oficiales**:
+  - CHK001–CHK005: research R-20, spec F-3 a F-5 y FR-024/FR-025. Las combinaciones de país y tipo
+    salen de las validaciones de la AEAT. El carácter de control de entidades y K/L/M no está
+    publicado: solo estructura, decisión del responsable. El 07 se decide en el registro.
+  - CHK006: FR-026.
+  - CHK007: F-7 y R-20.3 (interpretación documentada).
+- **Datos del cliente**:
+  - CHK008, CHK010: FR-055.
+  - CHK009, CHK012: FR-028.
+- **Listado y búsqueda**:
+  - CHK013, CHK017: FR-031.
+  - CHK014: FR-033.
+  - CHK015, CHK016: FR-032.
+  - CHK018: FR-034.
+- **Contrato**: CHK019, CHK020, CHK022, CHK023 en `openapi.yaml` (catálogo de errores,
+  versionado y fechas).
+- **Concurrencia**: CHK024, CHK025, FR-030.
+- **Rendimiento**: CHK028, SC-003.
+- **Sin cambios**: CHK011, CHK021, CHK026, CHK027 se consideran cubiertos. En CHK021, todos los
+  usuarios autenticados ven todos los clientes.

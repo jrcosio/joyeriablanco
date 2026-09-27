@@ -67,3 +67,24 @@ responsive y accesibilidad básica.
 - Add comments or findings inline
 - Link to relevant resources or documentation
 - Items are numbered sequentially for easy reference
+
+## Resolución asistida (2026-09-27, pendiente de revisión)
+
+Los ítems siguen sin marcar: marcarlos corresponde al revisor.
+
+- **Aplicación de DESIGN.md**: CHK001–CHK004, CHK006, CHK027 en `contracts/ui-rutas.md`,
+  apartado "Aplicación de DESIGN.md por elemento".
+- **Diferencias con el mockup**: CHK005, en la tabla de la spec (nombre en Manrope).
+- **Menú, navegación y pantallas**:
+  - CHK008–CHK010, CHK012: FR-056.
+  - CHK011: FR-041.
+- **Estados, confirmaciones y conflictos**:
+  - CHK014–CHK016: FR-057.
+  - CHK017, CHK018, CHK021: FR-058.
+  - CHK019: FR-030.
+  - CHK020: FR-015.
+- **Pantallas estrechas**: CHK022–CHK024, FR-059.
+- **Accesibilidad**: CHK026, FR-050 (recorrido E2E solo con teclado).
+- **Fechas, países y textos alternativos**: CHK028–CHK030, FR-060.
+- **Sin cambios**: CHK007, CHK013, CHK025 se consideran cubiertos. En CHK013, la fecha se
+  recalcula al cambiar de día.

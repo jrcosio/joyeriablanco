@@ -39,3 +39,24 @@ Rutas de la aplicación web, quién puede acceder y qué endpoints de
     letra en mayúscula) y el menú de usuario con iniciales.
 - **Estado en la URL**: los filtros, la búsqueda, el orden y la página del listado de clientes
   viven en los *search params* de la ruta. Se pueden compartir y sobreviven a una recarga.
+
+## Aplicación de DESIGN.md por elemento
+
+Los tokens se nombran como en el frontmatter de [`docs/DESIGN.md`](../../../docs/DESIGN.md).
+
+| Elemento | Nivel / superficie | Tipografía | Notas |
+|---|---|---|---|
+| Lienzo de página | Nivel 0 · `background` | — | Márgenes de 2.5rem en escritorio y 1rem en móvil; contenido limitado a 1440 px |
+| Menú lateral | `surface-container-lowest`, filete derecho de 1 px en `primary-container` @ 18 % | Marca en Bodoni `headline-sm` con espaciado; entradas en `title-md` | Activo: fondo `surface-container-high`, texto e icono en `primary`. Deshabilitado: `on-surface-variant` @ 50 % con chip "Próximamente" (`warning`) |
+| Cabecera | Nivel 0, filete inferior de 1 px en `primary-container` @ 18 % | Contexto en `body-lg` `on-surface-variant`; fecha en `body-md` | Avatar cuadrado (radio 0) con las iniciales en `label-lg` |
+| Título de página | — | Bodoni `headline-xl` (`headline-xl-mobile` por debajo de 768 px) | Subtítulo en `body-lg` `on-surface-variant` |
+| Tarjeta de indicadores | Nivel 1 · `surface-container` | Etiqueta en `body-md`; cifra en Bodoni `headline-lg` | Iconos Lucide en `primary` |
+| Barra de filtros | Campos de DESIGN.md (`surface-container-low`) | `body-md` | Foco: borde de 1 px en `primary-container` |
+| Tabla | Contenedor `surface-container-low`; cabecera `surface-container` | Cabecera en `label-md` en mayúsculas; nombre en `title-md`; tipo en `label-sm` en `primary`; datos en `body-md` con cifras tabulares | Hover: `surface-container-high`. Solo filetes horizontales. Filas con 1rem × 1.5rem de relleno |
+| Chips de estado | 1 px de borde, radio 0 | `label-sm` | Activo: `success`. Inactivo: `danger`. Próximamente y contraseña temporal: `warning` |
+| Panel de alta y edición | Nivel 2 · `surface-container-high`, borde `tertiary` @ 35 %, sombra de DESIGN.md | Título en Bodoni `headline-md` | Lateral derecho de 560 px en escritorio y tableta; pantalla completa en móvil |
+| Diálogos de confirmación | Nivel 2 | `title-lg` y `body-md` | Borrado: campo de confirmación con la identificación y botón destructivo |
+| Avisos breves | Nivel 3 · `surface-container-lowest` con borde de 1 px en `primary-container` | `body-md` | Esquina inferior derecha, 5 s, se pueden cerrar |
+| Botones | Primario, Secundario y Ghost/Destructivo de DESIGN.md | `label-lg` en mayúsculas | "Nuevo cliente" es el primario |
+| Foco visible (FR-052) | Controles que no son campos: contorno de 1 px en `tertiary` con separación de 2 px | — | Los campos usan su propio foco de DESIGN.md |
+| Estados de carga | Esqueletos en `surface-container-high` con la geometría final | — | Sin desplazamiento del contenido al terminar (FR-057) |

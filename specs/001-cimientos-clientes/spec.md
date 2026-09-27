@@ -30,6 +30,9 @@ sistema de diseño [`docs/DESIGN.md`](../../docs/DESIGN.md) (normativo, constitu
   feature? → A: Sí, con una consulta básica. En Configuración → Auditoría, solo para
   administradores, hay un listado de solo lectura con filtros por fecha, usuario, tipo de evento y
   cliente (FR-051).
+- Q: Ninguna fuente oficial publica el algoritmo del carácter de control del NIF de entidades ni de
+  los NIF K/L/M. ¿Cómo se validan? → A: Solo por estructura oficial (research R-20.2). DNI y NIE se
+  validan con su letra.
 - Q: ¿Qué nivel de accesibilidad debe cumplir la aplicación web? → A: Buenas prácticas básicas,
   sin objetivo formal de cumplimiento (WCAG). Uso completo con teclado, formularios etiquetados y
   foco visible (FR-052).
@@ -335,24 +338,43 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
 - **FR-003**: Las sesiones DEBEN caducar tras 30 minutos de inactividad y, en cualquier caso, a las
   10 horas de iniciarse. Ambos valores son configurables por el responsable técnico sin cambiar el
   código.
+  - **Actividad**: cuenta como actividad cualquier petición autenticada que haga el usuario.
+  - **Sin renovación artificial**: la web NO DEBE hacer peticiones automáticas periódicas que
+    mantengan la sesión viva.
+  - **Varias sesiones**: un usuario puede tener sesiones abiertas en varios equipos a la vez, sin
+    límite.
 - **FR-004**: Al caducar la sesión, la aplicación DEBE llevar al inicio de sesión y, tras
   identificarse de nuevo, devolver al usuario a la pantalla a la que intentaba acceder.
 - **FR-005**: El cierre de sesión DEBE invalidar la sesión en el servidor de forma inmediata, no solo
   en el navegador.
 - **FR-006**: Tras 5 intentos fallidos consecutivos sobre una misma cuenta, esta DEBE quedar
-  bloqueada 15 minutos. Además, DEBE existir un límite de intentos por origen, con 20 intentos en 10
-  minutos como valor por defecto. Todos los valores son configurables.
+  bloqueada 15 minutos.
+  - **Fallo consecutivo**: el que se produce sin un acceso correcto intermedio.
+  - **Reinicio del contador**: con un acceso correcto, con un restablecimiento de contraseña o al
+    expirar el bloqueo.
+  - **Límite por origen**: además, DEBE existir un límite de intentos por origen. El origen es la
+    dirección del cliente tal como la ve el sistema detrás de su proxy. Por defecto, con 20
+    intentos fallidos en una ventana deslizante de 10 minutos se rechazan los nuevos intentos
+    desde ese origen hasta que la ventana baja del umbral.
+  - **Configuración**: todos los valores son configurables.
 - **FR-007**: Los mensajes de fallo de acceso DEBEN ser idénticos para usuario inexistente,
   contraseña incorrecta, cuenta bloqueada y cuenta desactivada, para no revelar qué usuarios existen.
-- **FR-008**: La política de contraseñas DEBE exigir entre 12 y 128 caracteres, rechazar las
-  contraseñas de una lista de contraseñas comunes y las que contengan el nombre de usuario, y NO
-  DEBE imponer reglas de composición (mayúsculas, símbolos…).
+  El rechazo por límite de origen usa un mensaje propio ("Demasiados intentos desde este equipo.
+  Inténtalo de nuevo en unos minutos."), que no depende del usuario introducido.
+- **FR-008**: La política de contraseñas DEBE exigir entre 12 y 128 caracteres y NO DEBE imponer
+  reglas de composición (mayúsculas, símbolos…). DEBE rechazar:
+  - Las que coincidan, sin distinguir mayúsculas, con una lista de contraseñas comunes de fuente
+    reconocida (research R-7).
+  - Las que contengan el nombre de usuario, también sin distinguir mayúsculas.
 - **FR-009**: Un usuario con contraseña temporal DEBE cambiarla antes de poder realizar cualquier
-  otra acción.
+  otra acción. Mientras tanto solo puede consultar su propia sesión, cambiar la contraseña y cerrar
+  sesión.
 - **FR-010**: Las contraseñas NO DEBEN almacenarse ni registrarse en claro en ningún lugar,
-  incluidos los registros técnicos y la auditoría.
+  incluidos los registros técnicos y la auditoría. Los identificadores de sesión solo DEBEN
+  almacenarse como huella irreversible.
 - **FR-011**: Todas las peticiones que modifican datos DEBEN estar protegidas frente a la
-  falsificación de peticiones desde otros sitios.
+  falsificación de peticiones desde otros sitios. Si una petición se rechaza por esa protección, la
+  web la trata como una sesión no válida: vuelve a pedir la identificación y conserva la ruta.
 
 #### Usuarios y roles
 
@@ -365,12 +387,16 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   nombre de usuario único sin distinguir mayúsculas y rol), cambiar su rol, desactivarlos,
   reactivarlos y restablecer su contraseña.
 - **FR-015**: En el alta y en el restablecimiento, el sistema DEBE generar una contraseña temporal
-  que cumpla la política, mostrarla una única vez al administrador y marcarla como de cambio
-  obligatorio.
-- **FR-016**: Desactivar un usuario o restablecer su contraseña DEBE invalidar inmediatamente todas
-  sus sesiones. El restablecimiento también DEBE levantar un bloqueo temporal vigente.
-- **FR-017**: El sistema NO DEBE permitir desactivar ni degradar al último administrador activo, ni
-  que un administrador desactive su propia cuenta.
+  que cumpla la política y marcarla como de cambio obligatorio.
+  - **Visualización**: se muestra una única vez al administrador, en pantalla, con opción de copiarla
+    y aviso de que no volverá a mostrarse.
+  - **Caducidad**: la contraseña temporal caduca a las 72 horas si no se ha usado. Después, el
+    acceso falla y el administrador tiene que restablecerla de nuevo.
+- **FR-016**: Desactivar un usuario, restablecer su contraseña o cambiar su rol DEBE invalidar
+  inmediatamente todas sus sesiones. El restablecimiento también DEBE levantar un bloqueo temporal
+  vigente.
+- **FR-017**: El sistema NO DEBE permitir desactivar ni degradar al último administrador activo.
+  Tampoco DEBE permitir que un administrador desactive su propia cuenta ni cambie su propio rol.
 - **FR-018**: El comando de consola DEBE permitir crear el primer administrador y restablecer la
   contraseña de un administrador existente como último recurso.
 - **FR-019**: Cualquier usuario DEBE poder cambiar su propia contraseña, aportando la actual, desde
@@ -379,7 +405,9 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
 #### Auditoría
 
 - **FR-020**: El sistema DEBE registrar en una auditoría de solo inserción:
-  - Los inicios de sesión correctos y fallidos, los bloqueos y los cierres de sesión.
+  - Los inicios de sesión correctos y fallidos, los bloqueos, los rechazos por límite de origen y
+    los cierres de sesión.
+  - Las acciones ejecutadas con el comando de consola, con la consola como actor.
   - Los cambios y restablecimientos de contraseña.
   - El alta, el cambio de rol, la desactivación y la reactivación de usuarios.
   - El alta, la edición, la desactivación, la reactivación y el borrado de clientes.
@@ -387,9 +415,11 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   - El tipo de evento y la fecha y hora con huso horario.
   - El usuario que actúa, o el nombre de usuario intentado en un acceso fallido.
   - El origen de la petición (dirección y agente).
-  - El objeto afectado y, en las ediciones, qué campos cambiaron.
+  - El objeto afectado y, en las ediciones, qué campos cambiaron, con el valor anterior y el nuevo
+    (nunca contraseñas ni tokens).
 - **FR-022**: Los eventos de auditoría NO DEBEN poder modificarse ni borrarse desde la aplicación, y
   la restricción DEBE imponerse también en el almacenamiento de datos, no solo en la aplicación.
+  Los eventos se conservan indefinidamente: la aplicación no ofrece ninguna purga.
 - **FR-051**: Los administradores DEBEN poder consultar la auditoría en Configuración → Auditoría:
   - Listado paginado de solo lectura, del evento más reciente al más antiguo.
   - Filtros combinables por rango de fechas, usuario, tipo de evento y cliente afectado.
@@ -407,20 +437,32 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
     - País de la identificación: ISO 3166-1 alfa-2, España por defecto.
     - Tipo de identificación.
     - Número.
-- **FR-024**: Si el país de la identificación es España, el tipo DEBE ser NIF (DNI, NIE o NIF de
-  persona jurídica o entidad), de 9 caracteres, y el sistema DEBE verificar su formato y su carácter
-  de control conforme a la normativa de composición del NIF.
-- **FR-025**: Si el país de la identificación no es España, el tipo DEBE ser uno de los admitidos
-  por el registro de facturación oficial (lista L7, F-2):
-  - 02 NIF-IVA.
-  - 03 Pasaporte.
-  - 04 Documento oficial de identificación expedido por el país o territorio de residencia.
-  - 05 Certificado de residencia.
-  - 06 Otro documento probatorio.
+- **FR-024**: El tipo NIF solo se admite con país de identificación España. Tiene 9 caracteres y el
+  sistema DEBE validarlo según su clase (F-4, F-5):
+  - **DNI** (8 dígitos + letra) y **NIE** (X, Y o Z + 7 dígitos + letra): formato y letra de
+    control.
+  - **NIF de persona jurídica o entidad** (letra de forma jurídica A, B, C, D, E, F, G, H, J, P, Q,
+    R, S, U, V, N o W + 7 dígitos + carácter de control) y **NIF K, L o M** (letra + 7
+    alfanuméricos + letra): **solo estructura**. Su algoritmo de control no está publicado en fuente
+    oficial (Clarifications; research R-20.2).
+- **FR-025**: Los tipos de identificación distintos de NIF son los de la lista L7 del registro de
+  facturación oficial (F-2), con las combinaciones que admiten las validaciones de la AEAT (F-3):
+  - **País España**: además de NIF, solo **03 Pasaporte**.
+  - **Estados de la tabla oficial de estructuras NIF-IVA** (UE, más Irlanda del Norte):
+    - **02 NIF-IVA**: se valida su estructura según esa tabla y se guarda con el prefijo del
+      Estado.
+    - **03 Pasaporte**.
+    - **04 Documento oficial** de identificación expedido por el país o territorio de residencia.
+    - **05 Certificado de residencia**.
+    - **06 Otro documento probatorio**.
+  - **Resto de países**: 03, 04, 05 o 06.
 
-  El número tiene un máximo de 20 caracteres (F-1) y no se valida su carácter de control.
-- **FR-026**: La identificación DEBE normalizarse (mayúsculas, sin espacios, guiones ni puntos) y ser
-  única entre todos los clientes, activos e inactivos, por la combinación de país, tipo y número.
+  Los números de los tipos 03 a 06 tienen un máximo de 20 caracteres (F-1) y no se valida su
+  carácter de control.
+- **FR-026**: La identificación DEBE normalizarse (mayúsculas, sin espacios, guiones, puntos ni
+  barras) antes de validarla. Tras normalizarla, su longitud no puede superar los 20 caracteres (el
+  NIF, exactamente 9). DEBE ser única entre todos los clientes, activos e inactivos, por la
+  combinación de país, tipo y número.
 - **FR-027**: Cada cliente DEBE poder tener estos datos opcionales:
   - Dirección.
   - Código postal y localidad.
@@ -436,25 +478,48 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   - Si no hay código postal, la provincia se elige de esa misma lista.
 
   Si el país es otro, la provincia es texto libre opcional.
+
+  Si llegan a la vez un código postal y una provincia que no corresponden, el sistema DEBE rechazar
+  el guardado con un error en el campo provincia. Al cambiar el país de residencia se descarta el
+  dato de provincia que ya no aplica: la de la lista oficial al salir de España, y el texto libre al
+  pasar a España.
+- **FR-055**: Normas de texto y formato para todos los datos del cliente:
+  - **Espacios**: todos los campos de texto se guardan sin espacios iniciales ni finales. Un campo
+    opcional vacío equivale a "sin dato".
+  - **Teléfono**: solo admite dígitos, espacios, `+`, paréntesis y guiones, con al menos 6 dígitos.
+  - **Correo**: se guarda en minúsculas.
 - **FR-029**: El sistema DEBE guardar para cada cliente quién lo creó y cuándo, y quién lo modificó
   por última vez y cuándo, y mostrarlo en su ficha.
 - **FR-030**: El sistema DEBE detectar la edición concurrente de un mismo cliente e impedir que un
   guardado sobrescriba sin aviso cambios posteriores a la apertura del formulario.
+  - **Alcance**: el control se aplica a la edición de datos. Desactivar y reactivar son cambios de
+    estado idempotentes: desactivar un cliente ya inactivo, o reactivar uno activo, no produce error
+    ni un evento de auditoría nuevo.
+  - **Ante un conflicto**: el usuario puede recargar los datos actuales (descartando los suyos) o
+    seguir con el formulario abierto para copiar lo que necesite. Nunca se sobrescribe a la fuerza.
 
 #### Clientes: listado, búsqueda e indicadores
 
 - **FR-031**: El listado de clientes DEBE:
-  - Estar paginado en el servidor.
+  - Estar paginado en el servidor, con 25 elementos por página por defecto y 100 como máximo.
   - Mostrar por fila el nombre con su tipo, la identificación, la localidad, la provincia, el
     teléfono, el correo y las acciones.
+  - Devolver una lista vacía con el total real cuando se pide una página posterior a la última.
 - **FR-032**: La búsqueda DEBE encontrar coincidencias parciales en el nombre, la identificación y la
   localidad, sin distinguir mayúsculas ni tildes.
+  - **Término**: se recorta y tiene como máximo 100 caracteres. Los caracteres especiales se buscan
+    literalmente.
+  - **Identificación con separadores**: una identificación escrita con separadores (p. ej.
+    "12.345.678-Z") encuentra la guardada sin ellos.
 - **FR-033**: Filtros y orden del listado:
   - Filtros combinables: provincia, tipo y estado (Activos por defecto, Inactivos, Todos).
-  - Ordenación: nombre A–Z (por defecto), nombre Z–A, más recientes, más antiguos.
+  - Ordenación: nombre A–Z (por defecto), nombre Z–A, más recientes, más antiguos. Todas usan un
+    criterio de desempate estable, para que la paginación nunca duplique ni omita clientes.
 - **FR-034**: La pantalla DEBE mostrar los indicadores:
   - "Clientes activos".
   - "Nuevos este año": clientes creados en el año natural en curso, hora de España peninsular.
+
+  Los indicadores son globales: no dependen de la búsqueda ni de los filtros activos.
 - **FR-035**: La columna "Facturas" del mockup NO DEBE mostrarse hasta que exista el módulo de
   facturas.
 
@@ -489,7 +554,42 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   - **Tableta** (768–1024 px).
   - **Escritorio** (más de 1024 px), con el contenido limitado a 1440 px.
 - **FR-041**: El sistema DEBE ofrecer pantallas propias de acceso denegado y de página no
-  encontrada.
+  encontrada, cada una con un título, una explicación breve y un botón para volver a Clientes.
+- **FR-056**: El menú de usuario DEBE mostrar sus iniciales, su nombre y su rol.
+  - **Iniciales**: la primera letra de las dos primeras palabras del nombre o, si solo hay una, sus
+    dos primeras letras, en mayúsculas.
+  - **Configuración**: se abre por defecto en Usuarios.
+  - **Pantallas fuera del shell**: el cambio obligatorio de contraseña se presenta, como el inicio
+    de sesión, sin menú lateral ni cabecera.
+- **FR-057**: Estados de las pantallas:
+  - **Carga**: toda pantalla con datos del servidor DEBE mostrar un estado de carga que no desplace
+    el contenido al terminar (listado, indicadores, ficha, catálogos, usuarios y auditoría).
+  - **Error**: ante un error de red o de servidor DEBE mostrarse un aviso comprensible con la opción
+    de reintentar, sin perder lo tecleado.
+  - **Vacío**: DEBE haber un estado vacío propio tanto para "no hay resultados" como para "todavía no
+    hay clientes".
+- **FR-058**: Confirmaciones:
+  - **Tras cada acción**: guardar, desactivar, reactivar, borrar y operaciones de usuarios DEBEN
+    mostrar un aviso breve de confirmación.
+  - **Antes de desactivar**: DEBE pedirse confirmación.
+  - **Antes de borrar**: la confirmación es reforzada: hay que escribir la identificación del
+    cliente.
+  - **Al cerrar con cambios sin guardar**: si se cierra un formulario con cambios, DEBE pedirse
+    confirmación antes de descartarlos.
+- **FR-059**: En pantallas estrechas la interfaz DEBE adaptarse así:
+  - **Móvil** (menos de 768 px): cada cliente del listado se presenta como una tarjeta con nombre y
+    tipo, identificación, localidad y provincia, contacto y acciones. Los filtros y el botón
+    "Nuevo cliente" se apilan a ancho completo. Los paneles de alta y edición ocupan la pantalla
+    completa.
+  - **Tableta**: la tabla muestra cliente, identificación, localidad, provincia y acciones. El
+    teléfono y el correo quedan en la ficha.
+- **FR-060**: Fechas, países e iconos:
+  - **Fechas y horas**: en la ficha y en la auditoría se muestran en formato español, en hora de
+    España peninsular (p. ej. "27/05/2025, 14:32").
+  - **Países**: se muestran por su nombre en español, en orden alfabético y con España en primer
+    lugar.
+  - **Logo e iconos sin texto**: tienen un texto alternativo descriptivo (p. ej. "Editar cliente
+    María López García").
 - **FR-042**: El logo DEBE ser el original, con un tratamiento concreto:
   - **Diseño**: círculo negro con el monograma blanco y el texto "BLANCO JOYEROS".
   - **Limpieza**: fondo transparente, borde circular limpio, sin el brillo gris del borde y
@@ -512,13 +612,27 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   repetible sin duplicados y que se niegue a ejecutarse en producción.
 - **FR-046**: En producción, toda la comunicación entre el navegador y el sistema DEBE ir cifrada
   con un certificado que se obtenga y renueve automáticamente. El acceso sin cifrar DEBE redirigirse
-  al cifrado.
-- **FR-047**: En producción, la base de datos NO DEBE ser accesible desde fuera del servidor, y el
-  servicio de la aplicación DEBE operar con permisos de datos mínimos, sin capacidad de alterar la
-  estructura de la base de datos.
+  al cifrado. Las respuestas DEBEN:
+  - Obligar al navegador a usar siempre el canal cifrado.
+  - Restringir la carga de recursos al propio origen.
+  - Prohibir que la aplicación se incruste en otros sitios.
+  - Impedir la interpretación errónea de tipos de contenido.
+  - No enviar la dirección de procedencia a terceros.
+- **FR-047**: En producción, la base de datos NO DEBE ser accesible desde fuera del servidor. Con
+  sus credenciales, el servicio de la aplicación NO DEBE poder:
+  - Crear, alterar ni borrar tablas.
+  - Modificar ni borrar eventos de auditoría.
 - **FR-048**: Ningún secreto (contraseñas, claves) DEBE estar versionado. El repositorio incluye solo
-  una plantilla de configuración con valores de ejemplo.
-- **FR-049**: Los errores mostrados al usuario NO DEBEN revelar detalles internos del sistema.
+  una plantilla de configuración con valores de ejemplo y la guía documenta cómo cambiar las
+  contraseñas de la base de datos.
+- **FR-049**: Los errores mostrados al usuario NO DEBEN revelar detalles internos del sistema. La
+  comprobación pública de estado solo indica si el servicio está operativo, sin versiones ni
+  detalles.
+- **FR-053**: Los registros técnicos NO DEBEN contener contraseñas, tokens ni datos personales de
+  clientes (identificación, correo, teléfono, dirección). Solo pueden contener identificadores
+  internos.
+- **FR-054**: Las sesiones caducadas o revocadas DEBEN purgarse pasados 30 días. No son registros de
+  auditoría: la auditoría conserva los eventos de acceso.
 
 #### Calidad
 
@@ -529,6 +643,8 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   - La auditoría.
   - Recorridos de extremo a extremo en navegador real: inicio de sesión, alta, edición, filtrado,
     desactivación y reactivación de clientes, gestión de usuarios y sesión caducada.
+  - Al menos un recorrido completo, del inicio de sesión al alta de cliente, hecho solo con teclado
+    (FR-052).
 
 ### Key Entities *(include if feature involves data)*
 
@@ -561,7 +677,8 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   10 segundos desde que abre la pantalla de clientes, con una cartera de 5.000 clientes.
 - **SC-002**: Un empleado completa el alta de un cliente con todos sus datos en menos de 2 minutos.
 - **SC-003**: El 95 % de las búsquedas y cambios de filtro muestran resultados en menos de 1 segundo,
-  con 10.000 clientes.
+  con 10.000 clientes. Se mide sobre 100 búsquedas variadas en el entorno de producción simulado en
+  local.
 - **SC-004**: En un juego de pruebas de identificaciones españolas, el 100 % de las que tienen el
   carácter de control incorrecto se rechazan y el 100 % de las válidas se aceptan.
 - **SC-005**: Ninguna pantalla ni dato es accesible sin sesión válida. El 100 % de los intentos de
@@ -569,7 +686,8 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
 - **SC-006**: Tras desactivar un usuario o restablecer su contraseña, su siguiente acción desde
   cualquier sesión abierta se rechaza en el 100 % de los casos.
 - **SC-007**: El 100 % de los eventos enumerados en FR-020 aparecen en la auditoría con actor, fecha
-  y origen, y ningún intento de modificarlos o borrarlos prospera.
+  y origen. Ningún intento de modificarlos o borrarlos prospera, incluidos los intentos directos
+  sobre el almacenamiento con las credenciales del servicio y con las del propietario de los datos.
 - **SC-008**: La interfaz es utilizable sin desplazamiento horizontal de la página a 360 px, 768 px y
   1440 px de ancho.
 - **SC-009**: Todas las pantallas de la feature superan la revisión de conformidad con
@@ -595,6 +713,7 @@ Conforme a la constitución 1.1.0 ("Sistema de diseño"), el mockup es orientati
 | Campana de notificaciones | Oculta hasta que existan notificaciones | Decisión del responsable |
 | Botón "Nuevo cliente" con letra serif en caja mixta | Manrope en mayúsculas con espaciado (botón primario de DESIGN.md) | DESIGN.md prevalece sobre el mockup |
 | Cabeceras de la tabla en caja mixta | Mayúsculas con espaciado (`label-md`) | DESIGN.md prevalece sobre el mockup |
+| Nombre del cliente en la tabla con letra serif | Manrope (`title-md`) con el tipo en `label-sm` en mayúsculas y color `primary` | DESIGN.md reserva Bodoni para titulares y cifras; los datos tabulares van en Manrope |
 
 Desviaciones de `docs/DESIGN.md`: **ninguna**.
 
@@ -619,13 +738,23 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   - 05 Certificado de residencia.
   - 06 Otro documento probatorio.
   - 07 No censado.
-- **Pendientes de verificación en `/speckit.plan`** (research.md). Si no se pueden verificar en
-  fuente oficial, pasan a pregunta abierta:
-  - La normativa de composición y el cálculo del carácter de control del NIF (DNI, NIE y NIF de
-    personas jurídicas y entidades).
-  - Las reglas de validación de la AEAT para `IDOtro` (combinaciones admitidas de país y tipo),
-    según *Validaciones y errores* v1.2.2.
-  - La lista oficial de provincias y la correspondencia con el código postal.
+- **F-3**: AEAT, *Validaciones y errores VERI\*FACTU*, **v1.2.2** (08/04/2026).
+  - Apartado 3.1.3, punto 13, p. 10: reglas de `IDOtro` del destinatario.
+  - Nota (1), pp. 17–18: tabla de estructuras NIF-IVA.
+  - URL, SHA-256 y transcripción en research R-20.1.
+- **F-4**: composición del NIF, verificada en el BOE:
+  - RD 1065/2007 (BOE-A-2007-15984), arts. 19, 20 y 22.
+  - Orden EHA/451/2008 (BOE-A-2008-3580), arts. 2–5, en la redacción de la Orden HAP/5/2016
+    (BOE-A-2016-358).
+  - Orden INT/2058/2008 (BOE-A-2008-12050).
+- **F-5**: algoritmo de la letra del DNI y del NIE, en web oficial: Ministerio del Interior y
+  Dirección General de Ordenación del Juego (research R-20.2). No está publicado en el BOE.
+- **F-6**: INE, *Relación de provincias con sus códigos*, a 1 de enero de 2026 (research R-20.3).
+- **F-7**: correspondencia entre código postal y provincia:
+  - Orden de 23/01/1984 (BOE-A-1984-3487), art. 2.
+  - Orden de 27/09/1995 (BOE-A-1995-21835) para Ceuta (51) y Melilla (52).
+  - La equivalencia con los códigos INE es una interpretación documentada (research R-20.3).
+- **Preguntas abiertas** para features posteriores, que no bloquean esta: ver research R-20.4.
 
 ## Fuera de alcance
 
@@ -643,9 +772,15 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
 
 - La joyería tiene pocos usuarios simultáneos (menos de 10) y una cartera del orden de miles de
   clientes. Los objetivos de rendimiento se fijan para 10.000 clientes.
-- El tipo "07 No censado" de la lista L7 no se ofrece, porque el responsable exige identificación
-  fiscal siempre. En `/speckit.plan` se contrasta con *Validaciones y errores* v1.2.2. Si la
-  normativa obligara a ofrecerlo en algún caso, se consultará al responsable antes de cambiarlo.
+- El tipo "07 No censado" de la lista L7 no se ofrece en la ficha. Según las validaciones de la AEAT
+  (F-3), es un NIF correcto de persona física que no figura en el censo. Por tanto, ese cliente se
+  guarda con su NIF, y declararlo como 07 es una decisión de la generación del registro de
+  facturación (feature de facturas).
+- La exclusión de copias de seguridad automáticas es un **riesgo asumido** para esta feature. DEBEN
+  existir antes de cargar datos reales en producción.
+- La fiabilidad del límite por origen depende de que la dirección real del cliente llegue
+  correctamente a través del proxy de producción.
+- Ver o cerrar las propias sesiones abiertas en otros equipos queda fuera de alcance.
 - Los umbrales de bloqueo (5 fallos consecutivos, 15 minutos de bloqueo y 20 intentos en 10
   minutos por origen) siguen las prácticas habituales de seguridad y son configurables. Los tiempos
   de sesión están confirmados en Clarifications.

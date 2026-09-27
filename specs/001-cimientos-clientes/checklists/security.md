@@ -74,3 +74,39 @@ despliegue.
 - Add comments or findings inline
 - Link to relevant resources or documentation
 - Items are numbered sequentially for easy reference
+
+## Resolución asistida (2026-09-27, pendiente de revisión)
+
+Huecos detectados y dónde se han tratado. Los ítems siguen sin marcar: marcarlos corresponde al revisor.
+
+- **Acceso y sesiones**:
+  - CHK001, CHK002: FR-001 y FR-049 (la comprobación de estado solo indica si está operativo).
+  - CHK003: FR-010 (solo huella).
+  - CHK004: FR-016 (el cambio de rol revoca las sesiones).
+  - CHK005: excluido en Assumptions.
+  - CHK010, CHK011: FR-006.
+  - CHK012, CHK021: FR-003.
+  - CHK023: la web no muestra cuenta atrás; decide el servidor (FR-003).
+- **Datos y conservación**:
+  - CHK006: FR-053.
+  - CHK007: FR-022 (auditoría indefinida) y FR-054 (sesiones: 30 días).
+- **Contraseñas**:
+  - CHK008: FR-015 (72 h, una sola visualización).
+  - CHK013, CHK014: FR-008 y R-7.
+  - CHK015: FR-009.
+  - CHK017, CHK019: FR-016 y FR-017.
+- **Despliegue**:
+  - CHK009: FR-048.
+  - CHK028: FR-046.
+  - CHK031: FR-047.
+- **Mensajes y errores**:
+  - CHK016: FR-007 (mensaje propio del límite por origen).
+  - CHK022: FR-011.
+- **Auditoría**:
+  - CHK024: FR-020 (`acceso_limitado`, consola).
+  - CHK025: FR-021.
+  - CHK026: SC-007.
+- **Supuestos**:
+  - CHK032, CHK034: Assumptions (riesgo de copias asumido; dependencia de la IP real).
+- **Sin cambios**: CHK018, CHK020, CHK027, CHK029, CHK030, CHK033 se consideran ya cubiertos o
+  aceptados.

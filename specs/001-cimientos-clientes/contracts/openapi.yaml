@@ -17,6 +17,32 @@ info:
     **Contraseña temporal**: si la sesión la tiene, solo se permiten `GET /sesion`,
     `DELETE /sesion` y `PUT /cuenta/contrasena`. El resto responde 403 con
     `type: .../contrasena-temporal`.
+
+    **Catálogo de `type` de error** (`/problemas/...`):
+
+    | `type` | Estado HTTP |
+    |---|---|
+    | `validacion` | 422, con `errores` por campo |
+    | `no-autenticado` | 401 |
+    | `credenciales` | 401, mensaje genérico (FR-007) |
+    | `sin-permiso` | 403 |
+    | `csrf` | 403 |
+    | `origen` | 403 |
+    | `contrasena-temporal` | 403 |
+    | `no-encontrado` | 404 |
+    | `conflicto-version` | 409 |
+    | `duplicado` | 409, con `cliente_existente` |
+    | `ultimo-administrador` | 409 |
+    | `autogestion` | 409, no se permite sobre la propia cuenta |
+    | `cliente-con-documentos` | 409 |
+    | `limite-origen` | 429 |
+    | `interno` | 500, sin detalles |
+
+    **Versionado**: el prefijo `/v1` se mantiene mientras los cambios sean compatibles. Un cambio
+    incompatible abre `/v2`. La futura app móvil usará esta misma API; su mecanismo de
+    autenticación se decidirá en su feature.
+
+    **Fechas**: RFC 3339 con zona horaria.
 servers:
   - url: /api
 tags:
@@ -376,29 +402,37 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [provincias, paises, tipos_identificacion]
+                required: [provincias, paises, paises_nif_iva, tipos_identificacion]
                 properties:
                   provincias:
                     type: array
                     items:
                       type: object
-                      required: [codigo, nombre]
+                      required: [codigo, nombre, nombre_visible]
                       properties:
                         codigo: { type: string, pattern: "^[0-9]{2}$" }
-                        nombre: { type: string }
+                        nombre: { type: string, description: Literal oficial INE }
+                        nombre_visible: { type: string, description: "Orden natural (p. ej. A Coruña)" }
                   paises:
                     type: array
                     description: Códigos ISO 3166-1 alfa-2. La web los muestra con `Intl.DisplayNames('es')`.
+                    items: { type: string, pattern: "^[A-Z]{2}$" }
+                  paises_nif_iva:
+                    type: array
+                    description: Códigos ISO de los Estados donde se admite el tipo 02 (tabla oficial NIF-IVA)
                     items: { type: string, pattern: "^[A-Z]{2}$" }
                   tipos_identificacion:
                     type: array
                     items:
                       type: object
-                      required: [codigo, descripcion, solo_espana]
+                      required: [codigo, descripcion, ambito]
                       properties:
                         codigo: { $ref: "#/components/schemas/TipoIdentificacion" }
                         descripcion: { type: string }
-                        solo_espana: { type: boolean }
+                        ambito:
+                          type: string
+                          enum: [solo_espana, paises_nif_iva, fuera_de_espana, cualquiera]
+                          description: "NIF: solo_espana; 02: paises_nif_iva; 03: cualquiera; 04-06: fuera_de_espana"
 
 components:
   securitySchemes:
@@ -494,12 +528,16 @@ components:
     TipoCliente: { type: string, enum: [particular, empresa] }
     TipoIdentificacion:
       type: string
-      description: "`NIF` (España) o clave de la lista L7 de DsRegistroVeriFactu.xlsx v1.0 (F-2). El 07 queda excluido."
+      description: >
+        `NIF` (solo país ES) o clave de la lista L7 de DsRegistroVeriFactu.xlsx v1.0 (F-2). Con país
+        ES solo se admiten NIF o 03. El 02 solo se admite para los Estados de la tabla NIF-IVA
+        (Validaciones v1.2.2, nota 1). El 07 se decide al generar el registro de facturación
+        (research R-20.1).
       enum: [NIF, "02", "03", "04", "05", "06"]
     TipoEvento:
       type: string
       enum:
-        [acceso_correcto, acceso_fallido, acceso_bloqueado, cierre_sesion,
+        [acceso_correcto, acceso_fallido, acceso_bloqueado, acceso_limitado, cierre_sesion,
          contrasena_cambiada, contrasena_restablecida,
          usuario_creado, usuario_rol_cambiado, usuario_desactivado, usuario_reactivado,
          cliente_creado, cliente_editado, cliente_desactivado, cliente_reactivado, cliente_borrado]
@@ -599,7 +637,7 @@ components:
         identificacion_tipo: { $ref: "#/components/schemas/TipoIdentificacion" }
         identificacion_numero: { type: string }
         localidad: { type: [string, "null"] }
-        provincia_nombre: { type: [string, "null"], description: Nombre INE o texto libre }
+        provincia_nombre: { type: [string, "null"], description: "nombre_visible de la provincia INE o texto libre" }
         telefono: { type: [string, "null"] }
         correo: { type: [string, "null"] }
         activo: { type: boolean }
