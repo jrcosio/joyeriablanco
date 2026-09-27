@@ -13,8 +13,8 @@ factura.
 
 ## Cómo se trabaja aquí — LEE ESTO PRIMERO
 
-**Todo el desarrollo pasa por Spec Kit (SDD). No se escribe código fuera de `/speckit.implement`
-sobre un `tasks.md` aprobado.**
+**Todo el desarrollo pasa por Spec Kit (SDD). No se escribe código fuera de `/speckit.implement`,
+y el `tasks.md` que se implementa tiene que haber superado `/speckit.analyze`.**
 
 Ciclo obligatorio por feature, sin saltarse pasos:
 
@@ -26,7 +26,11 @@ Ciclo obligatorio por feature, sin saltarse pasos:
 Reglas:
 
 - `/speckit.clarify` y `/speckit.analyze` **no son opcionales**.
-- **Se para entre fase y fase a esperar revisión humana.** No se encadenan comandos.
+- **Las fases se encadenan sin pedir aprobación entre ellas.** Solo se para para preguntar las
+  dudas que requieren decisión humana: las preguntas de `clarify` y las ambigüedades de dominio o
+  normativas. Después se continúa.
+- Cada fase se cierra con un **commit atómico** en la rama de la feature. No se hace push sin
+  pedirlo.
 - Si durante `implement` algo contradice la spec, **se detiene y se corrige la spec primero**,
   nunca al revés.
 - Cada feature vive en `specs/NNN-nombre-feature/` y se cierra con sus tests en verde antes de
