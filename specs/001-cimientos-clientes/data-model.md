@@ -201,7 +201,7 @@ Se carga en la migración con los 52 registros de research R-20.3. El rol de apl
 
 ```
 activo ──desactivar──> inactivo ──reactivar──> activo
-  └──────────── borrar (solo admin, sin documentos) ───────────> (eliminado; queda instantánea en auditoría)
+  └──────────── borrar (solo admin, sin documentos) ───────────> (borrado físico; queda instantánea en auditoría)
 ```
 
 - **"Sin documentos"** (FR-037): en esta feature se implementa como un puerto
