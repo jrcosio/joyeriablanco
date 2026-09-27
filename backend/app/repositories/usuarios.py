@@ -22,3 +22,19 @@ async def add(session: AsyncSession, usuario: Usuario) -> Usuario:
     await session.flush()
     await session.refresh(usuario)
     return usuario
+
+
+async def list_usuarios(session: AsyncSession) -> list[Usuario]:
+    resultado = await session.execute(select(Usuario).order_by(Usuario.nombre, Usuario.id))
+    return list(resultado.scalars())
+
+
+async def lock_active_admins(session: AsyncSession) -> list[uuid.UUID]:
+    """Bloquea (FOR UPDATE) los administradores activos y devuelve sus id (research R-9)."""
+    stmt = (
+        select(Usuario.id)
+        .where(Usuario.rol == "administrador", Usuario.activo.is_(True))
+        .order_by(Usuario.id)
+        .with_for_update()
+    )
+    return list((await session.execute(stmt)).scalars())

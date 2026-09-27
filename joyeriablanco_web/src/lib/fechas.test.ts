@@ -16,3 +16,11 @@ describe('fechas', () => {
     expect(fechaHora('2025-05-27T12:32:00Z')).toBe('27/05/2025, 14:32')
   })
 })
+
+describe('límites de día en hora peninsular', () => {
+  it('usa el desfase de verano o de invierno según la fecha', async () => {
+    const { inicioDia, finDia } = await import('./fechas')
+    expect(inicioDia('2026-07-15')).toBe('2026-07-15T00:00:00+02:00')
+    expect(finDia('2026-01-15')).toBe('2026-01-15T23:59:59.999+01:00')
+  })
+})

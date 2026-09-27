@@ -1,13 +1,21 @@
 """Gestión de usuarios (US1: operaciones de consola; US5: gestión por el administrador)."""
 
 import re
+import uuid
 from datetime import timedelta
 from typing import Final
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import CampoError, DatosNoValidos, Duplicado, NoEncontrado
+from app.core.errors import (
+    Autogestion,
+    CampoError,
+    DatosNoValidos,
+    Duplicado,
+    NoEncontrado,
+    UltimoAdministrador,
+)
 from app.core.http import Origen
 from app.core.security import hash_password
 from app.core.tiempo import ahora
@@ -133,3 +141,110 @@ async def create_usuario(
     return await _crear(
         db, nombre_usuario=nombre_usuario, nombre=nombre, rol=rol, actor=actor, origen=origen
     )
+
+
+# ------------------------------------------------------------------ gestión por el administrador
+
+
+async def list_usuarios(db: AsyncSession) -> list[Usuario]:
+    return await usuarios_repo.list_usuarios(db)
+
+
+async def get_usuario(db: AsyncSession, usuario_id: uuid.UUID) -> Usuario:
+    usuario = await usuarios_repo.get(db, usuario_id)
+    if usuario is None:
+        raise NoEncontrado("El usuario no existe.")
+    return usuario
+
+
+async def _exigir_otro_administrador(db: AsyncSession, usuario: Usuario) -> None:
+    """Regla del último administrador (FR-017), segura frente a concurrencia (FOR UPDATE)."""
+    activos = await usuarios_repo.lock_active_admins(db)
+    await db.refresh(usuario)  # relee el estado tras obtener el bloqueo
+    if usuario.id in activos and len(activos) <= 1:
+        raise UltimoAdministrador
+
+
+async def update_usuario(
+    db: AsyncSession,
+    usuario_id: uuid.UUID,
+    *,
+    nombre: str | None = None,
+    rol: Rol | None = None,
+    actor: Usuario,
+    origen: Origen,
+) -> Usuario:
+    usuario = await get_usuario(db, usuario_id)
+    if nombre is not None:
+        nombre_limpio = nombre.strip()
+        if not nombre_limpio:
+            raise DatosNoValidos(errores=[CampoError("nombre", "Campo obligatorio.")])
+        usuario.nombre = nombre_limpio
+    if rol is not None and rol != usuario.rol:
+        if usuario.id == actor.id:
+            raise Autogestion
+        if usuario.rol == Rol.ADMINISTRADOR:
+            await _exigir_otro_administrador(db, usuario)
+        rol_anterior = usuario.rol
+        usuario.rol = rol.value
+        await sesiones_repo.revoke_all(db, usuario.id, ahora())  # FR-016
+        await record_event(
+            db,
+            TipoEvento.USUARIO_ROL_CAMBIADO,
+            origen=origen,
+            actor=actor,
+            usuario_afectado_id=usuario.id,
+            detalle={"rol": [rol_anterior, rol.value]},
+        )
+    await db.flush()
+    await db.refresh(usuario)
+    return usuario
+
+
+async def deactivate_usuario(
+    db: AsyncSession, usuario_id: uuid.UUID, *, actor: Usuario, origen: Origen
+) -> Usuario:
+    usuario = await get_usuario(db, usuario_id)
+    if usuario.id == actor.id:
+        raise Autogestion
+    if not usuario.activo:
+        return usuario
+    if usuario.rol == Rol.ADMINISTRADOR:
+        await _exigir_otro_administrador(db, usuario)
+    usuario.activo = False
+    await sesiones_repo.revoke_all(db, usuario.id, ahora())  # FR-016
+    await record_event(
+        db,
+        TipoEvento.USUARIO_DESACTIVADO,
+        origen=origen,
+        actor=actor,
+        usuario_afectado_id=usuario.id,
+    )
+    await db.flush()
+    return usuario
+
+
+async def reactivate_usuario(
+    db: AsyncSession, usuario_id: uuid.UUID, *, actor: Usuario, origen: Origen
+) -> Usuario:
+    usuario = await get_usuario(db, usuario_id)
+    if usuario.activo:
+        return usuario
+    usuario.activo = True
+    await record_event(
+        db,
+        TipoEvento.USUARIO_REACTIVADO,
+        origen=origen,
+        actor=actor,
+        usuario_afectado_id=usuario.id,
+    )
+    await db.flush()
+    return usuario
+
+
+async def reset_password(
+    db: AsyncSession, usuario_id: uuid.UUID, *, actor: Usuario, origen: Origen
+) -> tuple[Usuario, str]:
+    usuario = await get_usuario(db, usuario_id)
+    temporal = await _restablecer(db, usuario, actor=actor, origen=origen)
+    return usuario, temporal

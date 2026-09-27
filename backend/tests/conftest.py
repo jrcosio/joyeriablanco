@@ -131,7 +131,7 @@ from datetime import timedelta  # noqa: E402
 from typing import Protocol  # noqa: E402
 
 from fastapi import APIRouter, Depends  # noqa: E402
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 
 from app.core.security import hash_password  # noqa: E402
 from app.core.tiempo import ahora  # noqa: E402
@@ -200,9 +200,14 @@ def iniciar_sesion() -> IniciarSesion:
 
 
 async def eventos(db: AsyncSession, tipo: TipoEvento) -> list[EventoAuditoria]:
+    """Eventos del tipo dado registrados en la transacción del test.
+
+    En PostgreSQL `now()` es la marca de inicio de la transacción, así que filtrar por ella deja
+    fuera los eventos confirmados por otros tests (p. ej. los de la CLI).
+    """
     resultado = await db.execute(
         select(EventoAuditoria)
-        .where(EventoAuditoria.tipo == tipo.value)
+        .where(EventoAuditoria.tipo == tipo.value, EventoAuditoria.ocurrido_en == func.now())
         .order_by(EventoAuditoria.ocurrido_en)
     )
     return list(resultado.scalars())

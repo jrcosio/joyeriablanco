@@ -23,7 +23,7 @@ function Editar({ cliente }: { cliente: ClienteResumenSalida }) {
     <Link
       to="/clientes/$clienteId"
       params={{ clienteId: cliente.id }}
-      search={(previa) => previa}
+      search
       aria-label={`Editar cliente ${cliente.nombre}`}
       className="inline-flex size-10 items-center justify-center border border-outline-variant bg-surface-container-high text-primary transition-colors hover:border-primary-container hover:bg-surface-container-highest"
     >

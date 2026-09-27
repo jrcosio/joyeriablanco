@@ -162,6 +162,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/usuarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Usuarios */
+        get: operations["listar_usuarios_api_v1_usuarios_get"];
+        put?: never;
+        /** Crear Usuario */
+        post: operations["crear_usuario_api_v1_usuarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/usuarios/{usuario_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Usuario */
+        get: operations["obtener_usuario_api_v1_usuarios__usuario_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Editar Usuario */
+        patch: operations["editar_usuario_api_v1_usuarios__usuario_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/usuarios/{usuario_id}/desactivacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Desactivar Usuario */
+        post: operations["desactivar_usuario_api_v1_usuarios__usuario_id__desactivacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/usuarios/{usuario_id}/reactivacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reactivar Usuario */
+        post: operations["reactivar_usuario_api_v1_usuarios__usuario_id__reactivacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/usuarios/{usuario_id}/restablecimiento-contrasena": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restablecer Contrasena */
+        post: operations["restablecer_contrasena_api_v1_usuarios__usuario_id__restablecimiento_contrasena_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auditoria": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consultar Auditoria */
+        get: operations["consultar_auditoria_api_v1_auditoria_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -341,6 +445,34 @@ export interface components {
             /** Contrasena */
             contrasena: string;
         };
+        /** EventoSalida */
+        EventoSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Ocurrido En
+             * Format: date-time
+             */
+            ocurrido_en: string;
+            tipo: components["schemas"]["TipoEvento"];
+            actor: components["schemas"]["UsuarioReferencia"] | null;
+            /** Actor Nombre Usuario */
+            actor_nombre_usuario: string | null;
+            /** Origen Ip */
+            origen_ip: string | null;
+            /** Agente */
+            agente: string | null;
+            usuario_afectado: components["schemas"]["UsuarioReferencia"] | null;
+            /** Cliente Id */
+            cliente_id: string | null;
+            /** Detalle */
+            detalle: {
+                [key: string]: unknown;
+            };
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -357,6 +489,17 @@ export interface components {
         Pagina_ClienteResumenSalida_: {
             /** Elementos */
             elementos: components["schemas"]["ClienteResumenSalida"][];
+            /** Total */
+            total: number;
+            /** Pagina */
+            pagina: number;
+            /** Tamano */
+            tamano: number;
+        };
+        /** Pagina[EventoSalida] */
+        Pagina_EventoSalida_: {
+            /** Elementos */
+            elementos: components["schemas"]["EventoSalida"][];
             /** Total */
             total: number;
             /** Pagina */
@@ -405,6 +548,11 @@ export interface components {
          */
         TipoCliente: "particular" | "empresa";
         /**
+         * TipoEvento
+         * @enum {string}
+         */
+        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado";
+        /**
          * TipoIdentificacion
          * @description `NIF` o clave de la lista L7 de DsRegistroVeriFactu.xlsx v1.0 (spec F-2).
          *
@@ -420,6 +568,26 @@ export interface components {
             descripcion: string;
             /** Ambito */
             ambito: string;
+        };
+        /** UsuarioAltaEntrada */
+        UsuarioAltaEntrada: {
+            /** Nombre Usuario */
+            nombre_usuario: string;
+            /** Nombre */
+            nombre: string;
+            rol: components["schemas"]["Rol"];
+        };
+        /** UsuarioConContrasenaTemporalSalida */
+        UsuarioConContrasenaTemporalSalida: {
+            usuario: components["schemas"]["UsuarioSalida"];
+            /** Contrasena Temporal */
+            contrasena_temporal: string;
+        };
+        /** UsuarioEdicionEntrada */
+        UsuarioEdicionEntrada: {
+            /** Nombre */
+            nombre?: string | null;
+            rol?: components["schemas"]["Rol"] | null;
         };
         /** UsuarioReferencia */
         UsuarioReferencia: {
@@ -855,6 +1023,255 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClienteSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_usuarios_api_v1_usuarios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsuarioSalida"][];
+                };
+            };
+        };
+    };
+    crear_usuario_api_v1_usuarios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UsuarioAltaEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsuarioConContrasenaTemporalSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_usuario_api_v1_usuarios__usuario_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                usuario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsuarioSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editar_usuario_api_v1_usuarios__usuario_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                usuario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UsuarioEdicionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsuarioSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    desactivar_usuario_api_v1_usuarios__usuario_id__desactivacion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                usuario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsuarioSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reactivar_usuario_api_v1_usuarios__usuario_id__reactivacion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                usuario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsuarioSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restablecer_contrasena_api_v1_usuarios__usuario_id__restablecimiento_contrasena_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                usuario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsuarioConContrasenaTemporalSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    consultar_auditoria_api_v1_auditoria_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+                usuario_id?: string | null;
+                tipo?: components["schemas"]["TipoEvento"] | null;
+                cliente_id?: string | null;
+                pagina?: number;
+                tamano?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pagina_EventoSalida_"];
                 };
             };
             /** @description Validation Error */

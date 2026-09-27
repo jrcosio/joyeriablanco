@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { ApiError } from '../../api/client'
 import {
@@ -89,6 +90,15 @@ export function AccionesCliente({
         ) : null}
       </div>
       {!confirmarBaja && !confirmarBorrado ? <Alerta mensaje={error} /> : null}
+      {esAdmin ? (
+        <Link
+          to="/configuracion/auditoria"
+          search={{ cliente: cliente.id, pagina: 1 }}
+          className="self-start label-lg text-primary underline-offset-4 hover:underline"
+        >
+          Ver su actividad en la auditoría
+        </Link>
+      ) : null}
 
       <Dialog
         title={`¿Desactivar a ${cliente.nombre}?`}

@@ -19,6 +19,9 @@ import { Route as AppConfiguracionRouteImport } from './routes/_app/configuracio
 import { Route as AppCuentaRouteImport } from './routes/_app/cuenta'
 import { Route as AppClientesClienteIdRouteImport } from './routes/_app/clientes/$clienteId'
 import { Route as AppClientesNuevoRouteImport } from './routes/_app/clientes/nuevo'
+import { Route as AppConfiguracionIndexRouteImport } from './routes/_app/configuracion/index'
+import { Route as AppConfiguracionAuditoriaRouteImport } from './routes/_app/configuracion/auditoria'
+import { Route as AppConfiguracionUsuariosRouteImport } from './routes/_app/configuracion/usuarios'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -69,6 +72,23 @@ const AppClientesNuevoRoute = AppClientesNuevoRouteImport.update({
   path: '/nuevo',
   getParentRoute: () => AppClientesRoute,
 } as any)
+const AppConfiguracionIndexRoute = AppConfiguracionIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppConfiguracionRoute,
+} as any)
+const AppConfiguracionAuditoriaRoute =
+  AppConfiguracionAuditoriaRouteImport.update({
+    id: '/auditoria',
+    path: '/auditoria',
+    getParentRoute: () => AppConfiguracionRoute,
+  } as any)
+const AppConfiguracionUsuariosRoute =
+  AppConfiguracionUsuariosRouteImport.update({
+    id: '/usuarios',
+    path: '/usuarios',
+    getParentRoute: () => AppConfiguracionRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -76,21 +96,26 @@ export interface FileRoutesByFullPath {
   '/cambiar-contrasena': typeof CambiarContrasenaRoute
   '/acceso-denegado': typeof AppAccesoDenegadoRoute
   '/clientes': typeof AppClientesRouteWithChildren
-  '/configuracion': typeof AppConfiguracionRoute
+  '/configuracion': typeof AppConfiguracionRouteWithChildren
   '/cuenta': typeof AppCuentaRoute
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
+  '/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
+  '/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
+  '/configuracion/': typeof AppConfiguracionIndexRoute
 }
 export interface FileRoutesByTo {
   '/acceso': typeof AccesoRoute
   '/cambiar-contrasena': typeof CambiarContrasenaRoute
   '/acceso-denegado': typeof AppAccesoDenegadoRoute
   '/clientes': typeof AppClientesRouteWithChildren
-  '/configuracion': typeof AppConfiguracionRoute
   '/cuenta': typeof AppCuentaRoute
   '/': typeof AppIndexRoute
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
+  '/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
+  '/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
+  '/configuracion': typeof AppConfiguracionIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -99,11 +124,14 @@ export interface FileRoutesById {
   '/cambiar-contrasena': typeof CambiarContrasenaRoute
   '/_app/acceso-denegado': typeof AppAccesoDenegadoRoute
   '/_app/clientes': typeof AppClientesRouteWithChildren
-  '/_app/configuracion': typeof AppConfiguracionRoute
+  '/_app/configuracion': typeof AppConfiguracionRouteWithChildren
   '/_app/cuenta': typeof AppCuentaRoute
   '/_app/': typeof AppIndexRoute
   '/_app/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/_app/clientes/nuevo': typeof AppClientesNuevoRoute
+  '/_app/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
+  '/_app/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
+  '/_app/configuracion/': typeof AppConfiguracionIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,17 +145,22 @@ export interface FileRouteTypes {
     | '/cuenta'
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
+    | '/configuracion/auditoria'
+    | '/configuracion/usuarios'
+    | '/configuracion/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/acceso'
     | '/cambiar-contrasena'
     | '/acceso-denegado'
     | '/clientes'
-    | '/configuracion'
     | '/cuenta'
     | '/'
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
+    | '/configuracion/auditoria'
+    | '/configuracion/usuarios'
+    | '/configuracion'
   id:
     | '__root__'
     | '/_app'
@@ -140,6 +173,9 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/clientes/$clienteId'
     | '/_app/clientes/nuevo'
+    | '/_app/configuracion/auditoria'
+    | '/_app/configuracion/usuarios'
+    | '/_app/configuracion/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -220,6 +256,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppClientesNuevoRouteImport
       parentRoute: typeof AppClientesRoute
     }
+    '/_app/configuracion/': {
+      id: '/_app/configuracion/'
+      path: '/'
+      fullPath: '/configuracion/'
+      preLoaderRoute: typeof AppConfiguracionIndexRouteImport
+      parentRoute: typeof AppConfiguracionRoute
+    }
+    '/_app/configuracion/auditoria': {
+      id: '/_app/configuracion/auditoria'
+      path: '/auditoria'
+      fullPath: '/configuracion/auditoria'
+      preLoaderRoute: typeof AppConfiguracionAuditoriaRouteImport
+      parentRoute: typeof AppConfiguracionRoute
+    }
+    '/_app/configuracion/usuarios': {
+      id: '/_app/configuracion/usuarios'
+      path: '/usuarios'
+      fullPath: '/configuracion/usuarios'
+      preLoaderRoute: typeof AppConfiguracionUsuariosRouteImport
+      parentRoute: typeof AppConfiguracionRoute
+    }
   }
 }
 
@@ -237,10 +294,25 @@ const AppClientesRouteWithChildren = AppClientesRoute._addFileChildren(
   AppClientesRouteChildren,
 )
 
+interface AppConfiguracionRouteChildren {
+  AppConfiguracionAuditoriaRoute: typeof AppConfiguracionAuditoriaRoute
+  AppConfiguracionUsuariosRoute: typeof AppConfiguracionUsuariosRoute
+  AppConfiguracionIndexRoute: typeof AppConfiguracionIndexRoute
+}
+
+const AppConfiguracionRouteChildren: AppConfiguracionRouteChildren = {
+  AppConfiguracionAuditoriaRoute: AppConfiguracionAuditoriaRoute,
+  AppConfiguracionUsuariosRoute: AppConfiguracionUsuariosRoute,
+  AppConfiguracionIndexRoute: AppConfiguracionIndexRoute,
+}
+
+const AppConfiguracionRouteWithChildren =
+  AppConfiguracionRoute._addFileChildren(AppConfiguracionRouteChildren)
+
 interface AppRouteChildren {
   AppAccesoDenegadoRoute: typeof AppAccesoDenegadoRoute
   AppClientesRoute: typeof AppClientesRouteWithChildren
-  AppConfiguracionRoute: typeof AppConfiguracionRoute
+  AppConfiguracionRoute: typeof AppConfiguracionRouteWithChildren
   AppCuentaRoute: typeof AppCuentaRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -248,7 +320,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAccesoDenegadoRoute: AppAccesoDenegadoRoute,
   AppClientesRoute: AppClientesRouteWithChildren,
-  AppConfiguracionRoute: AppConfiguracionRoute,
+  AppConfiguracionRoute: AppConfiguracionRouteWithChildren,
   AppCuentaRoute: AppCuentaRoute,
   AppIndexRoute: AppIndexRoute,
 }

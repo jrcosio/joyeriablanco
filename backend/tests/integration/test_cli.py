@@ -1,10 +1,11 @@
 """Operaciones de consola: primer administrador, rescate y purga (FR-018, FR-020, FR-054)."""
 
+import asyncio
 import uuid
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, select, text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from typer.testing import CliRunner
 
 from app.cli import app as cli
@@ -99,13 +100,24 @@ async def test_purgar_solo_sesiones_caducadas_o_revocadas_hace_mas_de_30_dias(
     assert restantes == 2
 
 
-def test_comando_crear_admin_muestra_la_contrasena_una_vez() -> None:
+async def test_comando_crear_admin_muestra_la_contrasena_una_vez(
+    engine_owner: AsyncEngine,
+) -> None:
+    """Prueba de humo del comando real: confirma en la BD, así que limpia al terminar."""
     nombre = f"admin.{uuid.uuid4().hex[:8]}"
+    argumentos = ["crear-admin", "--usuario", nombre, "--nombre", "Jefa"]
+    try:
+        # La CLI usa su propio bucle de eventos: se ejecuta en otro hilo.
+        resultado = await asyncio.to_thread(CliRunner().invoke, cli, argumentos)
+        repetido = await asyncio.to_thread(CliRunner().invoke, cli, argumentos)
 
-    resultado = CliRunner().invoke(cli, ["crear-admin", "--usuario", nombre, "--nombre", "Jefa"])
-
-    assert resultado.exit_code == 0, resultado.output
-    assert nombre in resultado.output
-    assert "temporal" in resultado.output.lower()
-    repetido = CliRunner().invoke(cli, ["crear-admin", "--usuario", nombre, "--nombre", "Jefa"])
-    assert repetido.exit_code != 0
+        assert resultado.exit_code == 0, resultado.output
+        assert nombre in resultado.output
+        assert "temporal" in resultado.output.lower()
+        assert repetido.exit_code != 0
+    finally:
+        # Que este administrador no cuente en las pruebas de la regla del último administrador.
+        async with engine_owner.begin() as conn:
+            await conn.execute(
+                text("UPDATE usuarios SET activo = false WHERE nombre_usuario = :n"), {"n": nombre}
+            )

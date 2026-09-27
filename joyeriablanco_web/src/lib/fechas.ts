@@ -38,3 +38,24 @@ export function fechaHora(fecha: Date | string): string {
 export function claveDia(fecha: Date): string {
   return claveDiaFmt.format(fecha)
 }
+
+/** Desfase de Europe/Madrid (p. ej. "+02:00") en una fecha AAAA-MM-DD. */
+function desfaseMadrid(fecha: string): string {
+  const instante = new Date(`${fecha}T12:00:00Z`)
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: ZONA_HORARIA,
+    timeZoneName: 'longOffset',
+  }).formatToParts(instante)
+  const nombre = partes.find((p) => p.type === 'timeZoneName')?.value ?? 'GMT+01:00'
+  return nombre === 'GMT' ? '+00:00' : nombre.replace('GMT', '')
+}
+
+/** Inicio del día (00:00) en hora peninsular, en ISO con zona. */
+export function inicioDia(fecha: string): string {
+  return `${fecha}T00:00:00${desfaseMadrid(fecha)}`
+}
+
+/** Fin del día (23:59:59.999) en hora peninsular, en ISO con zona. */
+export function finDia(fecha: string): string {
+  return `${fecha}T23:59:59.999${desfaseMadrid(fecha)}`
+}

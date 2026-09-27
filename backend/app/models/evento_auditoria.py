@@ -10,10 +10,11 @@ from typing import Any
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import INET, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.domain.tipos import TipoEvento, sql_in
 from app.models.base import Base, UuidPkMixin
+from app.models.usuario import Usuario
 
 
 class EventoAuditoria(UuidPkMixin, Base):
@@ -28,6 +29,13 @@ class EventoAuditoria(UuidPkMixin, Base):
     usuario_afectado_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuarios.id"))
     cliente_id: Mapped[uuid.UUID | None]  # sin FK: sobrevive al borrado físico del cliente
     detalle: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+
+    actor: Mapped[Usuario | None] = relationship(
+        foreign_keys=[actor_id], lazy="joined", viewonly=True
+    )
+    usuario_afectado: Mapped[Usuario | None] = relationship(
+        foreign_keys=[usuario_afectado_id], lazy="joined", viewonly=True
+    )
 
     __table_args__ = (
         CheckConstraint(f"tipo IN {sql_in(TipoEvento)}", name="tipo"),

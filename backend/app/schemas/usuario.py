@@ -3,10 +3,12 @@
 import uuid
 from datetime import datetime
 
+from pydantic import Field, model_validator
+
 from app.core.tiempo import ahora
 from app.domain.tipos import Rol
 from app.models.usuario import Usuario
-from app.schemas.comunes import SalidaBase
+from app.schemas.comunes import EntradaBase, SalidaBase
 
 
 class UsuarioReferencia(SalidaBase):
@@ -38,3 +40,26 @@ class UsuarioSalida(SalidaBase):
             ultimo_acceso_en=usuario.ultimo_acceso_en,
             creado_en=usuario.creado_en,
         )
+
+
+class UsuarioAltaEntrada(EntradaBase):
+    nombre_usuario: str = Field(pattern=r"^[a-zA-Z0-9._-]{3,50}$")
+    nombre: str = Field(min_length=1, max_length=120)
+    rol: Rol
+
+
+class UsuarioEdicionEntrada(EntradaBase):
+    nombre: str | None = Field(default=None, min_length=1, max_length=120)
+    rol: Rol | None = None
+
+    @model_validator(mode="after")
+    def _algun_cambio(self) -> "UsuarioEdicionEntrada":
+        if self.nombre is None and self.rol is None:
+            msg = "Indica al menos un cambio."
+            raise ValueError(msg)
+        return self
+
+
+class UsuarioConContrasenaTemporalSalida(SalidaBase):
+    usuario: UsuarioSalida
+    contrasena_temporal: str

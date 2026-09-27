@@ -357,27 +357,27 @@ auditoría.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T090 [P] [US5] Test `backend/tests/integration/test_usuarios.py`:
+- [X] T090 [P] [US5] Test `backend/tests/integration/test_usuarios.py`:
   - **Alta**: 201 con temporal devuelta una sola vez; nombre de usuario duplicado sin distinguir mayúsculas → 409.
   - **Revocación**: cambiar el rol, desactivar o restablecer revocan todas las sesiones del afectado; el restablecimiento levanta el bloqueo.
   - **Último administrador**: → 409 `ultimo-administrador`, también con dos peticiones concurrentes.
   - **Sobre la propia cuenta**: desactivarse o cambiarse el rol → 409 `autogestion`.
   - **Empleado**: 403 en todos los endpoints.
   - **Auditoría**: eventos de usuario (FR-012 a FR-017).
-- [ ] T091 [P] [US5] Test `backend/tests/integration/test_auditoria_consulta.py`: filtros por fechas, usuario (actor o afectado), tipo y cliente, combinables; orden descendente; paginación; empleado → 403 (FR-051)
+- [X] T091 [P] [US5] Test `backend/tests/integration/test_auditoria_consulta.py`: filtros por fechas, usuario (actor o afectado), tipo y cliente, combinables; orden descendente; paginación; empleado → 403 (FR-051)
 
 ### Implementation for User Story 5
 
-- [ ] T092 [US5] Implementar `backend/app/services/usuarios.py` (alta con temporal de 72 h, edición de nombre y rol, desactivar, reactivar y restablecer; regla del último administrador con `SELECT … FOR UPDATE` y regla de la propia cuenta; revocación de sesiones; auditoría) y ampliar `backend/app/repositories/usuarios.py` (listado y bloqueo de administradores activos)
-- [ ] T093 [P] [US5] Crear los esquemas `UsuarioAltaEntrada`, `UsuarioEdicionEntrada` y `UsuarioConContrasenaTemporalSalida` en `backend/app/schemas/usuario.py`
-- [ ] T094 [US5] Implementar `backend/app/api/v1/usuarios.py` (las seis operaciones del contrato con `require_admin`)
-- [ ] T095 [US5] Añadir la consulta paginada y filtrada a `backend/app/repositories/auditoria.py` y `backend/app/services/auditoria.py`, crear `backend/app/schemas/auditoria.py` (`EventoSalida`, `PaginaEventos`) e implementar `backend/app/api/v1/auditoria.py` con `require_admin`
-- [ ] T096 [US5] Regenerar los tipos (`exportar-openapi` + `gen:api`) y crear las queries en `joyeriablanco_web/src/api/queries/usuarios.ts` y `joyeriablanco_web/src/api/queries/auditoria.ts`
-- [ ] T097 [US5] Crear las rutas `joyeriablanco_web/src/routes/_app/configuracion.tsx` (layout con `requireAdmin` y navegación Usuarios/Auditoría) y `joyeriablanco_web/src/routes/_app/configuracion/index.tsx` (redirige a `usuarios`)
-- [ ] T098 [US5] Crear `joyeriablanco_web/src/features/usuarios/UsuariosPage.tsx`, `UsuarioAltaDialog.tsx` y `ContrasenaTemporalDialog.tsx` (se muestra una vez, botón copiar, aviso, cierre solo con confirmación explícita), con las acciones de rol, desactivar, reactivar y restablecer y sus confirmaciones y avisos. Ruta `joyeriablanco_web/src/routes/_app/configuracion/usuarios.tsx`
-- [ ] T099 [US5] Crear `joyeriablanco_web/src/features/auditoria/AuditoriaPage.tsx` (filtros, tabla con fechas es-ES, detalle del evento con el *diff* en un panel) y la ruta `joyeriablanco_web/src/routes/_app/configuracion/auditoria.tsx`
-- [ ] T100 [P] [US5] Tests web `joyeriablanco_web/src/features/usuarios/UsuariosPage.test.tsx` (temporal mostrada una vez; error de último administrador) y `joyeriablanco_web/src/features/auditoria/AuditoriaPage.test.tsx`
-- [ ] T101 [P] [US5] E2E `joyeriablanco_web/e2e/usuarios.spec.ts`: el administrador crea un empleado → el empleado entra y cambia la temporal → no ve Configuración → el administrador lo desactiva con la sesión del empleado abierta en otro contexto → la siguiente acción del empleado lo lleva al acceso; la auditoría muestra los eventos
+- [X] T092 [US5] Implementar `backend/app/services/usuarios.py` (alta con temporal de 72 h, edición de nombre y rol, desactivar, reactivar y restablecer; regla del último administrador con `SELECT … FOR UPDATE` y regla de la propia cuenta; revocación de sesiones; auditoría) y ampliar `backend/app/repositories/usuarios.py` (listado y bloqueo de administradores activos)
+- [X] T093 [P] [US5] Crear los esquemas `UsuarioAltaEntrada`, `UsuarioEdicionEntrada` y `UsuarioConContrasenaTemporalSalida` en `backend/app/schemas/usuario.py`
+- [X] T094 [US5] Implementar `backend/app/api/v1/usuarios.py` (las seis operaciones del contrato con `require_admin`)
+- [X] T095 [US5] Añadir la consulta paginada y filtrada a `backend/app/repositories/auditoria.py` y `backend/app/services/auditoria.py`, crear `backend/app/schemas/auditoria.py` (`EventoSalida`, `PaginaEventos`) e implementar `backend/app/api/v1/auditoria.py` con `require_admin`
+- [X] T096 [US5] Regenerar los tipos (`exportar-openapi` + `gen:api`) y crear las queries en `joyeriablanco_web/src/api/queries/usuarios.ts` y `joyeriablanco_web/src/api/queries/auditoria.ts`
+- [X] T097 [US5] Crear las rutas `joyeriablanco_web/src/routes/_app/configuracion.tsx` (layout con `requireAdmin` y navegación Usuarios/Auditoría) y `joyeriablanco_web/src/routes/_app/configuracion/index.tsx` (redirige a `usuarios`)
+- [X] T098 [US5] Crear `joyeriablanco_web/src/features/usuarios/UsuariosPage.tsx`, `UsuarioAltaDialog.tsx` y `ContrasenaTemporalDialog.tsx` (se muestra una vez, botón copiar, aviso, cierre solo con confirmación explícita), con las acciones de rol, desactivar, reactivar y restablecer y sus confirmaciones y avisos. Ruta `joyeriablanco_web/src/routes/_app/configuracion/usuarios.tsx`
+- [X] T099 [US5] Crear `joyeriablanco_web/src/features/auditoria/AuditoriaPage.tsx` (filtros, tabla con fechas es-ES, detalle del evento con el *diff* en un panel) y la ruta `joyeriablanco_web/src/routes/_app/configuracion/auditoria.tsx`
+- [X] T100 [P] [US5] Tests web `joyeriablanco_web/src/features/usuarios/UsuariosPage.test.tsx` (temporal mostrada una vez; error de último administrador) y `joyeriablanco_web/src/features/auditoria/AuditoriaPage.test.tsx`
+- [X] T101 [P] [US5] E2E `joyeriablanco_web/e2e/usuarios.spec.ts`: el administrador crea un empleado → el empleado entra y cambia la temporal → no ve Configuración → el administrador lo desactiva con la sesión del empleado abierta en otro contexto → la siguiente acción del empleado lo lleva al acceso; la auditoría muestra los eventos
 
 **Checkpoint**: US5 funciona de forma independiente.
 

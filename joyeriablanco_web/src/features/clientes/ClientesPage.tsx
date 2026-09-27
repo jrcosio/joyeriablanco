@@ -71,7 +71,7 @@ export function ClientesPage({
         title="Todavía no hay clientes"
         description="Da de alta el primer cliente de la joyería para empezar."
         action={
-          <Link to="/clientes/nuevo" search={(previa) => previa} className={claseBotonPrimario}>
+          <Link to="/clientes/nuevo" search className={claseBotonPrimario}>
             <Plus aria-hidden="true" className="size-4" />
             Nuevo cliente
           </Link>
@@ -104,7 +104,7 @@ export function ClientesPage({
         title="Clientes"
         subtitle="Gestiona tu cartera de clientes y consulta su historial de facturación."
         actions={
-          <Link to="/clientes/nuevo" search={(previa) => previa} className={claseBotonPrimario}>
+          <Link to="/clientes/nuevo" search className={claseBotonPrimario}>
             <Plus aria-hidden="true" className="size-4" />
             Nuevo cliente
           </Link>

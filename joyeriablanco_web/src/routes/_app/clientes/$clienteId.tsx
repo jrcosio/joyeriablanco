@@ -20,7 +20,7 @@ function FichaCliente() {
   const editar = useEditarCliente(clienteId)
   const { usuario } = useSesion()
   const cerrar = () => {
-    void navigate({ to: '/clientes', search: (previa) => previa })
+    void navigate({ to: '/clientes', search: true })
   }
 
   if (ficha.isError) {

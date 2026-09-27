@@ -15,7 +15,7 @@ function NuevoCliente() {
   const crear = useCrearCliente()
   const reactivar = useReactivarCliente()
   const cerrar = () => {
-    void navigate({ to: '/clientes', search: (previa) => previa })
+    void navigate({ to: '/clientes', search: true })
   }
   return (
     <ClientePanel
@@ -32,7 +32,7 @@ function NuevoCliente() {
                 void navigate({
                   to: '/clientes/$clienteId',
                   params: { clienteId: existente.id },
-                  search: (previa) => previa,
+                  search: true,
                 })
               })
             }}

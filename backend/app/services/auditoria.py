@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.http import Origen
 from app.domain.tipos import TipoEvento
+from app.models.evento_auditoria import EventoAuditoria
 from app.models.usuario import Usuario
 from app.repositories import auditoria as repo
 
@@ -76,4 +77,27 @@ async def record_event(
         usuario_afectado_id=usuario_afectado_id,
         cliente_id=cliente_id,
         detalle=detalle_json,
+    )
+
+
+async def query_events(
+    session: AsyncSession,
+    *,
+    desde: datetime | None = None,
+    hasta: datetime | None = None,
+    usuario_id: uuid.UUID | None = None,
+    tipo: TipoEvento | None = None,
+    cliente_id: uuid.UUID | None = None,
+    pagina: int = 1,
+    tamano: int = 25,
+) -> tuple[list[EventoAuditoria], int]:
+    return await repo.query_events(
+        session,
+        desde=desde,
+        hasta=hasta,
+        usuario_id=usuario_id,
+        tipo=tipo,
+        cliente_id=cliente_id,
+        pagina=pagina,
+        tamano=tamano,
     )

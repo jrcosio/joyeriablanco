@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.tipos import TipoEvento
@@ -47,3 +47,44 @@ async def count_by_origin_since(
         EventoAuditoria.ocurrido_en >= desde,
     )
     return int((await session.execute(stmt)).scalar_one())
+
+
+async def query_events(
+    session: AsyncSession,
+    *,
+    desde: datetime | None,
+    hasta: datetime | None,
+    usuario_id: uuid.UUID | None,
+    tipo: TipoEvento | None,
+    cliente_id: uuid.UUID | None,
+    pagina: int,
+    tamano: int,
+) -> tuple[list[EventoAuditoria], int]:
+    """Consulta de solo lectura, del evento más reciente al más antiguo (FR-051)."""
+    condiciones = []
+    if desde is not None:
+        condiciones.append(EventoAuditoria.ocurrido_en >= desde)
+    if hasta is not None:
+        condiciones.append(EventoAuditoria.ocurrido_en <= hasta)
+    if usuario_id is not None:
+        condiciones.append(
+            or_(
+                EventoAuditoria.actor_id == usuario_id,
+                EventoAuditoria.usuario_afectado_id == usuario_id,
+            )
+        )
+    if tipo is not None:
+        condiciones.append(EventoAuditoria.tipo == tipo.value)
+    if cliente_id is not None:
+        condiciones.append(EventoAuditoria.cliente_id == cliente_id)
+    total = await session.scalar(
+        select(func.count()).select_from(EventoAuditoria).where(*condiciones)
+    )
+    stmt = (
+        select(EventoAuditoria)
+        .where(*condiciones)
+        .order_by(EventoAuditoria.ocurrido_en.desc(), EventoAuditoria.id.desc())
+        .offset((pagina - 1) * tamano)
+        .limit(tamano)
+    )
+    return list((await session.execute(stmt)).unique().scalars()), int(total or 0)
