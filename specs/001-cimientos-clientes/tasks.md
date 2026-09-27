@@ -63,48 +63,48 @@ usuarios, sesiones y auditoría, porque cualquier operación se audita.
 
 ### Backend: núcleo
 
-- [ ] T009 Implementar `backend/app/core/config.py` (`Settings` de pydantic-settings con todas las variables de T002, valores por defecto de la spec y validación de `ENTORNO` ∈ {desarrollo, e2e, test, produccion})
-- [ ] T010 [P] Implementar `backend/app/core/db.py`: motor asíncrono psycopg con `DATABASE_URL_APP`, `async_sessionmaker` y dependencia `get_db` con transacción por petición
-- [ ] T011 [P] Implementar `backend/app/core/logging.py`: logs JSON a stdout (python-json-logger), `request_id` por petición y filtro de redacción de contraseñas, tokens, cookies y datos personales (FR-053)
-- [ ] T012 [P] Implementar `backend/app/core/errors.py`: excepciones de dominio (`ValidationError`, `NotFound`, `Conflict` con subtipos, `Forbidden`, `Unauthenticated`, `RateLimited`), respuesta RFC 9457 con el catálogo de `type` de `contracts/openapi.yaml`, manejadores de `RequestValidationError` (errores por campo en español) y un manejador genérico 500 sin trazas (FR-049)
-- [ ] T013 [P] Implementar `backend/app/core/http.py`: middleware de `request_id`, `Cache-Control: no-store` en `/api/v1/*`, extracción de la IP del cliente (respetando las cabeceras de proxy de uvicorn) y utilidad `check_origin(request)` contra `ORIGEN_PERMITIDO` (research R-6, R-8)
-- [ ] T014 Implementar `backend/app/models/base.py`: `DeclarativeBase` con `naming_convention`, tipo UUID con `server_default=text("uuidv7()")` y mixin de marcas `creado_en`/`actualizado_en` con `timestamptz`
-- [ ] T015 Configurar Alembic con `backend/alembic.ini` y `backend/alembic/env.py`, que conecta con `DATABASE_URL_OWNER` y usa `target_metadata` de `app.models`. Crear la migración `backend/alembic/versions/0001_extensiones_y_privilegios.py`:
+- [X] T009 Implementar `backend/app/core/config.py` (`Settings` de pydantic-settings con todas las variables de T002, valores por defecto de la spec y validación de `ENTORNO` ∈ {desarrollo, e2e, test, produccion})
+- [X] T010 [P] Implementar `backend/app/core/db.py`: motor asíncrono psycopg con `DATABASE_URL_APP`, `async_sessionmaker` y dependencia `get_db` con transacción por petición
+- [X] T011 [P] Implementar `backend/app/core/logging.py`: logs JSON a stdout (python-json-logger), `request_id` por petición y filtro de redacción de contraseñas, tokens, cookies y datos personales (FR-053)
+- [X] T012 [P] Implementar `backend/app/core/errors.py`: excepciones de dominio (`ValidationError`, `NotFound`, `Conflict` con subtipos, `Forbidden`, `Unauthenticated`, `RateLimited`), respuesta RFC 9457 con el catálogo de `type` de `contracts/openapi.yaml`, manejadores de `RequestValidationError` (errores por campo en español) y un manejador genérico 500 sin trazas (FR-049)
+- [X] T013 [P] Implementar `backend/app/core/http.py`: middleware de `request_id`, `Cache-Control: no-store` en `/api/v1/*`, extracción de la IP del cliente (respetando las cabeceras de proxy de uvicorn) y utilidad `check_origin(request)` contra `ORIGEN_PERMITIDO` (research R-6, R-8)
+- [X] T014 Implementar `backend/app/models/base.py`: `DeclarativeBase` con `naming_convention`, tipo UUID con `server_default=text("uuidv7()")` y mixin de marcas `creado_en`/`actualizado_en` con `timestamptz`
+- [X] T015 Configurar Alembic con `backend/alembic.ini` y `backend/alembic/env.py`, que conecta con `DATABASE_URL_OWNER` y usa `target_metadata` de `app.models`. Crear la migración `backend/alembic/versions/0001_extensiones_y_privilegios.py`:
   - Extensiones `unaccent` y `pg_trgm`.
   - Función `inmutable_unaccent(text)` IMMUTABLE.
   - `ALTER DEFAULT PRIVILEGES FOR ROLE jb_owner IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO jb_app` y `USAGE` en secuencias.
-- [ ] T016 Crear los modelos `backend/app/models/usuario.py`, `backend/app/models/sesion.py` y `backend/app/models/evento_auditoria.py` según data-model.md (columnas, CHECK, índices, catálogo `tipo`) y exportarlos en `backend/app/models/__init__.py`
-- [ ] T017 Crear la migración `backend/alembic/versions/0002_usuarios_sesiones_auditoria.py` con las tablas, índices y el índice único `lower(nombre_usuario)`. En `eventos_auditoria`: `REVOKE UPDATE, DELETE, TRUNCATE … FROM jb_app`, trigger `BEFORE UPDATE OR DELETE` (por fila) y trigger `BEFORE TRUNCATE` (por sentencia), ambos con `RAISE EXCEPTION 'La auditoría es inalterable'` (FR-022, research R-10)
-- [ ] T018 Implementar `backend/app/repositories/auditoria.py` (`insert_event`) y `backend/app/services/auditoria.py`: `record_event(tipo, actor, origen, detalle, …)` con cálculo del *diff* `{campo: [antes, después]}` y exclusión de secretos (FR-020, FR-021)
-- [ ] T019 Implementar la factoría `backend/app/main.py` (routers, middlewares y manejadores de errores), `backend/app/api/salud.py` (`GET /api/salud`, que solo devuelve `{"estado":"ok"}` o 503 tras un ping a la BD, FR-049) y el comando `exportar-openapi` en `backend/app/cli.py` (Typer), que escribe `joyeriablanco_web/src/api/openapi.json`
-- [ ] T020 Crear `backend/tests/conftest.py`:
+- [X] T016 Crear los modelos `backend/app/models/usuario.py`, `backend/app/models/sesion.py` y `backend/app/models/evento_auditoria.py` según data-model.md (columnas, CHECK, índices, catálogo `tipo`) y exportarlos en `backend/app/models/__init__.py`
+- [X] T017 Crear la migración `backend/alembic/versions/0002_usuarios_sesiones_auditoria.py` con las tablas, índices y el índice único `lower(nombre_usuario)`. En `eventos_auditoria`: `REVOKE UPDATE, DELETE, TRUNCATE … FROM jb_app`, trigger `BEFORE UPDATE OR DELETE` (por fila) y trigger `BEFORE TRUNCATE` (por sentencia), ambos con `RAISE EXCEPTION 'La auditoría es inalterable'` (FR-022, research R-10)
+- [X] T018 Implementar `backend/app/repositories/auditoria.py` (`insert_event`) y `backend/app/services/auditoria.py`: `record_event(tipo, actor, origen, detalle, …)` con cálculo del *diff* `{campo: [antes, después]}` y exclusión de secretos (FR-020, FR-021)
+- [X] T019 Implementar la factoría `backend/app/main.py` (routers, middlewares y manejadores de errores), `backend/app/api/salud.py` (`GET /api/salud`, que solo devuelve `{"estado":"ok"}` o 503 tras un ping a la BD, FR-049) y el comando `exportar-openapi` en `backend/app/cli.py` (Typer), que escribe `joyeriablanco_web/src/api/openapi.json`
+- [X] T020 Crear `backend/tests/conftest.py`:
   - Settings de test apuntando a `joyeriablanco_test`, con `TEST_DATABASE_URL_APP` y `TEST_DATABASE_URL_OWNER` (por defecto `127.0.0.1:5432`, para ejecutar `uv run pytest` desde el host; sobrescribibles dentro del contenedor).
   - `alembic upgrade head` una vez por sesión como `jb_owner`.
   - Sesión de BD por test con *savepoint* revertido.
   - `httpx.AsyncClient` con `ASGITransport`.
   - Factorías de usuario y sesión.
   - Fixture `db_owner` y fixture `db_app` para tests de privilegios.
-- [ ] T021 [P] Test `backend/tests/integration/test_salud.py`: 200 `{"estado":"ok"}`, sin cabeceras de versión y sin autenticación
-- [ ] T022 [P] Test `backend/tests/integration/test_auditoria_inalterable.py`: `UPDATE`, `DELETE` y `TRUNCATE` sobre `eventos_auditoria` fallan como `jb_app` (privilegios) y como `jb_owner` (triggers). `jb_app` no puede `CREATE TABLE` ni `ALTER TABLE` (FR-022, FR-047, SC-007)
+- [X] T021 [P] Test `backend/tests/integration/test_salud.py`: 200 `{"estado":"ok"}`, sin cabeceras de versión y sin autenticación
+- [X] T022 [P] Test `backend/tests/integration/test_auditoria_inalterable.py`: `UPDATE`, `DELETE` y `TRUNCATE` sobre `eventos_auditoria` fallan como `jb_app` (privilegios) y como `jb_owner` (triggers). `jb_app` no puede `CREATE TABLE` ni `ALTER TABLE` (FR-022, FR-047, SC-007)
 
 ### Web: núcleo
 
-- [ ] T023 Crear `joyeriablanco_web/src/styles/tokens.css`, **la única definición de tokens** (constitución 1.1.0), a partir de `docs/DESIGN.md`:
+- [X] T023 Crear `joyeriablanco_web/src/styles/tokens.css`, **la única definición de tokens** (constitución 1.1.0), a partir de `docs/DESIGN.md`:
   - `@theme` de Tailwind v4 con todos los colores del frontmatter (incluidos `success`, `warning` y `danger`).
   - Familias Bodoni Moda y Manrope.
   - Utilidades de la escala tipográfica (`headline-*`, `title-*`, `body-*`, `label-*`).
   - Espaciado (`space-*`, `gutter` y `margin`).
   - Radio global a 0 y sombra de nivel 2.
-- [ ] T024 Crear `joyeriablanco_web/src/styles/base.css`: importaciones de `@fontsource/bodoni-moda` y `@fontsource-variable/manrope`, `body` con `background` y `on-surface`, cifras tabulares donde procede y foco visible (contorno de 1 px en `tertiary` con 2 px de separación en controles no-campo, FR-052)
-- [ ] T025 Generar tipos con `joyeriablanco_web/src/api/schema.gen.ts` (script `gen:api`: `openapi-typescript src/api/openapi.json`) e implementar el cliente `joyeriablanco_web/src/api/client.ts` (openapi-fetch):
+- [X] T024 Crear `joyeriablanco_web/src/styles/base.css`: importaciones de `@fontsource/bodoni-moda` y `@fontsource-variable/manrope`, `body` con `background` y `on-surface`, cifras tabulares donde procede y foco visible (contorno de 1 px en `tertiary` con 2 px de separación en controles no-campo, FR-052)
+- [X] T025 Generar tipos con `joyeriablanco_web/src/api/schema.gen.ts` (script `gen:api`: `openapi-typescript src/api/openapi.json`) e implementar el cliente `joyeriablanco_web/src/api/client.ts` (openapi-fetch):
   - Middleware que añade `X-CSRF-Token` en POST, PUT, PATCH y DELETE.
   - Parseo de `application/problem+json` a un tipo `Problema`.
   - Gancho `onUnauthenticated` para 401 y para 403 con `type` `csrf` (FR-011).
-- [ ] T026 Crear `joyeriablanco_web/src/router.tsx`, `joyeriablanco_web/src/routes/__root.tsx` (con componente de 404, FR-041) y `joyeriablanco_web/src/main.tsx` con `QueryClientProvider` y `RouterProvider`
-- [ ] T027 [P] Crear las primitivas sobre react-aria-components con los estilos de `contracts/ui-rutas.md` §"Aplicación de DESIGN.md": `Button.tsx` (primario, secundario, ghost/destructivo), `TextField.tsx`, `Select.tsx` y `ComboBox.tsx`, en `joyeriablanco_web/src/components/ui/`
-- [ ] T028 [P] Crear `Dialog.tsx` y `Drawer.tsx` (nivel 2; pantalla completa por debajo de 768 px) y `Toast.tsx` (nivel 3, 5 s, se puede cerrar), en `joyeriablanco_web/src/components/ui/`
-- [ ] T029 [P] Crear `Chip.tsx` (success, warning, danger), `Card.tsx`, `Kpi.tsx`, `Skeleton.tsx`, `EmptyState.tsx`, `ErrorState.tsx` (con Reintentar) y `Pagination.tsx`, en `joyeriablanco_web/src/components/ui/`
-- [ ] T030 [P] Crear las utilidades en `joyeriablanco_web/src/lib/`, con sus tests `*.test.ts`:
+- [X] T026 Crear `joyeriablanco_web/src/router.tsx`, `joyeriablanco_web/src/routes/__root.tsx` (con componente de 404, FR-041) y `joyeriablanco_web/src/main.tsx` con `QueryClientProvider` y `RouterProvider`
+- [X] T027 [P] Crear las primitivas sobre react-aria-components con los estilos de `contracts/ui-rutas.md` §"Aplicación de DESIGN.md": `Button.tsx` (primario, secundario, ghost/destructivo), `TextField.tsx`, `Select.tsx` y `ComboBox.tsx`, en `joyeriablanco_web/src/components/ui/`
+- [X] T028 [P] Crear `Dialog.tsx` y `Drawer.tsx` (nivel 2; pantalla completa por debajo de 768 px) y `Toast.tsx` (nivel 3, 5 s, se puede cerrar), en `joyeriablanco_web/src/components/ui/`
+- [X] T029 [P] Crear `Chip.tsx` (success, warning, danger), `Card.tsx`, `Kpi.tsx`, `Skeleton.tsx`, `EmptyState.tsx`, `ErrorState.tsx` (con Reintentar) y `Pagination.tsx`, en `joyeriablanco_web/src/components/ui/`
+- [X] T030 [P] Crear las utilidades en `joyeriablanco_web/src/lib/`, con sus tests `*.test.ts`:
   - `fechas.ts`: fecha larga es-ES en Europe/Madrid con la primera letra en mayúscula, y formato "27/05/2025, 14:32".
   - `texto.ts`: iniciales según FR-056.
   - `paises.ts`: `Intl.DisplayNames('es')`, orden alfabético con España primero (FR-060).

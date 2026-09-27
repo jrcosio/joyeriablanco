@@ -28,7 +28,7 @@ COPY . .
 RUN uv sync --frozen && chown -R app:app /opt/venv
 USER app
 EXPOSE 8000
-CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--reload", "--no-server-header"]
 
 # ---------------------------------------------------------------------- prod-build
 FROM base AS prod-build
@@ -57,4 +57,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
   CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/salud', timeout=2)"]
 # FORWARDED_ALLOW_IPS lo fija docker-compose.prod.yml (solo Caddy llega a la API)
-CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers"]
+CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers", "--no-server-header"]
