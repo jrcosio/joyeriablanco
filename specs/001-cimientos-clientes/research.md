@@ -173,7 +173,9 @@ varios workers.
 - **Tabla**: `eventos_auditoria`, de solo inserción.
 - **Doble cierre en la BD** (FR-022):
   1. `REVOKE UPDATE, DELETE, TRUNCATE` al rol de aplicación.
-  2. Trigger `BEFORE UPDATE OR DELETE` que lanza una excepción, incluso para el propietario.
+  2. Triggers `BEFORE UPDATE OR DELETE` (por fila) y `BEFORE TRUNCATE` (por sentencia) que lanzan
+     una excepción, incluso para el propietario. El DDL del propietario queda como límite asumido
+     (data-model).
 - **Campo `detalle`** (JSONB): lleva los campos cambiados (`{campo: [antes, después]}`), sin
   contraseñas.
 - **Borrado de un cliente**: se guarda una instantánea de nombre e identificación. `cliente_id` no
@@ -301,8 +303,9 @@ El original se conserva en `tools/brand/fuente/logo-original.png`.
 ## R-19. Datos de ejemplo
 
 **Decisión**: comando `cargar-datos-ejemplo`, que se niega si `ENTORNO=produccion`.
-- Crea unos 40 clientes ficticios con Faker `es_ES`, con NIF generados válidos (dígito de control
-  correcto) y marca `(EJEMPLO)` en observaciones.
+- Crea unos 40 clientes ficticios con Faker `es_ES` y marca `(EJEMPLO)` en observaciones.
+  - Particulares: DNI o NIE con la letra calculada según el algoritmo oficial (R-20.2).
+  - Empresas: NIF de entidad que solo cumple la estructura, sin usar el algoritmo no oficial.
 - Crea usuarios `admin.demo` y `empleado.demo`.
 - Es idempotente: primero comprueba si existe un marcador de carga.
 

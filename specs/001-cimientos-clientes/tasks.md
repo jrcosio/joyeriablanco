@@ -41,7 +41,7 @@ de las demás.
 - [ ] T004 Crear `docker-compose.yml` (research R-15) con tres servicios:
   - `db`: `postgres:18.6-trixie`, volumen `pgdata`, `infra/db/init` montado, `127.0.0.1:5432` y healthcheck.
   - `api`: build `backend/` con target `dev`, código montado, `127.0.0.1:8000` y `depends_on` healthy.
-  - `api-e2e`: perfil `e2e`, `127.0.0.1:8001`, BD `joyeriablanco_e2e`, `ENTORNO=e2e`.
+  - `api-e2e`: perfil `e2e`, `127.0.0.1:8001`, BD `joyeriablanco_e2e`, `ENTORNO=e2e`, con sus propias `DATABASE_URL_APP` y `DATABASE_URL_OWNER`.
 - [ ] T005 Reescribir `backend/pyproject.toml` con las dependencias y versiones de research R-2, el grupo `dev`, `[project.scripts] joyeria = "app.cli:app"` y la configuración de `ruff` (lint y formato), `mypy --strict` (plugin pydantic) y `pytest` (asyncio). Eliminar `backend/main.py` y regenerar `backend/uv.lock` con `uv lock`
 - [ ] T006 Crear `backend/Dockerfile` multietapa: base `python:3.13.15-slim-trixie` más `ghcr.io/astral-sh/uv:0.12`; target `dev` con recarga en caliente; target `prod` con usuario sin privilegios, `uvicorn --workers 2 --proxy-headers` y healthcheck contra `/api/salud`
 - [ ] T007 [P] Crear el esqueleto de `joyeriablanco_web/`:
@@ -74,18 +74,18 @@ usuarios, sesiones y auditoría, porque cualquier operación se audita.
   - Función `inmutable_unaccent(text)` IMMUTABLE.
   - `ALTER DEFAULT PRIVILEGES FOR ROLE jb_owner IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO jb_app` y `USAGE` en secuencias.
 - [ ] T016 Crear los modelos `backend/app/models/usuario.py`, `backend/app/models/sesion.py` y `backend/app/models/evento_auditoria.py` según data-model.md (columnas, CHECK, índices, catálogo `tipo`) y exportarlos en `backend/app/models/__init__.py`
-- [ ] T017 Crear la migración `backend/alembic/versions/0002_usuarios_sesiones_auditoria.py` con las tablas, índices y el índice único `lower(nombre_usuario)`. En `eventos_auditoria`: `REVOKE UPDATE, DELETE, TRUNCATE … FROM jb_app` y trigger `BEFORE UPDATE OR DELETE` con `RAISE EXCEPTION 'La auditoría es inalterable'` (FR-022, research R-10)
+- [ ] T017 Crear la migración `backend/alembic/versions/0002_usuarios_sesiones_auditoria.py` con las tablas, índices y el índice único `lower(nombre_usuario)`. En `eventos_auditoria`: `REVOKE UPDATE, DELETE, TRUNCATE … FROM jb_app`, trigger `BEFORE UPDATE OR DELETE` (por fila) y trigger `BEFORE TRUNCATE` (por sentencia), ambos con `RAISE EXCEPTION 'La auditoría es inalterable'` (FR-022, research R-10)
 - [ ] T018 Implementar `backend/app/repositories/auditoria.py` (`insert_event`) y `backend/app/services/auditoria.py`: `record_event(tipo, actor, origen, detalle, …)` con cálculo del *diff* `{campo: [antes, después]}` y exclusión de secretos (FR-020, FR-021)
 - [ ] T019 Implementar la factoría `backend/app/main.py` (routers, middlewares y manejadores de errores), `backend/app/api/salud.py` (`GET /api/salud`, que solo devuelve `{"estado":"ok"}` o 503 tras un ping a la BD, FR-049) y el comando `exportar-openapi` en `backend/app/cli.py` (Typer), que escribe `joyeriablanco_web/src/api/openapi.json`
 - [ ] T020 Crear `backend/tests/conftest.py`:
-  - Settings de test apuntando a `joyeriablanco_test`.
+  - Settings de test apuntando a `joyeriablanco_test`, con `TEST_DATABASE_URL_APP` y `TEST_DATABASE_URL_OWNER` (por defecto `127.0.0.1:5432`, para ejecutar `uv run pytest` desde el host; sobrescribibles dentro del contenedor).
   - `alembic upgrade head` una vez por sesión como `jb_owner`.
   - Sesión de BD por test con *savepoint* revertido.
   - `httpx.AsyncClient` con `ASGITransport`.
   - Factorías de usuario y sesión.
   - Fixture `db_owner` y fixture `db_app` para tests de privilegios.
 - [ ] T021 [P] Test `backend/tests/integration/test_salud.py`: 200 `{"estado":"ok"}`, sin cabeceras de versión y sin autenticación
-- [ ] T022 [P] Test `backend/tests/integration/test_auditoria_inalterable.py`: `UPDATE` y `DELETE` sobre `eventos_auditoria` fallan como `jb_app` (privilegios) y como `jb_owner` (trigger). `jb_app` no puede `CREATE TABLE` ni `ALTER TABLE` (FR-022, FR-047, SC-007)
+- [ ] T022 [P] Test `backend/tests/integration/test_auditoria_inalterable.py`: `UPDATE`, `DELETE` y `TRUNCATE` sobre `eventos_auditoria` fallan como `jb_app` (privilegios) y como `jb_owner` (triggers). `jb_app` no puede `CREATE TABLE` ni `ALTER TABLE` (FR-022, FR-047, SC-007)
 
 ### Web: núcleo
 
@@ -180,7 +180,7 @@ accede a nada. También los bloqueos, la caducidad y las pantallas 403 y 404.
   - Exportación de `joyeriablanco_web/src/assets/brand/logo.png` (512 px) y en `joyeriablanco_web/public/` de `favicon.ico` (16/32/48), `favicon-32.png`, `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png` y `manifest.webmanifest`.
 
   Ejecutarlo y revisar visualmente el resultado.
-- [ ] T047 [US1] Implementar `joyeriablanco_web/src/auth/session.ts`: query `useSession` sobre `GET /v1/sesion` y almacén del `csrf_token` para el cliente HTTP. Implementar `joyeriablanco_web/src/auth/guards.ts` con `requireSession`, `requireAdmin` y `requireTemporaryPasswordChange` para `beforeLoad`, y redirecciones a `/acceso?volver=`, `/cambiar-contrasena` y `/acceso-denegado`
+- [ ] T047 [US1] Regenerar los tipos (`uv run joyeria exportar-openapi` + `npm run gen:api`). Implementar `joyeriablanco_web/src/auth/session.ts`: query `useSession` sobre `GET /v1/sesion` y almacén del `csrf_token` para el cliente HTTP. Implementar `joyeriablanco_web/src/auth/guards.ts` con `requireSession`, `requireAdmin` y `requireTemporaryPasswordChange` para `beforeLoad`, y redirecciones a `/acceso?volver=`, `/cambiar-contrasena` y `/acceso-denegado`
 - [ ] T048 [US1] Conectar en `joyeriablanco_web/src/api/client.ts` el manejo global de 401 y de `csrf`: vaciar la caché, mostrar el aviso "Tu sesión ha caducado" y navegar a `/acceso?volver=<ruta>` conservando el estado de los formularios abiertos (FR-004, FR-011)
 - [ ] T049 [US1] Crear `joyeriablanco_web/src/features/acceso/LoginPage.tsx` y la ruta `joyeriablanco_web/src/routes/acceso.tsx`: logo, formulario accesible, mensajes genéricos y de límite, redirección a `volver`. Sin shell
 - [ ] T050 [US1] Crear `joyeriablanco_web/src/features/cuenta/CambioContrasenaForm.tsx` (contraseña actual, nueva y confirmación, con los motivos de rechazo del servidor por campo) y la ruta `joyeriablanco_web/src/routes/cambiar-contrasena.tsx`, sin shell (FR-009, FR-056)
@@ -188,11 +188,11 @@ accede a nada. También los bloqueos, la caducidad y las pantallas 403 y 404.
   - Logo con texto alternativo y "JOYERÍA BLANCO" con filete dorado.
   - Entradas activas, deshabilitadas con el chip "Próximamente", y Configuración solo para administradores.
   - Cajón accesible por teclado por debajo de 1024 px.
-- [ ] T052 [US1] Crear `joyeriablanco_web/src/components/layout/Header.tsx` (contexto "Gestión de facturación" y fecha larga que se recalcula al cambiar de día), `joyeriablanco_web/src/components/layout/UserMenu.tsx` (iniciales, nombre, rol, Mi cuenta y Cerrar sesión con `DELETE /v1/sesion`) y `joyeriablanco_web/src/components/layout/AppShell.tsx`
+- [ ] T052 [US1] Crear `joyeriablanco_web/src/components/layout/Header.tsx` (contexto "Gestión de facturación", fecha larga que se recalcula al cambiar de día y **sin campana de notificaciones**, FR-039), `joyeriablanco_web/src/components/layout/UserMenu.tsx` (iniciales, nombre, rol, Mi cuenta y Cerrar sesión con `DELETE /v1/sesion`) y `joyeriablanco_web/src/components/layout/AppShell.tsx`
 - [ ] T053 [US1] Crear las rutas protegidas:
   - `joyeriablanco_web/src/routes/_app.tsx`: layout con `requireSession` y AppShell.
   - `joyeriablanco_web/src/routes/_app/index.tsx`: redirige a `/clientes`.
-  - `joyeriablanco_web/src/routes/_app/clientes.tsx`: provisional con el título "Clientes", completado en US3.
+  - `joyeriablanco_web/src/routes/_app/clientes.tsx`: provisional con el título "Clientes", el botón "Nuevo cliente" y `<Outlet/>` para los paneles de US2; se completa en US3.
   - `joyeriablanco_web/src/routes/acceso-denegado.tsx`: título, explicación y "Volver a Clientes" (FR-041).
 
 **Checkpoint**: US1 funciona de forma independiente. Acceso, cambio de temporal, shell, cierre de sesión, bloqueos, caducidad y pantallas 403 y 404.
@@ -251,7 +251,7 @@ y provincia incoherentes) y el conflicto de versión.
   - Trazabilidad y auditoría con el *diff*.
 - [ ] T065 [P] [US2] Crear los esquemas `backend/app/schemas/cliente.py` (`ClienteEntrada`, `ClienteEdicionEntrada`, `ClienteResumenSalida`, `ClienteSalida`, `ProblemaDuplicado`) según el contrato, sin exponer modelos ORM
 - [ ] T066 [US2] Implementar `backend/app/api/v1/catalogos.py` (`GET /v1/catalogos`) y, en `backend/app/api/v1/clientes.py`, `POST /v1/clientes`, `GET /v1/clientes/{id}` y `PUT /v1/clientes/{id}`
-- [ ] T067 [P] [US2] Crear las queries y mutaciones de TanStack Query en `joyeriablanco_web/src/api/queries/catalogos.ts` y `joyeriablanco_web/src/api/queries/clientes.ts` (alta, ficha, edición, invalidaciones)
+- [ ] T067 [US2] Regenerar los tipos (`exportar-openapi` + `gen:api`) y crear las queries y mutaciones de TanStack Query en `joyeriablanco_web/src/api/queries/catalogos.ts` y `joyeriablanco_web/src/api/queries/clientes.ts` (alta, ficha, edición, invalidaciones)
 - [ ] T068 [US2] Crear `joyeriablanco_web/src/features/clientes/ClienteForm.tsx` (React Hook Form + Zod de forma):
   - Selector de país con `lib/paises.ts` y tipos de identificación filtrados por `ambito`.
   - Provincia rellenada desde el CP con el catálogo, como previsualización; la verdad la decide el servidor.
@@ -294,7 +294,7 @@ separadores), cada filtro y su combinación, las ordenaciones, la paginación y 
 - [ ] T074 [P] [US3] Crear `joyeriablanco_web/src/features/clientes/IndicadoresClientes.tsx`: dos Kpi (iconos Lucide `Users` y `UserPlus`, cifra en Bodoni `headline-lg`) con esqueleto
 - [ ] T075 [P] [US3] Crear `joyeriablanco_web/src/features/clientes/FiltrosClientes.tsx`: búsqueda con espera de 300 ms, provincia (`nombre_visible`), tipo, estado y orden. Todo vinculado a los *search params*; apilado en móvil
 - [ ] T076 [P] [US3] Crear `joyeriablanco_web/src/features/clientes/TablaClientes.tsx`:
-  - Columnas de escritorio y tableta según FR-059; tarjetas en móvil.
+  - Columnas de escritorio y tableta según FR-059, **sin columna "Facturas"** (FR-035); tarjetas en móvil.
   - Chip de estado y nombre en `title-md` con el tipo en `label-sm` color `primary`.
   - Acción de editar con etiqueta accesible "Editar cliente {nombre}" (FR-060).
 - [ ] T077 [US3] Crear `joyeriablanco_web/src/features/clientes/ClientesPage.tsx` (título Bodoni `headline-xl`, subtítulo, "Nuevo cliente", indicadores, filtros, tabla, paginación y los estados de FR-057) y completar `joyeriablanco_web/src/routes/_app/clientes.tsx` con `validateSearch` (Zod) y el `<Outlet/>` para los paneles
@@ -311,10 +311,10 @@ de US1–US3.
 **Independent Test**: en un equipo limpio, se sigue quickstart §1 y se llega en menos de 15 minutos
 a la aplicación en marcha con administrador y datos de ejemplo. Los E2E de US1–US3 pasan.
 
-- [ ] T078 [P] [US7] Test `backend/tests/integration/test_datos_ejemplo.py`: crea unos 40 clientes con NIF válidos y los usuarios `admin.demo` y `empleado.demo`; es idempotente; se niega con `ENTORNO=produccion` (FR-045)
+- [ ] T078 [P] [US7] Test `backend/tests/integration/test_datos_ejemplo.py`: crea unos 40 clientes que superan las validaciones de dominio y los usuarios `admin.demo` y `empleado.demo`; es idempotente; se niega con `ENTORNO=produccion` (FR-045)
 - [ ] T079 [US7] Implementar en `backend/app/cli.py` los comandos:
-  - `cargar-datos-ejemplo [--clientes N]`: Faker `es_ES`, NIF generados con letra correcta, marcador de carga, "(EJEMPLO)" en observaciones, a través de los servicios, negativa en producción.
-  - `reiniciar-bd-e2e`: solo con `ENTORNO=e2e`; vacía las tablas de datos y conserva los catálogos.
+  - `cargar-datos-ejemplo [--clientes N]`: Faker `es_ES`; particulares con DNI o NIE con la letra calculada según el algoritmo oficial, y empresas con NIF de entidad que solo cumple la estructura (research R-19); marcador de carga, "(EJEMPLO)" en observaciones, a través de los servicios, negativa en producción.
+  - `reiniciar-bd-e2e`: solo con `ENTORNO=e2e`; reconstruye la BD con `alembic downgrade base` + `upgrade head` como `jb_owner`. No vacía la auditoría, que es inalterable.
 - [ ] T080 [US7] Crear `joyeriablanco_web/e2e/global-setup.ts` (`docker compose exec api-e2e` → `alembic upgrade head`, `reiniciar-bd-e2e` y `cargar-datos-ejemplo`; fija contraseñas conocidas de prueba) y `joyeriablanco_web/e2e/helpers/db.ts` (envejecer sesiones con `psql` en `db`). Completar `joyeriablanco_web/playwright.config.ts` (webServer Vite con `VITE_API_PROXY=http://localhost:8001` y Chromium)
 - [ ] T081 [P] [US7] E2E `joyeriablanco_web/e2e/acceso.spec.ts`: acceso y cambio de temporal; mensajes genéricos; cierre de sesión; sesión caducada que vuelve a la ruta; 404; 403 como empleado (US1)
 - [ ] T082 [P] [US7] E2E `joyeriablanco_web/e2e/clientes.spec.ts`: alta con NIF y CP → provincia; error de carácter de control; edición; búsqueda "maria lopez"; filtros y orden; conflicto de versión con dos contextos (US2, US3)
@@ -372,7 +372,7 @@ auditoría.
 - [ ] T093 [P] [US5] Crear los esquemas `UsuarioAltaEntrada`, `UsuarioEdicionEntrada` y `UsuarioConContrasenaTemporalSalida` en `backend/app/schemas/usuario.py`
 - [ ] T094 [US5] Implementar `backend/app/api/v1/usuarios.py` (las seis operaciones del contrato con `require_admin`)
 - [ ] T095 [US5] Añadir la consulta paginada y filtrada a `backend/app/repositories/auditoria.py` y `backend/app/services/auditoria.py`, crear `backend/app/schemas/auditoria.py` (`EventoSalida`, `PaginaEventos`) e implementar `backend/app/api/v1/auditoria.py` con `require_admin`
-- [ ] T096 [P] [US5] Crear las queries en `joyeriablanco_web/src/api/queries/usuarios.ts` y `joyeriablanco_web/src/api/queries/auditoria.ts`
+- [ ] T096 [US5] Regenerar los tipos (`exportar-openapi` + `gen:api`) y crear las queries en `joyeriablanco_web/src/api/queries/usuarios.ts` y `joyeriablanco_web/src/api/queries/auditoria.ts`
 - [ ] T097 [US5] Crear las rutas `joyeriablanco_web/src/routes/_app/configuracion.tsx` (layout con `requireAdmin` y navegación Usuarios/Auditoría) y `joyeriablanco_web/src/routes/_app/configuracion/index.tsx` (redirige a `usuarios`)
 - [ ] T098 [US5] Crear `joyeriablanco_web/src/features/usuarios/UsuariosPage.tsx`, `UsuarioAltaDialog.tsx` y `ContrasenaTemporalDialog.tsx` (se muestra una vez, botón copiar, aviso, cierre solo con confirmación explícita), con las acciones de rol, desactivar, reactivar y restablecer y sus confirmaciones y avisos. Ruta `joyeriablanco_web/src/routes/_app/configuracion/usuarios.tsx`
 - [ ] T099 [US5] Crear `joyeriablanco_web/src/features/auditoria/AuditoriaPage.tsx` (filtros, tabla con fechas es-ES, detalle del evento con el *diff* en un panel) y la ruta `joyeriablanco_web/src/routes/_app/configuracion/auditoria.tsx`
@@ -404,7 +404,7 @@ las cabeceras y la ausencia de puertos de BD se verifican con un script.
   - `api`: target `prod`, `ENTORNO=produccion`, `--forwarded-allow-ips` de la red interna y cookie segura.
   - `caddy`: puertos 80 y 443 (y 443/udp), volúmenes `caddy_data` y `caddy_config`.
 - [ ] T105 [US8] Crear `deploy/verificar-produccion.sh`: comprueba el 308 de HTTP a HTTPS, la presencia de HSTS, CSP, `nosniff`, `Referrer-Policy` y `frame-ancestors`, que `db` no tiene puertos publicados, que `/api/salud` responde y que `/api/v1/sesion` sin cookie da 401. Ejecutarlo contra la simulación local (quickstart §4, SC-011 local)
-- [ ] T106 [US8] Documentar en `specs/001-cimientos-clientes/quickstart.md` el despliegue en un VPS real (DNS, puertos, `.env` de producción) y el **procedimiento de cambio de contraseñas de la BD** (FR-048). Recordar que las copias de seguridad son un riesgo asumido antes de cargar datos reales
+- [ ] T106 [US8] Documentar en `specs/001-cimientos-clientes/quickstart.md` el despliegue en un VPS real (DNS, puertos, `.env` de producción) y el **procedimiento de cambio de contraseñas de la BD** (FR-048). Recordar que las copias de seguridad son un riesgo asumido antes de cargar datos reales, e indicar que SC-011 se valida en el servidor real con un análisis público de TLS
 
 **Checkpoint**: la producción simulada en local supera `verificar-produccion.sh`.
 
@@ -432,10 +432,10 @@ cierran y la actual sigue.
 - [ ] T110 [P] Test `backend/tests/integration/test_logs_sin_datos_personales.py`: se captura la salida de logs durante el login y el alta y edición de cliente, y no aparecen contraseñas, tokens, cookies, NIF, correo, teléfono ni dirección (FR-053)
 - [ ] T111 [P] Implementar `npm run check:tokens` (`joyeriablanco_web/scripts/check-tokens.mjs`): falla si hay colores hex, `rgb()` o `rounded-*` distinto de 0 fuera de `src/styles/tokens.css` (SC-009, constitución "Sistema de diseño")
 - [ ] T112 [P] E2E `joyeriablanco_web/e2e/responsive.spec.ts`: a 360, 768 y 1440 px no hay desplazamiento horizontal en acceso, clientes, panel y usuarios, y el menú es cajón por debajo de 1024 px (SC-008)
-- [ ] T113 Medir SC-003: `cargar-datos-ejemplo --clientes 10000` en la BD de e2e y script `backend/scripts/medir_busqueda.py` (100 búsquedas variadas; informa del p95) sobre la producción simulada. Registrar el resultado en `specs/001-cimientos-clientes/quickstart.md`
+- [ ] T113 Medir SC-003: `cargar-datos-ejemplo --clientes 10000` en la pila `api-e2e` y script `backend/scripts/medir_busqueda.py` (100 búsquedas variadas; informa del p95) sobre esa misma pila. Medir también el tiempo de login, cuyo objetivo es menos de 1 s. Registrar el resultado en `specs/001-cimientos-clientes/quickstart.md`
 - [ ] T114 Actualizar `CLAUDE.md`, sección "Comandos de desarrollo", con los comandos reales fijados en la feature 001 (compose, `uv run joyeria …`, `npm run …`, e2e, producción) y quitar la nota "intención, no referencia"
 - [ ] T115 Ejecutar las puertas de calidad completas: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy .`, `uv run pytest`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, `npm run check:tokens` y `npx playwright test`. Todo en verde (constitución IX, SC-012)
-- [ ] T116 Revisión final de conformidad: recorrer quickstart §2 (10 validaciones manuales) y comparar la pantalla Clientes con `specs/001-cimientos-clientes/assets/mockup-clientes.png` y con la tabla de desviaciones de la spec
+- [ ] T116 Revisión final de conformidad: recorrer quickstart §2 (10 validaciones manuales), cronometrar SC-001 (localizar un cliente en menos de 10 s) y SC-002 (alta en menos de 2 min) y comparar la pantalla Clientes con `specs/001-cimientos-clientes/assets/mockup-clientes.png` y con la tabla de desviaciones de la spec
 - [ ] T117 Preguntar al responsable si se puede eliminar `temporal/` (su contenido ya está en `tools/brand/fuente/` y `specs/001-cimientos-clientes/assets/`)
 
 ---

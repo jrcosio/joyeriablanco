@@ -98,9 +98,9 @@ y los duplicados se rechazan con mensajes claros.
 1. **Given** un empleado en la pantalla de clientes, **When** pulsa "Nuevo cliente", completa los
    datos obligatorios con un NIF español válido y guarda, **Then** el cliente queda creado, activo y
    visible en el listado, y consta quién lo creó y cuándo.
-2. **Given** el formulario de alta, **When** se introduce un DNI, NIE o NIF de entidad con el
-   carácter de control incorrecto, **Then** el sistema no guarda y señala el campo con un mensaje
-   en español.
+2. **Given** el formulario de alta, **When** se introduce un DNI o NIE con la letra de control
+   incorrecta, o un NIF de entidad o K/L/M con estructura inválida, **Then** el sistema no guarda y
+   señala el campo con un mensaje en español.
 3. **Given** un cliente cuyo país de identificación no es España, **When** se elige un tipo de
    identificación extranjera admitido (NIF-IVA, pasaporte, documento oficial del país de residencia,
    certificado de residencia u otro documento probatorio) y se introduce el número, **Then** se
@@ -677,10 +677,14 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   10 segundos desde que abre la pantalla de clientes, con una cartera de 5.000 clientes.
 - **SC-002**: Un empleado completa el alta de un cliente con todos sus datos en menos de 2 minutos.
 - **SC-003**: El 95 % de las búsquedas y cambios de filtro muestran resultados en menos de 1 segundo,
-  con 10.000 clientes. Se mide sobre 100 búsquedas variadas en el entorno de producción simulado en
-  local.
-- **SC-004**: En un juego de pruebas de identificaciones españolas, el 100 % de las que tienen el
-  carácter de control incorrecto se rechazan y el 100 % de las válidas se aceptan.
+  con 10.000 clientes. Se mide sobre 100 búsquedas variadas en el entorno local de pruebas de
+  extremo a extremo, porque la carga de datos de ejemplo está prohibida en producción (FR-045).
+- **SC-004**: En un juego de pruebas de identificaciones españolas:
+  - El 100 % de los DNI y NIE con la letra de control incorrecta se rechazan.
+  - El 100 % de los NIF con estructura inválida se rechazan.
+  - El 100 % de las identificaciones válidas se aceptan.
+
+  El carácter de control de los NIF de entidad y K/L/M no se comprueba (FR-024).
 - **SC-005**: Ninguna pantalla ni dato es accesible sin sesión válida. El 100 % de los intentos de
   un empleado de gestionar usuarios o borrar clientes se rechazan en el servidor.
 - **SC-006**: Tras desactivar un usuario o restablecer su contraseña, su siguiente acción desde

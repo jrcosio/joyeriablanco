@@ -119,6 +119,7 @@ deploy/
 └── caddy/
     ├── Dockerfile                   # Etapa Node (build de la SPA) → imagen Caddy con /srv
     └── Caddyfile                    # TLS automático, cabeceras, /api → api:8000, fallback SPA
+    (deploy/verificar-produccion.sh) # Verificación de cabeceras, redirección y puertos (SC-011)
 tools/
 └── brand/
     ├── procesar_logo.py             # Script PEP 723 (Pillow), reproducible
@@ -138,13 +139,14 @@ backend/
 │   ├── domain/                      # identificacion.py, contrasenas.py, codigos_postales.py (puros, sin HTTP ni BD)
 │   ├── models/                      # base.py, usuario.py, sesion.py, evento_auditoria.py, provincia.py, cliente.py
 │   ├── repositories/                # usuarios.py, sesiones.py, auditoria.py, clientes.py, catalogos.py
-│   ├── services/                    # auth.py, usuarios.py, auditoria.py, clientes.py, catalogos.py
+│   ├── services/                    # auth.py, usuarios.py, auditoria.py, clientes.py, catalogos.py, documentos.py (puerto)
 │   ├── schemas/                     # comunes.py (Problema, Pagina), sesion.py, usuario.py, cliente.py, auditoria.py, catalogos.py
 │   ├── api/
 │   │   ├── deps.py                  # get_db, get_current_session, require_admin, require_csrf
 │   │   ├── salud.py
 │   │   └── v1/                      # sesion.py, cuenta.py, usuarios.py, clientes.py, auditoria.py, catalogos.py
 │   └── resources/                   # contrasenas_comunes.txt (NCSC top 100k + propias)
+├── scripts/                         # medir_busqueda.py (SC-003)
 └── tests/
     ├── conftest.py                  # BD de test, transacción/savepoint por test, cliente ASGI, factorías
     ├── unit/                        # domain/* y servicios con repos simulados
@@ -158,6 +160,7 @@ joyeriablanco_web/
 ├── playwright.config.ts
 ├── index.html
 ├── public/                          # favicon.ico, favicon-32.png, apple-touch-icon.png, icon-192/512.png, manifest.webmanifest
+├── scripts/                         # check-tokens.mjs (SC-009)
 ├── src/
 │   ├── main.tsx / router.tsx / routeTree.gen.ts
 │   ├── styles/                      # tokens.css (@theme desde DESIGN.md), base.css (tipografía, foco visible)

@@ -110,7 +110,11 @@ API y con la CLI. No son registros fiscales ni de auditoría.
 
 **Inalterabilidad** (FR-022):
 - `REVOKE UPDATE, DELETE, TRUNCATE ON eventos_auditoria FROM jb_app`.
-- Trigger `BEFORE UPDATE OR DELETE` → `RAISE EXCEPTION 'La auditoría es inalterable'`.
+- Trigger `BEFORE UPDATE OR DELETE` (por fila) y trigger `BEFORE TRUNCATE` (por sentencia) →
+  `RAISE EXCEPTION 'La auditoría es inalterable'`. Así fallan también las operaciones de
+  `jb_owner`.
+- **Límite asumido**: el DDL del propietario (`DROP TABLE`) no se puede impedir sin superusuario.
+  Sus credenciales solo se usan para migraciones y no las tiene el servicio.
 
 **Índices**:
 - `(ocurrido_en DESC)`.
