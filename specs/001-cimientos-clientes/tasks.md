@@ -417,8 +417,8 @@ las cabeceras y la ausencia de puertos de BD se verifican con un script.
 **Independent Test**: se cambia la contraseña; la antigua deja de valer; las otras sesiones se
 cierran y la actual sigue.
 
-- [ ] T107 [US6] Crear `joyeriablanco_web/src/features/cuenta/MiCuentaPage.tsx` (reutiliza `CambioContrasenaForm` y avisa al guardar) y la ruta `joyeriablanco_web/src/routes/_app/cuenta.tsx`. Test en `joyeriablanco_web/src/features/cuenta/MiCuentaPage.test.tsx`
-- [ ] T108 [P] [US6] E2E `joyeriablanco_web/e2e/cuenta.spec.ts`: cambio de contraseña con dos contextos abiertos → el otro contexto vuelve al acceso; la contraseña antigua es rechazada; política con mensajes
+- [X] T107 [US6] Crear `joyeriablanco_web/src/features/cuenta/MiCuentaPage.tsx` (reutiliza `CambioContrasenaForm` y avisa al guardar) y la ruta `joyeriablanco_web/src/routes/_app/cuenta.tsx`. Test en `joyeriablanco_web/src/features/cuenta/MiCuentaPage.test.tsx`
+- [X] T108 [P] [US6] E2E `joyeriablanco_web/e2e/cuenta.spec.ts`: cambio de contraseña con dos contextos abiertos → el otro contexto vuelve al acceso; la contraseña antigua es rechazada; política con mensajes
 
 **Checkpoint**: todas las historias funcionan de forma independiente.
 
