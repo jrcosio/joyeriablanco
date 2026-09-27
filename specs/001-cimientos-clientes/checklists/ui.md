@@ -58,6 +58,12 @@ responsive y accesibilidad básica.
 - [ ] CHK029 - ¿Se especifica el formato de fechas y horas en la ficha del cliente y en la auditoría (zona horaria, formato)? [Clarity, Spec §FR-043]
 - [ ] CHK030 - ¿Se define cómo se muestran los nombres de los países (en español) y el orden del selector? [Gap, Spec §FR-027]
 
+## Ajuste de cierre: eliminación de usuarios (2026-09-28)
+
+- [ ] CHK031 - ¿Se especifica dónde y bajo qué condición se ofrece la acción "Eliminar" usuario? [Clarity, Contracts ui-rutas §Comportamientos comunes]
+- [ ] CHK032 - ¿Está definida la confirmación reforzada de la eliminación (texto que hay que escribir, aviso de irreversibilidad)? [Completeness, Spec §FR-058]
+- [ ] CHK033 - ¿Se define de forma coherente cómo se presenta un usuario eliminado en la ficha del cliente, en la auditoría y en su filtro? [Consistency, Spec §FR-061]
+
 ## Notes
 
 - Mark items `[x]` only after review confirms the requirement-quality criterion is satisfied

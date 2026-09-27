@@ -56,6 +56,12 @@ búsqueda, errores y concurrencia.
 
 - [ ] CHK028 - ¿Están definidos los objetivos de rendimiento del listado con volumen y condiciones de medición reproducibles? [Measurability, Spec §SC-003]
 
+## Ajuste de cierre: eliminación de usuarios (2026-09-28)
+
+- [ ] CHK029 - ¿Están especificadas las respuestas de la eliminación para usuario activo, inexistente, ya eliminado y propia cuenta? [Completeness, Contracts §DELETE /v1/usuarios/{usuarioId}]
+- [ ] CHK030 - ¿Se define cómo responden las operaciones por id (consulta, edición, reactivación, restablecimiento) sobre un usuario eliminado? [Clarity, Spec §FR-061]
+- [ ] CHK031 - ¿Está definido cómo se distingue un usuario eliminado en las referencias de otros recursos (ficha del cliente, eventos de auditoría)? [Gap, Contracts §UsuarioReferencia]
+
 ## Notes
 
 - Mark items `[x]` only after review confirms the requirement-quality criterion is satisfied

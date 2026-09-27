@@ -65,6 +65,13 @@ despliegue.
 - [ ] CHK033 - ¿Está validado el supuesto de un único servidor y menos de 10 usuarios, en el que se basa la elección de límites y estado en la base de datos? [Assumption, Spec §Assumptions]
 - [ ] CHK034 - ¿Se documenta la dependencia de que la IP de origen real llegue correctamente a través del proxy, sin la cual el límite por origen no es fiable? [Dependency, Research R-8]
 
+## Ajuste de cierre: eliminación de usuarios (2026-09-28)
+
+- [ ] CHK035 - ¿Se define qué datos del usuario eliminado se conservan y cuáles se descartan (credencial, sesiones), con su justificación? [Completeness, Spec §FR-061, §Assumptions]
+- [ ] CHK036 - ¿Está especificado que un usuario eliminado no puede identificarse ni reactivarse por ninguna vía, incluida la consola? [Coverage, Spec §FR-061, §FR-018]
+- [ ] CHK037 - ¿Se define el comportamiento cuando una eliminación y una reactivación del mismo usuario coinciden? [Edge Case, Spec §Edge Cases]
+- [ ] CHK038 - ¿Es coherente la liberación del nombre de usuario con la trazabilidad de la auditoría (distinguir a dos personas con el mismo nombre de usuario)? [Consistency, Spec §FR-061, Clarifications 2026-09-28]
+
 ## Notes
 
 - Mark items `[x]` only after review confirms the requirement-quality criterion is satisfied
