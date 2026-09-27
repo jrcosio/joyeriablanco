@@ -15,13 +15,18 @@ Detalle de endpoints en [contracts/openapi.yaml](contracts/openapi.yaml), de rut
 
 ```bash
 cp .env.example .env                  # revisar y cambiar las contraseñas de ejemplo
-docker compose up -d                  # db + api
-docker compose exec api uv run alembic upgrade head   # migraciones como jb_owner (idempotente)
-docker compose exec api uv run joyeria crear-admin --usuario admin --nombre "Administrador"
+docker compose up -d --build          # db + api (el entorno virtual está en el PATH del contenedor)
+docker compose exec api alembic upgrade head          # migraciones como jb_owner (idempotente)
+docker compose exec api joyeria crear-admin --usuario admin --nombre "Administrador"
 #   → muestra una contraseña temporal UNA vez
-docker compose exec api uv run joyeria cargar-datos-ejemplo
+docker compose exec api joyeria cargar-datos-ejemplo  # 40 clientes y usuarios *.demo (temporales)
 cd joyeriablanco_web && npm ci && npm run dev          # http://localhost:5173
 ```
+
+**Medición SC-010** (2026-09-27, desde volúmenes vacíos y con las imágenes ya descargadas):
+- El backend queda listo en 11 s, con migraciones, administrador y datos de ejemplo.
+- `npm ci` tarda unos 30 s.
+- La primera vez se suma la descarga de las imágenes base: unos minutos, según la conexión.
 
 **Resultado esperado**:
 1. Al entrar como `admin`, pide cambiar la contraseña temporal.
@@ -52,8 +57,9 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run p
 # Web (dentro de joyeriablanco_web/)
 npm run lint && npm run typecheck && npm run test && npm run build
 
-# E2E (levanta api-e2e con su propia BD y Vite apuntando a ella)
-docker compose --profile e2e up -d api-e2e
+# E2E: globalSetup levanta api-e2e, reconstruye su BD y carga datos con contraseña conocida.
+# Vite se arranca solo en el puerto 5174, con proxy a la API de E2E en el 8001.
+npx playwright install chromium    # solo la primera vez
 npx playwright test
 ```
 

@@ -311,15 +311,15 @@ de US1–US3.
 **Independent Test**: en un equipo limpio, se sigue quickstart §1 y se llega en menos de 15 minutos
 a la aplicación en marcha con administrador y datos de ejemplo. Los E2E de US1–US3 pasan.
 
-- [ ] T078 [P] [US7] Test `backend/tests/integration/test_datos_ejemplo.py`: crea unos 40 clientes que superan las validaciones de dominio y los usuarios `admin.demo` y `empleado.demo`; es idempotente; se niega con `ENTORNO=produccion` (FR-045)
-- [ ] T079 [US7] Implementar en `backend/app/cli.py` los comandos:
+- [X] T078 [P] [US7] Test `backend/tests/integration/test_datos_ejemplo.py`: crea unos 40 clientes que superan las validaciones de dominio y los usuarios `admin.demo` y `empleado.demo`; es idempotente; se niega con `ENTORNO=produccion` (FR-045)
+- [X] T079 [US7] Implementar en `backend/app/cli.py` los comandos:
   - `cargar-datos-ejemplo [--clientes N]`: Faker `es_ES`; particulares con DNI o NIE con la letra calculada según el algoritmo oficial, y empresas con NIF de entidad que solo cumple la estructura (research R-19); marcador de carga, "(EJEMPLO)" en observaciones, a través de los servicios, negativa en producción.
   - `reiniciar-bd-e2e`: solo con `ENTORNO=e2e`; reconstruye la BD con `alembic downgrade base` + `upgrade head` como `jb_owner`. No vacía la auditoría, que es inalterable.
-- [ ] T080 [US7] Crear `joyeriablanco_web/e2e/global-setup.ts` (`docker compose exec api-e2e` → `alembic upgrade head`, `reiniciar-bd-e2e` y `cargar-datos-ejemplo`; fija contraseñas conocidas de prueba) y `joyeriablanco_web/e2e/helpers/db.ts` (envejecer sesiones con `psql` en `db`). Completar `joyeriablanco_web/playwright.config.ts` (webServer Vite con `VITE_API_PROXY=http://localhost:8001` y Chromium)
-- [ ] T081 [P] [US7] E2E `joyeriablanco_web/e2e/acceso.spec.ts`: acceso y cambio de temporal; mensajes genéricos; cierre de sesión; sesión caducada que vuelve a la ruta; 404; 403 como empleado (US1)
-- [ ] T082 [P] [US7] E2E `joyeriablanco_web/e2e/clientes.spec.ts`: alta con NIF y CP → provincia; error de carácter de control; edición; búsqueda "maria lopez"; filtros y orden; conflicto de versión con dos contextos (US2, US3)
-- [ ] T083 [P] [US7] E2E `joyeriablanco_web/e2e/teclado.spec.ts`: recorrido completo solo con teclado, del inicio de sesión al alta de cliente, con foco siempre visible (FR-050, FR-052)
-- [ ] T084 [US7] Validar quickstart §1 desde cero (volúmenes eliminados), cronometrar SC-010 y corregir `specs/001-cimientos-clientes/quickstart.md` si algún paso no es exacto
+- [X] T080 [US7] Crear `joyeriablanco_web/e2e/global-setup.ts` (`docker compose exec api-e2e` → `alembic upgrade head`, `reiniciar-bd-e2e` y `cargar-datos-ejemplo`; fija contraseñas conocidas de prueba) y `joyeriablanco_web/e2e/helpers/db.ts` (envejecer sesiones con `psql` en `db`). Completar `joyeriablanco_web/playwright.config.ts` (webServer Vite con `VITE_API_PROXY=http://localhost:8001` y Chromium)
+- [X] T081 [P] [US7] E2E `joyeriablanco_web/e2e/acceso.spec.ts`: acceso y cambio de temporal; mensajes genéricos; cierre de sesión; sesión caducada que vuelve a la ruta; 404; 403 como empleado (US1)
+- [X] T082 [P] [US7] E2E `joyeriablanco_web/e2e/clientes.spec.ts`: alta con NIF y CP → provincia; error de carácter de control; edición; búsqueda "maria lopez"; filtros y orden; conflicto de versión con dos contextos (US2, US3)
+- [X] T083 [P] [US7] E2E `joyeriablanco_web/e2e/teclado.spec.ts`: recorrido completo solo con teclado, del inicio de sesión al alta de cliente, con foco siempre visible (FR-050, FR-052)
+- [X] T084 [US7] Validar quickstart §1 desde cero (volúmenes eliminados), cronometrar SC-010 y corregir `specs/001-cimientos-clientes/quickstart.md` si algún paso no es exacto
 
 **Checkpoint**: el entorno es reproducible y los E2E de US1–US3 están en verde.
 

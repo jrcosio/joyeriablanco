@@ -86,6 +86,46 @@ def purgar_sesiones() -> None:
     typer.echo(f"Sesiones purgadas: {borradas}")
 
 
+@app.command("cargar-datos-ejemplo")
+def cargar_datos_ejemplo(
+    clientes: Annotated[int, typer.Option(min=1, help="Número de clientes ficticios")] = 40,
+    contrasena_demo: Annotated[
+        str | None,
+        typer.Option(help="Contraseña conocida para los usuarios de ejemplo (solo desarrollo/E2E)"),
+    ] = None,
+) -> None:
+    """Carga clientes y usuarios ficticios. Se niega en producción (FR-045)."""
+    from app.services import datos_ejemplo
+
+    resumen = _ejecutar(
+        lambda db: datos_ejemplo.cargar(db, clientes=clientes, contrasena_demo=contrasena_demo)
+    )
+    if resumen.ya_cargados:
+        typer.echo("Los datos de ejemplo ya estaban cargados: no se ha hecho nada.")
+        return
+    typer.echo(f"Clientes de ejemplo creados: {resumen.clientes_creados}")
+    for nombre_usuario, temporal in resumen.contrasenas_temporales.items():
+        _mostrar_temporal(nombre_usuario, temporal)
+
+
+@app.command("reiniciar-bd-e2e")
+def reiniciar_bd_e2e() -> None:
+    """Reconstruye el esquema de la BD de E2E (downgrade + upgrade). Solo con ENTORNO=e2e."""
+    from alembic import command
+    from alembic.config import Config
+
+    from app.core.config import Entorno
+
+    if get_settings().entorno is not Entorno.E2E:
+        typer.secho("Error: solo se permite con ENTORNO=e2e.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1)
+    cfg = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    cfg.attributes["configurar_logging"] = False
+    command.downgrade(cfg, "base")
+    command.upgrade(cfg, "head")
+    typer.echo("Base de datos de E2E reconstruida.")
+
+
 @app.command("exportar-openapi")
 def exportar_openapi(
     destino: Annotated[Path | None, typer.Option(help="Fichero de salida")] = None,

@@ -118,3 +118,18 @@ async def reset_admin_from_console(db: AsyncSession, *, nombre_usuario: str) -> 
     if usuario is None or not usuario.es_admin:
         raise NoEncontrado("No existe ningún administrador con ese nombre de usuario.")
     return await _restablecer(db, usuario, actor=None, origen=None)
+
+
+async def create_usuario(
+    db: AsyncSession,
+    *,
+    nombre_usuario: str,
+    nombre: str,
+    rol: Rol,
+    actor: Usuario | None,
+    origen: Origen | None,
+) -> tuple[Usuario, str]:
+    """Alta de usuario con contraseña temporal generada (FR-014, FR-015)."""
+    return await _crear(
+        db, nombre_usuario=nombre_usuario, nombre=nombre, rol=rol, actor=actor, origen=origen
+    )

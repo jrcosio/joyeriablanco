@@ -28,20 +28,19 @@ export const Route = createFileRoute('/_app/clientes')({
 
 function Clientes() {
   const filtros = Route.useSearch()
-  const navigate = useNavigate({ from: Route.fullPath })
+  const navigate = useNavigate()
   const cambiar = useCallback(
     (cambios: Partial<FiltrosClientes>) => {
+      // `to: '.'` conserva la ruta actual: si la ficha de un cliente está abierta, un cambio de
+      // filtro (p. ej. la búsqueda aplazada) no la cierra. Cualquier cambio de filtro vuelve a
+      // la primera página.
       void navigate({
-        search: (previa) => ({
-          ...previa,
-          ...cambios,
-          // Cualquier cambio de filtro vuelve a la primera página.
-          pagina: cambios.pagina ?? 1,
-        }),
+        to: '.',
+        search: { ...filtros, ...cambios, pagina: cambios.pagina ?? 1 },
         replace: true,
       })
     },
-    [navigate],
+    [navigate, filtros],
   )
   return <ClientesPage filtros={filtros} onFiltros={cambiar} panel={<Outlet />} />
 }
