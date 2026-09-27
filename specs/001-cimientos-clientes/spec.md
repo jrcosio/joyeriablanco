@@ -14,6 +14,10 @@ y ajustado, y aplicar la hoja de estilos `DESIGN.md` durante todo el proyecto. E
 izquierda." Las decisiones tomadas con el responsable el 2026-09-26 y el 2026-09-27 están
 incorporadas abajo.
 
+**Ajustes de cierre** (2026-09-28), pedidos por el responsable antes de dar la feature por
+terminada: "los usuarios del sistema, cuando se desactivan, tienen que tener la posibilidad de
+eliminarles después, sin que eso afecte a facturas o cosas que hayan creado" (FR-061).
+
 **Referencias**: mockup [`assets/mockup-clientes.png`](assets/mockup-clientes.png) (orientativo) ·
 sistema de diseño [`docs/DESIGN.md`](../../docs/DESIGN.md) (normativo, constitución 1.1.0)
 
@@ -36,6 +40,15 @@ sistema de diseño [`docs/DESIGN.md`](../../docs/DESIGN.md) (normativo, constitu
 - Q: ¿Qué nivel de accesibilidad debe cumplir la aplicación web? → A: Buenas prácticas básicas,
   sin objetivo formal de cumplimiento (WCAG). Uso completo con teclado, formularios etiquetados y
   foco visible (FR-052).
+
+### Session 2026-09-28
+
+- Q: ¿Se puede eliminar un usuario del sistema? → A: Sí. Un administrador puede eliminar un usuario
+  que antes haya sido desactivado. Lo que registró (clientes, auditoría y, en features posteriores,
+  facturas y presupuestos) se conserva intacto y sigue mostrando quién lo hizo (FR-061).
+- Q: Cuando se elimina un usuario, ¿su nombre de usuario queda libre para dar de alta a otra
+  persona? → A: Sí, queda libre. El historial distingue a ambos y al eliminado lo muestra con la
+  marca "(eliminado)" (FR-061).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -184,15 +197,17 @@ documentos como administrador y se comprueba que un empleado no puede hacerlo.
 ### User Story 5 - Gestión de usuarios por el administrador (Priority: P3)
 
 El administrador da de alta a los empleados y a otros administradores, cambia su rol, los desactiva
-cuando dejan la joyería y les restablece la contraseña si la olvidan. Las sesiones afectadas se
-cierran al momento.
+cuando dejan la joyería, los elimina después si ya no deben figurar en la gestión y les restablece
+la contraseña si la olvidan. Las sesiones afectadas se cierran al momento.
 
 **Why this priority**: permite operar a varias personas con responsabilidad individual y trazable,
 que es el sentido de la seguridad por usuario.
 
 **Independent Test**: como administrador, se crea un empleado, se inicia sesión con él y se
 comprueban sus limitaciones. Después se le restablece la contraseña y se le desactiva, y se
-comprueba que su sesión abierta deja de funcionar.
+comprueba que su sesión abierta deja de funcionar. Por último se le elimina y se comprueba que
+desaparece del listado, que los clientes que dio de alta siguen mostrando su nombre y que su nombre
+de usuario puede volver a usarse.
 
 **Acceptance Scenarios**:
 
@@ -216,6 +231,17 @@ comprueba que su sesión abierta deja de funcionar.
    del más reciente al más antiguo, sin poder modificarlos ni borrarlos.
 9. **Given** un empleado, **When** intenta consultar la auditoría por cualquier vía, **Then** se le
    deniega el acceso.
+10. **Given** un usuario desactivado que dio de alta clientes, **When** un administrador lo elimina
+    escribiendo su nombre de usuario para confirmar, **Then**:
+    - Desaparece del listado de usuarios y no puede volver a entrar ni reactivarse.
+    - Sus clientes y sus eventos de auditoría se conservan sin cambios y muestran su nombre con la
+      marca "(eliminado)".
+    - La auditoría registra la eliminación.
+11. **Given** un usuario activo, **When** un administrador intenta eliminarlo por cualquier vía,
+    **Then** el sistema lo impide y le indica que antes debe desactivarlo.
+12. **Given** un usuario eliminado, **When** un administrador da de alta otro usuario con el mismo
+    nombre de usuario, **Then** el alta se permite, el nuevo usuario entra con normalidad y la
+    auditoría distingue a ambos.
 
 ---
 
@@ -302,6 +328,9 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   acción y lleva al inicio de sesión.
 - **Usuario desactivado a mitad de una edición**: la siguiente acción se rechaza. Los datos del
   formulario no se guardan y el usuario vuelve al inicio de sesión.
+- **Eliminar un usuario mientras otro administrador lo reactiva**: las dos operaciones no se cruzan.
+  Si la reactivación llega antes, la eliminación se rechaza porque el usuario está activo. Si llega
+  después, el usuario ya no existe para la gestión.
 - **Varios fallos de acceso desde el mismo origen con usuarios distintos**: se aplica el límite por
   origen además del bloqueo por cuenta.
 - **Bloqueo de un administrador**: el bloqueo es temporal. Si no hay otro administrador que pueda
@@ -385,7 +414,8 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   defecto. Ocultar opciones en la interfaz es complementario, nunca suficiente.
 - **FR-014**: Un administrador DEBE poder listar usuarios, dar de alta usuarios (nombre visible,
   nombre de usuario único sin distinguir mayúsculas y rol), cambiar su rol, desactivarlos,
-  reactivarlos y restablecer su contraseña.
+  reactivarlos, restablecer su contraseña y eliminar los que estén desactivados (FR-061). La
+  unicidad del nombre de usuario se aplica entre los usuarios no eliminados.
 - **FR-015**: En el alta y en el restablecimiento, el sistema DEBE generar una contraseña temporal
   que cumpla la política y marcarla como de cambio obligatorio.
   - **Visualización**: se muestra una única vez al administrador, en pantalla, con opción de copiarla
@@ -396,11 +426,26 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   inmediatamente todas sus sesiones. El restablecimiento también DEBE levantar un bloqueo temporal
   vigente.
 - **FR-017**: El sistema NO DEBE permitir desactivar ni degradar al último administrador activo.
-  Tampoco DEBE permitir que un administrador desactive su propia cuenta ni cambie su propio rol.
+  Tampoco DEBE permitir que un administrador desactive o elimine su propia cuenta ni cambie su
+  propio rol.
 - **FR-018**: El comando de consola DEBE permitir crear el primer administrador y restablecer la
   contraseña de un administrador existente como último recurso.
 - **FR-019**: Cualquier usuario DEBE poder cambiar su propia contraseña, aportando la actual, desde
   "Mi cuenta". Al hacerlo se cierran sus demás sesiones y se mantiene la actual.
+- **FR-061**: Un administrador DEBE poder eliminar un usuario desactivado:
+  - **Condición previa**: solo se eliminan usuarios desactivados. Con un usuario activo, la
+    operación se rechaza con un mensaje que indica que antes hay que desactivarlo.
+  - **Efecto**: el usuario desaparece del listado de usuarios y no puede volver a identificarse,
+    reactivarse, editarse ni recibir una contraseña nueva. Se descartan su contraseña y sus
+    sesiones. La eliminación es irreversible.
+  - **Conservación**: nada de lo que registró se modifica ni se pierde: clientes, eventos de
+    auditoría y, en features posteriores, facturas y presupuestos. Todo ello sigue mostrando su
+    nombre, con la marca "(eliminado)". Para eso se conservan solo su nombre visible, su nombre de
+    usuario y su rol.
+  - **Nombre de usuario**: queda libre para un alta nueva (clarificación del 2026-09-28).
+  - **Consulta de la auditoría**: el filtro por usuario sigue ofreciendo a los usuarios eliminados,
+    marcados como tales, para poder consultar su historial.
+  - **Confirmación**: reforzada, escribiendo el nombre de usuario (FR-058).
 
 #### Auditoría
 
@@ -409,7 +454,8 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
     los cierres de sesión.
   - Las acciones ejecutadas con el comando de consola, con la consola como actor.
   - Los cambios y restablecimientos de contraseña.
-  - El alta, el cambio de rol, la desactivación y la reactivación de usuarios.
+  - El alta, el cambio de rol, la desactivación, la reactivación y la eliminación de usuarios. La
+    eliminación guarda en el detalle el nombre, el nombre de usuario y el rol del eliminado.
   - El alta, la edición, la desactivación, la reactivación y el borrado de clientes.
 - **FR-021**: Cada evento de auditoría DEBE incluir:
   - El tipo de evento y la fecha y hora con huso horario.
@@ -574,6 +620,8 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   - **Antes de desactivar**: DEBE pedirse confirmación.
   - **Antes de borrar**: la confirmación es reforzada: hay que escribir la identificación del
     cliente.
+  - **Antes de eliminar un usuario**: la confirmación es reforzada: hay que escribir su nombre de
+    usuario.
   - **Al cerrar con cambios sin guardar**: si se cierra un formulario con cambios, DEBE pedirse
     confirmación antes de descartarlos.
 - **FR-059**: En pantallas estrechas la interfaz DEBE adaptarse así:
@@ -638,19 +686,23 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
 
 - **FR-050**: La feature DEBE incluir pruebas automáticas de:
   - Las reglas de negocio: validación de identificaciones, política de contraseñas, bloqueo,
-    caducidad de sesión, permisos, regla del último administrador, unicidad, borrado condicionado e
-    indicadores.
+    caducidad de sesión, permisos, regla del último administrador, unicidad, borrado condicionado,
+    eliminación de usuarios (condición previa, conservación de lo registrado y nombre de usuario
+    liberado) e indicadores.
   - La auditoría.
   - Recorridos de extremo a extremo en navegador real: inicio de sesión, alta, edición, filtrado,
-    desactivación y reactivación de clientes, gestión de usuarios y sesión caducada.
+    desactivación y reactivación de clientes, gestión de usuarios (incluida su eliminación) y
+    sesión caducada.
   - Al menos un recorrido completo, del inicio de sesión al alta de cliente, hecho solo con teclado
     (FR-052).
 
 ### Key Entities *(include if feature involves data)*
 
 - **Usuario**: persona que opera el sistema.
-  - Nombre visible, nombre de usuario único y rol (Administrador o Empleado).
-  - Estado activo o inactivo e indicador de contraseña temporal.
+  - Nombre visible, nombre de usuario único entre los no eliminados y rol (Administrador o
+    Empleado).
+  - Estado activo, inactivo o eliminado, e indicador de contraseña temporal. Un usuario eliminado
+    se conserva solo como referencia histórica (nombre, nombre de usuario y rol).
   - Contadores de fallos y bloqueo temporal.
   - Fechas de alta y de último acceso.
 - **Sesión**: acceso abierto de un usuario desde un navegador.
@@ -703,6 +755,11 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
   análisis público estándar de la configuración de cifrado obtiene una calificación A o superior.
 - **SC-012**: Las pruebas de extremo a extremo cubren las historias P1 a P3 y pasan en su totalidad
   antes de cerrar la feature.
+- **SC-013**: Tras eliminar un usuario:
+  - El 100 % de los clientes y eventos de auditoría que registró se conservan sin cambios y siguen
+    mostrando su nombre.
+  - El 100 % de sus intentos de acceso se rechazan.
+  - El 100 % de los intentos de eliminar un usuario activo se rechazan en el servidor.
 
 ## Conformidad con el sistema de diseño y desviaciones del mockup
 
@@ -796,6 +853,9 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   documentos nuevos.
 - El derecho de supresión del RGPD se atiende con el borrado definitivo cuando no hay documentos.
   Cuando los hay, prevalece la obligación legal de conservación.
+- De un usuario eliminado se conservan su nombre, su nombre de usuario y su rol porque la
+  trazabilidad lo exige: la auditoría es inalterable y los futuros registros de facturación
+  tampoco podrán modificarse. Su contraseña y sus sesiones se descartan.
 - Los datos de ejemplo son ficticios y no reproducen personas reales.
 - El entorno de producción es un único servidor con dominio propio, gestionado por el responsable
   técnico.

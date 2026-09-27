@@ -46,6 +46,12 @@
   - SC-011 decía "máxima calificación sin avisos graves", que no es medible. Se ha reformulado como
     "calificación A o superior".
   - El resto de puntos pasan sin cambios.
+- **Revalidación del 2026-09-28** (ajuste de cierre, eliminación de usuarios):
+  - Se añaden FR-061, SC-013, los escenarios 10–12 de US5, un caso límite de concurrencia y la
+    sesión de clarificación del 2026-09-28. Se ajustan FR-014, FR-017, FR-020, FR-050, FR-058 y la
+    entidad Usuario.
+  - Todos los puntos siguen pasando: sin marcadores pendientes, requisitos comprobables y criterio
+    SC-013 medible y sin detalles de implementación.
 - **Referencias técnicas permitidas**: la spec solo menciona el nombre de fichero y la URL de la
   fuente oficial AEAT, que la constitución (principio IV) exige citar. No es un detalle de
   implementación.
