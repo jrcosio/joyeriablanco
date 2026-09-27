@@ -35,22 +35,22 @@ de las demás.
 
 **Purpose**: esqueleto del monorepo, configuración y herramientas de calidad.
 
-- [ ] T001 Crear `tools/brand/fuente/` y copiar `temporal/2.png` a `tools/brand/fuente/logo-original.png`. `temporal/` no se borra (se pregunta al final, T117)
-- [ ] T002 Crear `.env.example` en la raíz con todas las variables de `backend/app/core/config.py` y valores de ejemplo, y ampliar `.gitignore`. Variables: `ENTORNO`, credenciales de `POSTGRES_*`, `jb_owner` y `jb_app`, `DATABASE_URL_APP`, `DATABASE_URL_OWNER`, `ORIGEN_PERMITIDO`, `SESION_*`, `BLOQUEO_*`, `LIMITE_ORIGEN_*`, `SESION_COOKIE_SEGURA`, `DOMINIO`, `TLS_MODO`. Entradas nuevas del `.gitignore`: `joyeriablanco_web/playwright-report/`, `joyeriablanco_web/test-results/`, `joyeriablanco_web/src/api/openapi.json`
-- [ ] T003 Crear `infra/db/init/01-roles.sh`, que crea los roles `jb_owner` (dueño del esquema) y `jb_app` (solo DML) y las bases `joyeriablanco`, `joyeriablanco_test` y `joyeriablanco_e2e`, con `REVOKE ALL ON SCHEMA public FROM PUBLIC` y los `GRANT` de uso a `jb_app` (research R-11)
-- [ ] T004 Crear `docker-compose.yml` (research R-15) con tres servicios:
+- [X] T001 Crear `tools/brand/fuente/` y copiar `temporal/2.png` a `tools/brand/fuente/logo-original.png`. `temporal/` no se borra (se pregunta al final, T117)
+- [X] T002 Crear `.env.example` en la raíz con todas las variables de `backend/app/core/config.py` y valores de ejemplo, y ampliar `.gitignore`. Variables: `ENTORNO`, credenciales de `POSTGRES_*`, `jb_owner` y `jb_app`, `DATABASE_URL_APP`, `DATABASE_URL_OWNER`, `ORIGEN_PERMITIDO`, `SESION_*`, `BLOQUEO_*`, `LIMITE_ORIGEN_*`, `SESION_COOKIE_SEGURA`, `DOMINIO`, `TLS_MODO`. Entradas nuevas del `.gitignore`: `joyeriablanco_web/playwright-report/`, `joyeriablanco_web/test-results/`, `joyeriablanco_web/src/api/openapi.json`
+- [X] T003 Crear `infra/db/init/01-roles.sh`, que crea los roles `jb_owner` (dueño del esquema) y `jb_app` (solo DML) y las bases `joyeriablanco`, `joyeriablanco_test` y `joyeriablanco_e2e`, con `REVOKE ALL ON SCHEMA public FROM PUBLIC` y los `GRANT` de uso a `jb_app` (research R-11)
+- [X] T004 Crear `docker-compose.yml` (research R-15) con tres servicios:
   - `db`: `postgres:18.6-trixie`, volumen `pgdata`, `infra/db/init` montado, `127.0.0.1:5432` y healthcheck.
   - `api`: build `backend/` con target `dev`, código montado, `127.0.0.1:8000` y `depends_on` healthy.
   - `api-e2e`: perfil `e2e`, `127.0.0.1:8001`, BD `joyeriablanco_e2e`, `ENTORNO=e2e`, con sus propias `DATABASE_URL_APP` y `DATABASE_URL_OWNER`.
-- [ ] T005 Reescribir `backend/pyproject.toml` con las dependencias y versiones de research R-2, el grupo `dev`, `[project.scripts] joyeria = "app.cli:app"` y la configuración de `ruff` (lint y formato), `mypy --strict` (plugin pydantic) y `pytest` (asyncio). Eliminar `backend/main.py` y regenerar `backend/uv.lock` con `uv lock`
-- [ ] T006 Crear `backend/Dockerfile` multietapa: base `python:3.13.15-slim-trixie` más `ghcr.io/astral-sh/uv:0.12`; target `dev` con recarga en caliente; target `prod` con usuario sin privilegios, `uvicorn --workers 2 --proxy-headers` y healthcheck contra `/api/salud`
-- [ ] T007 [P] Crear el esqueleto de `joyeriablanco_web/`:
+- [X] T005 Reescribir `backend/pyproject.toml` con las dependencias y versiones de research R-2, el grupo `dev`, `[project.scripts] joyeria = "app.cli:app"` y la configuración de `ruff` (lint y formato), `mypy --strict` (plugin pydantic) y `pytest` (asyncio). Eliminar `backend/main.py` y regenerar `backend/uv.lock` con `uv lock`
+- [X] T006 Crear `backend/Dockerfile` multietapa: base `python:3.13.15-slim-trixie` más `ghcr.io/astral-sh/uv:0.12`; target `dev` con recarga en caliente; target `prod` con usuario sin privilegios, `uvicorn --workers 2 --proxy-headers` y healthcheck contra `/api/salud`
+- [X] T007 [P] Crear el esqueleto de `joyeriablanco_web/`:
   - `package.json` con las versiones exactas de research R-3, `overrides` de `typescript` para `openapi-typescript` (R-4) y los scripts `dev`, `build`, `preview`, `lint`, `typecheck`, `test`, `gen:api`, `e2e` y `check:tokens`.
   - `vite.config.ts` con React y React Compiler, el plugin de TanStack Router, `@tailwindcss/vite` y el proxy de `/api` a `process.env.VITE_API_PROXY ?? http://localhost:8000`.
   - `tsconfig.json`, `tsconfig.app.json` y `tsconfig.node.json` en modo estricto.
   - `index.html` con `lang="es"`.
   - `src/main.tsx` mínimo.
-- [ ] T008 [P] Configurar la calidad web: `joyeriablanco_web/eslint.config.js` (typescript-eslint con tipos, react-hooks), `joyeriablanco_web/.prettierrc`, la sección `test` de Vitest en `vite.config.ts` (jsdom) con `joyeriablanco_web/src/test/setup.ts` (jest-dom y MSW) y `joyeriablanco_web/playwright.config.ts` base
+- [X] T008 [P] Configurar la calidad web: `joyeriablanco_web/eslint.config.js` (typescript-eslint con tipos, react-hooks), `joyeriablanco_web/.prettierrc`, la sección `test` de Vitest en `vite.config.ts` (jsdom) con `joyeriablanco_web/src/test/setup.ts` (jest-dom y MSW) y `joyeriablanco_web/playwright.config.ts` base
 
 ---
 
