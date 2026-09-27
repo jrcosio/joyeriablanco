@@ -14,6 +14,11 @@ from app.schemas.comunes import EntradaBase, SalidaBase
 class UsuarioReferencia(SalidaBase):
     id: uuid.UUID
     nombre: str
+    eliminado: bool  # la web muestra «Nombre (eliminado)» (FR-061)
+
+    @classmethod
+    def from_model(cls, usuario: Usuario) -> "UsuarioReferencia":
+        return cls(id=usuario.id, nombre=usuario.nombre, eliminado=usuario.eliminado)
 
 
 class UsuarioSalida(SalidaBase):
@@ -22,6 +27,7 @@ class UsuarioSalida(SalidaBase):
     nombre: str
     rol: Rol
     activo: bool
+    eliminado: bool
     contrasena_temporal: bool
     bloqueado: bool
     ultimo_acceso_en: datetime | None
@@ -35,6 +41,7 @@ class UsuarioSalida(SalidaBase):
             nombre=usuario.nombre,
             rol=Rol(usuario.rol),
             activo=usuario.activo,
+            eliminado=usuario.eliminado,
             contrasena_temporal=usuario.contrasena_temporal,
             bloqueado=usuario.bloqueado_hasta is not None and usuario.bloqueado_hasta > ahora(),
             ultimo_acceso_en=usuario.ultimo_acceso_en,

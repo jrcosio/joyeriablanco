@@ -9,6 +9,13 @@ export const usuariosQuery = queryOptions({
   queryFn: () => unwrap(api.GET('/api/v1/usuarios')),
 })
 
+/** Incluye a los eliminados, marcados con `eliminado`: filtro de la auditoría (FR-061). */
+export const usuariosConEliminadosQuery = queryOptions({
+  queryKey: [...USUARIOS_KEY, 'con-eliminados'],
+  queryFn: () =>
+    unwrap(api.GET('/api/v1/usuarios', { params: { query: { incluir_eliminados: true } } })),
+})
+
 function useMutacionUsuarios<V, R>(fn: (variables: V) => Promise<R>) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -36,6 +43,9 @@ export const useReactivarUsuario = () =>
   useMutacionUsuarios((id: string) =>
     unwrap(api.POST('/api/v1/usuarios/{usuario_id}/reactivacion', ruta(id))),
   )
+
+export const useEliminarUsuario = () =>
+  useMutacionUsuarios((id: string) => unwrap(api.DELETE('/api/v1/usuarios/{usuario_id}', ruta(id))))
 
 export const useRestablecerContrasena = () =>
   useMutacionUsuarios((id: string) =>

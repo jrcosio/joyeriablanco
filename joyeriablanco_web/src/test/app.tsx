@@ -34,6 +34,7 @@ export function crearSesion(parcial: Partial<SesionSalida['usuario']> = {}): Ses
       nombre: 'Ana García',
       rol: 'empleado',
       activo: true,
+      eliminado: false,
       contrasena_temporal: false,
       bloqueado: false,
       ultimo_acceso_en: null,
@@ -104,9 +105,9 @@ export function crearCliente(parcial: Record<string, unknown> = {}) {
     observaciones: null,
     version: 1,
     creado_en: '2026-05-27T10:00:00Z',
-    creado_por: { id: 'u1', nombre: 'Ana García' },
+    creado_por: { id: 'u1', nombre: 'Ana García', eliminado: false },
     actualizado_en: '2026-05-27T10:00:00Z',
-    actualizado_por: { id: 'u1', nombre: 'Ana García' },
+    actualizado_por: { id: 'u1', nombre: 'Ana García', eliminado: false },
     ...parcial,
   }
 }

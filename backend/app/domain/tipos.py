@@ -40,6 +40,7 @@ class TipoEvento(StrEnum):
     USUARIO_ROL_CAMBIADO = "usuario_rol_cambiado"
     USUARIO_DESACTIVADO = "usuario_desactivado"
     USUARIO_REACTIVADO = "usuario_reactivado"
+    USUARIO_ELIMINADO = "usuario_eliminado"
     CLIENTE_CREADO = "cliente_creado"
     CLIENTE_EDITADO = "cliente_editado"
     CLIENTE_DESACTIVADO = "cliente_desactivado"

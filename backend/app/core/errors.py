@@ -118,6 +118,11 @@ class Autogestion(ProblemaError):
     detalle_por_defecto = "No puedes realizar esta operación sobre tu propia cuenta."
 
 
+class UsuarioActivo(ProblemaError):
+    status, tipo, titulo = 409, "usuario-activo", "No se puede eliminar"
+    detalle_por_defecto = "Desactiva el usuario antes de eliminarlo."
+
+
 class ClienteConDocumentos(ProblemaError):
     status, tipo, titulo = 409, "cliente-con-documentos", "No se puede borrar"
     detalle_por_defecto = (

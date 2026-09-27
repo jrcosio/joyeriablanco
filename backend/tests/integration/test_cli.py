@@ -4,11 +4,14 @@ import asyncio
 import uuid
 from datetime import datetime, timedelta
 
+import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from typer.testing import CliRunner
 
 from app.cli import app as cli
+from app.core.errors import NoEncontrado
+from app.core.http import Origen
 from app.core.security import verify_password
 from app.core.tiempo import ahora
 from app.domain.contrasenas import validate_password
@@ -69,6 +72,19 @@ async def test_restablecer_administrador_levanta_bloqueo_y_revoca_sesiones(
     assert vigentes == 0
     (evento,) = await eventos(db, TipoEvento.CONTRASENA_RESTABLECIDA)
     assert evento.actor_nombre_usuario == ACTOR_CONSOLA
+
+
+async def test_restablecer_no_alcanza_a_un_administrador_eliminado(
+    db: AsyncSession, crear_usuario: CrearUsuario
+) -> None:
+    eliminada = await crear_usuario("antigua.jefa", rol=Rol.ADMINISTRADOR, activo=False)
+    actor = await crear_usuario("jefa", rol=Rol.ADMINISTRADOR)
+    await usuarios.delete_usuario(
+        db, eliminada.id, actor=actor, origen=Origen(ip=None, agente=None)
+    )
+
+    with pytest.raises(NoEncontrado):
+        await usuarios.reset_admin_from_console(db, nombre_usuario="antigua.jefa")
 
 
 async def test_purgar_solo_sesiones_caducadas_o_revocadas_hace_mas_de_30_dias(

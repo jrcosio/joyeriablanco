@@ -1,4 +1,8 @@
-"""Gestión de usuarios (US1: operaciones de consola; US5: gestión por el administrador)."""
+"""Gestión de usuarios (US1: operaciones de consola; US5: gestión por el administrador).
+
+Los usuarios eliminados (FR-061) quedan fuera de toda la gestión: el repositorio los trata como
+inexistentes y su nombre de usuario queda libre.
+"""
 
 import re
 import uuid
@@ -15,6 +19,7 @@ from app.core.errors import (
     Duplicado,
     NoEncontrado,
     UltimoAdministrador,
+    UsuarioActivo,
 )
 from app.core.http import Origen
 from app.core.security import hash_password
@@ -28,6 +33,8 @@ from app.services.auditoria import ACTOR_CONSOLA, record_event
 
 FORMATO_NOMBRE_USUARIO: Final = re.compile(r"^[a-z0-9._-]{3,50}$")
 DETALLE_CONSOLA: Final = {"origen": "consola"}
+# No es un hash Argon2: el verificador lo rechaza siempre (research R-21).
+HASH_ELIMINADO: Final = "!eliminado"
 
 
 def normalize_nombre_usuario(nombre_usuario: str) -> str:
@@ -146,12 +153,20 @@ async def create_usuario(
 # ------------------------------------------------------------------ gestión por el administrador
 
 
-async def list_usuarios(db: AsyncSession) -> list[Usuario]:
-    return await usuarios_repo.list_usuarios(db)
+async def list_usuarios(db: AsyncSession, *, incluir_eliminados: bool = False) -> list[Usuario]:
+    return await usuarios_repo.list_usuarios(db, incluir_eliminados=incluir_eliminados)
 
 
-async def get_usuario(db: AsyncSession, usuario_id: uuid.UUID) -> Usuario:
-    usuario = await usuarios_repo.get(db, usuario_id)
+async def get_usuario(
+    db: AsyncSession, usuario_id: uuid.UUID, *, for_update: bool = False
+) -> Usuario:
+    """Usuario no eliminado. Las operaciones que lo modifican lo bloquean (`for_update`) para no
+    cruzarse con una eliminación concurrente (research R-21).
+
+    Orden de bloqueo sin interbloqueos: si la operación puede afectar a la regla del último
+    administrador, primero los administradores activos (por id) y después la fila del usuario.
+    """
+    usuario = await usuarios_repo.get(db, usuario_id, for_update=for_update)
     if usuario is None:
         raise NoEncontrado("El usuario no existe.")
     return usuario
@@ -174,7 +189,9 @@ async def update_usuario(
     actor: Usuario,
     origen: Origen,
 ) -> Usuario:
-    usuario = await get_usuario(db, usuario_id)
+    if rol is not None:
+        await usuarios_repo.lock_active_admins(db)  # antes que la fila: mismo orden que FR-017
+    usuario = await get_usuario(db, usuario_id, for_update=True)
     if nombre is not None:
         nombre_limpio = nombre.strip()
         if not nombre_limpio:
@@ -204,7 +221,8 @@ async def update_usuario(
 async def deactivate_usuario(
     db: AsyncSession, usuario_id: uuid.UUID, *, actor: Usuario, origen: Origen
 ) -> Usuario:
-    usuario = await get_usuario(db, usuario_id)
+    await usuarios_repo.lock_active_admins(db)  # antes que la fila: mismo orden que FR-017
+    usuario = await get_usuario(db, usuario_id, for_update=True)
     if usuario.id == actor.id:
         raise Autogestion
     if not usuario.activo:
@@ -227,7 +245,7 @@ async def deactivate_usuario(
 async def reactivate_usuario(
     db: AsyncSession, usuario_id: uuid.UUID, *, actor: Usuario, origen: Origen
 ) -> Usuario:
-    usuario = await get_usuario(db, usuario_id)
+    usuario = await get_usuario(db, usuario_id, for_update=True)
     if usuario.activo:
         return usuario
     usuario.activo = True
@@ -245,6 +263,41 @@ async def reactivate_usuario(
 async def reset_password(
     db: AsyncSession, usuario_id: uuid.UUID, *, actor: Usuario, origen: Origen
 ) -> tuple[Usuario, str]:
-    usuario = await get_usuario(db, usuario_id)
+    usuario = await get_usuario(db, usuario_id, for_update=True)
     temporal = await _restablecer(db, usuario, actor=actor, origen=origen)
     return usuario, temporal
+
+
+async def delete_usuario(
+    db: AsyncSession, usuario_id: uuid.UUID, *, actor: Usuario, origen: Origen
+) -> None:
+    """Elimina un usuario desactivado dejando una lápida (FR-061, research R-21).
+
+    Se descartan la credencial y las sesiones. Se conservan el nombre, el nombre de usuario y el
+    rol, porque la auditoría y lo que registró siguen apuntando a esta fila.
+    """
+    usuario = await get_usuario(db, usuario_id, for_update=True)
+    if usuario.id == actor.id:
+        raise Autogestion
+    if usuario.activo:
+        raise UsuarioActivo
+    usuario.eliminado_en = ahora()
+    usuario.hash_contrasena = HASH_ELIMINADO
+    usuario.contrasena_temporal = False
+    usuario.contrasena_temporal_expira_en = None
+    usuario.intentos_fallidos = 0
+    usuario.bloqueado_hasta = None
+    await sesiones_repo.delete_all_for_user(db, usuario.id)
+    await record_event(
+        db,
+        TipoEvento.USUARIO_ELIMINADO,
+        origen=origen,
+        actor=actor,
+        usuario_afectado_id=usuario.id,
+        detalle={
+            "nombre_usuario": usuario.nombre_usuario,
+            "nombre": usuario.nombre,
+            "rol": usuario.rol,
+        },
+    )
+    await db.flush()

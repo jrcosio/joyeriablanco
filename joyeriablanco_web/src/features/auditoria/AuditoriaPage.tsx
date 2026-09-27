@@ -3,7 +3,7 @@ import { Eye, ScrollText } from 'lucide-react'
 import { useState } from 'react'
 import { Input, Label, TextField as AriaTextField } from 'react-aria-components'
 import { auditoriaQuery, TAMANO_PAGINA_AUDITORIA } from '../../api/queries/auditoria'
-import { usuariosQuery } from '../../api/queries/usuarios'
+import { usuariosConEliminadosQuery } from '../../api/queries/usuarios'
 import type { EventoSalida, TipoEvento } from '../../api/tipos'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -15,6 +15,7 @@ import { Pagination } from '../../components/ui/Pagination'
 import { Select } from '../../components/ui/Select'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { fechaHora, finDia, inicioDia } from '../../lib/fechas'
+import { nombreConEstado } from '../../lib/usuarios'
 import { TIPOS_EVENTO } from './tipos-evento'
 
 export interface FiltrosAuditoriaUrl {
@@ -29,13 +30,13 @@ export interface FiltrosAuditoriaUrl {
 const TODOS = '__todos__'
 
 function actor(evento: EventoSalida): string {
-  if (evento.actor) return evento.actor.nombre
+  if (evento.actor) return nombreConEstado(evento.actor)
   if (evento.actor_nombre_usuario === 'consola') return 'Consola'
   return evento.actor_nombre_usuario ?? '—'
 }
 
 function objeto(evento: EventoSalida): string {
-  if (evento.usuario_afectado) return evento.usuario_afectado.nombre
+  if (evento.usuario_afectado) return nombreConEstado(evento.usuario_afectado)
   const detalle = evento.detalle as { nombre?: unknown; instantanea?: { nombre?: unknown } }
   if (typeof detalle.instantanea?.nombre === 'string') return detalle.instantanea.nombre
   if (typeof detalle.nombre === 'string') return detalle.nombre
@@ -140,7 +141,7 @@ export function AuditoriaPage({
   filtros: FiltrosAuditoriaUrl
   onFiltros: (cambios: Partial<FiltrosAuditoriaUrl>) => void
 }) {
-  const usuarios = useQuery(usuariosQuery)
+  const usuarios = useQuery(usuariosConEliminadosQuery)
   const consulta = useQuery(
     auditoriaQuery({
       desde: filtros.desde ? inicioDia(filtros.desde) : undefined,
@@ -155,7 +156,7 @@ export function AuditoriaPage({
 
   const opcionesUsuario = [
     { id: TODOS, label: 'Todos los usuarios' },
-    ...(usuarios.data ?? []).map((u) => ({ id: u.id, label: u.nombre })),
+    ...(usuarios.data ?? []).map((u) => ({ id: u.id, label: nombreConEstado(u) })),
   ]
   const opcionesTipo = [
     { id: TODOS, label: 'Todos los tipos' },

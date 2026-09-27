@@ -13,6 +13,7 @@ export const TIPOS_EVENTO: Record<TipoEvento, string> = {
   usuario_rol_cambiado: 'Rol cambiado',
   usuario_desactivado: 'Usuario desactivado',
   usuario_reactivado: 'Usuario reactivado',
+  usuario_eliminado: 'Usuario eliminado',
   cliente_creado: 'Cliente creado',
   cliente_editado: 'Cliente editado',
   cliente_desactivado: 'Cliente desactivado',

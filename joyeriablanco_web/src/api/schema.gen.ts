@@ -169,7 +169,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Listar Usuarios */
+        /**
+         * Listar Usuarios
+         * @description Sin los eliminados, salvo `incluir_eliminados` (filtro de la auditoría; FR-061).
+         */
         get: operations["listar_usuarios_api_v1_usuarios_get"];
         put?: never;
         /** Crear Usuario */
@@ -191,7 +194,11 @@ export interface paths {
         get: operations["obtener_usuario_api_v1_usuarios__usuario_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Eliminar Usuario
+         * @description Elimina un usuario desactivado; lo que registró se conserva (FR-061).
+         */
+        delete: operations["eliminar_usuario_api_v1_usuarios__usuario_id__delete"];
         options?: never;
         head?: never;
         /** Editar Usuario */
@@ -551,7 +558,7 @@ export interface components {
          * TipoEvento
          * @enum {string}
          */
-        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado";
+        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado";
         /**
          * TipoIdentificacion
          * @description `NIF` o clave de la lista L7 de DsRegistroVeriFactu.xlsx v1.0 (spec F-2).
@@ -598,6 +605,8 @@ export interface components {
             id: string;
             /** Nombre */
             nombre: string;
+            /** Eliminado */
+            eliminado: boolean;
         };
         /** UsuarioSalida */
         UsuarioSalida: {
@@ -613,6 +622,8 @@ export interface components {
             rol: components["schemas"]["Rol"];
             /** Activo */
             activo: boolean;
+            /** Eliminado */
+            eliminado: boolean;
             /** Contrasena Temporal */
             contrasena_temporal: boolean;
             /** Bloqueado */
@@ -1038,7 +1049,9 @@ export interface operations {
     };
     listar_usuarios_api_v1_usuarios_get: {
         parameters: {
-            query?: never;
+            query?: {
+                incluir_eliminados?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1052,6 +1065,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsuarioSalida"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1108,6 +1130,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UsuarioSalida"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eliminar_usuario_api_v1_usuarios__usuario_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                usuario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

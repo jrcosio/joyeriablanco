@@ -47,6 +47,7 @@ cd joyeriablanco_web && npm ci && npm run dev          # http://localhost:5173
 | 8 | Configuración → Auditoría y filtrar por tipo `acceso_fallido` | Aparecen los intentos de los pasos 1 y 2 con IP y fecha | FR-051 |
 | 9 | Como empleado, abrir `/configuracion/usuarios` | Pantalla de acceso denegado | FR-013 |
 | 10 | Ventana a 360 px | Cajón de menú y sin desplazamiento horizontal | FR-040, SC-008 |
+| 11 | Como admin, eliminar `empleado.demo` sin desactivarlo; después desactivarlo y eliminarlo escribiendo su nombre de usuario | El menú solo ofrece "Eliminar" tras desactivarlo. Desaparece de la lista, sus clientes muestran "(eliminado)" en la trazabilidad y se puede crear otro `empleado.demo` | FR-061, SC-013 |
 
 ## 3. Pruebas automáticas
 

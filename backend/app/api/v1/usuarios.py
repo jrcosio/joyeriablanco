@@ -17,8 +17,10 @@ router = APIRouter(prefix="/usuarios", tags=["usuarios"], dependencies=[Depends(
 
 
 @router.get("")
-async def listar_usuarios(db: DbDep) -> list[UsuarioSalida]:
-    return [UsuarioSalida.from_model(u) for u in await usuarios.list_usuarios(db)]
+async def listar_usuarios(db: DbDep, incluir_eliminados: bool = False) -> list[UsuarioSalida]:
+    """Sin los eliminados, salvo `incluir_eliminados` (filtro de la auditoría; FR-061)."""
+    lista = await usuarios.list_usuarios(db, incluir_eliminados=incluir_eliminados)
+    return [UsuarioSalida.from_model(u) for u in lista]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -55,6 +57,14 @@ async def editar_usuario(
         db, usuario_id, nombre=datos.nombre, rol=datos.rol, actor=sesion.usuario, origen=origen
     )
     return UsuarioSalida.from_model(usuario)
+
+
+@router.delete("/{usuario_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_usuario(
+    usuario_id: uuid.UUID, sesion: AdminSession, db: DbDep, origen: OrigenDep
+) -> None:
+    """Elimina un usuario desactivado; lo que registró se conserva (FR-061)."""
+    await usuarios.delete_usuario(db, usuario_id, actor=sesion.usuario, origen=origen)
 
 
 @router.post("/{usuario_id}/desactivacion")

@@ -10,7 +10,7 @@ const EVENTO = {
   id: 'e1',
   ocurrido_en: '2026-05-27T12:32:00Z',
   tipo: 'cliente_editado',
-  actor: { id: 'u1', nombre: 'Lucía Moreno' },
+  actor: { id: 'u1', nombre: 'Lucía Moreno', eliminado: false },
   actor_nombre_usuario: 'lucia.moreno',
   origen_ip: '10.1.1.1',
   agente: 'Firefox',
@@ -51,6 +51,55 @@ describe('AuditoriaPage (US5)', () => {
     expect(within(detalle).getByText('localidad')).toBeInTheDocument()
     expect(within(detalle).getByText('Málaga')).toBeInTheDocument()
     expect(within(detalle).getByText('Ronda')).toBeInTheDocument()
+  })
+
+  it('marca a los usuarios eliminados en la tabla y en el filtro de usuario', async () => {
+    conSesion(admin)
+    const eliminada = {
+      ...admin.usuario,
+      id: 'u1',
+      nombre: 'Lucía Moreno',
+      nombre_usuario: 'lucia.moreno',
+      activo: false,
+      eliminado: true,
+    }
+    server.use(
+      http.get('*/api/v1/usuarios', ({ request }) =>
+        HttpResponse.json(
+          new URL(request.url).searchParams.get('incluir_eliminados') === 'true'
+            ? [admin.usuario, eliminada]
+            : [admin.usuario],
+        ),
+      ),
+      http.get('*/api/v1/auditoria', () =>
+        HttpResponse.json({
+          elementos: [
+            {
+              ...EVENTO,
+              tipo: 'usuario_eliminado',
+              actor: { id: admin.usuario.id, nombre: admin.usuario.nombre, eliminado: false },
+              usuario_afectado: { id: 'u1', nombre: 'Lucía Moreno', eliminado: true },
+              cliente_id: null,
+              detalle: { nombre_usuario: 'lucia.moreno', nombre: 'Lucía Moreno', rol: 'empleado' },
+            },
+          ],
+          total: 1,
+          pagina: 1,
+          tamano: 25,
+        }),
+      ),
+    )
+    renderApp('/configuracion/auditoria')
+    const user = userEvent.setup()
+
+    const tabla = await screen.findByRole('table', { name: 'Eventos de auditoría' })
+    expect(within(tabla).getByText('Usuario eliminado')).toBeInTheDocument()
+    expect(within(tabla).getByText('Lucía Moreno (eliminado)')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Todos los usuarios/ }))
+    expect(
+      await screen.findByRole('option', { name: 'Lucía Moreno (eliminado)' }),
+    ).toBeInTheDocument()
   })
 
   it('el filtro por fechas envía los límites del día en hora peninsular', async () => {

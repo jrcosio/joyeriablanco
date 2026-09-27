@@ -70,6 +70,13 @@ async def revoke_all(
     return int(getattr(resultado, "rowcount", 0) or 0)
 
 
+async def delete_all_for_user(session: AsyncSession, usuario_id: uuid.UUID) -> int:
+    """Borra todas las sesiones de un usuario, vigentes o no (eliminación, FR-061)."""
+    stmt = delete(Sesion).where(Sesion.usuario_id == usuario_id)
+    resultado = await session.execute(stmt.execution_options(synchronize_session="fetch"))
+    return int(getattr(resultado, "rowcount", 0) or 0)
+
+
 async def purge(session: AsyncSession, limite: datetime) -> int:
     """Borra las sesiones revocadas o caducadas antes de `limite` (FR-054)."""
     stmt = delete(Sesion).where(

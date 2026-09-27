@@ -8,6 +8,7 @@ import { Dialog } from '../../components/ui/Dialog'
 import { Drawer } from '../../components/ui/Drawer'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { fechaHora } from '../../lib/fechas'
+import { nombreConEstado } from '../../lib/usuarios'
 import { ClienteForm, type ClienteExistente } from './ClienteForm'
 
 const FORM_ID = 'form-cliente'
@@ -122,11 +123,11 @@ export function ClientePanel({
                 <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 body-sm">
                   <dt className="text-on-surface-variant">Creado</dt>
                   <dd className="text-on-surface">
-                    {fechaHora(cliente.creado_en)} · {cliente.creado_por.nombre}
+                    {fechaHora(cliente.creado_en)} · {nombreConEstado(cliente.creado_por)}
                   </dd>
                   <dt className="text-on-surface-variant">Última modificación</dt>
                   <dd className="text-on-surface">
-                    {fechaHora(cliente.actualizado_en)} · {cliente.actualizado_por.nombre}
+                    {fechaHora(cliente.actualizado_en)} · {nombreConEstado(cliente.actualizado_por)}
                   </dd>
                 </dl>
                 {acciones}

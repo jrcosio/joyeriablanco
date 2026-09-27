@@ -119,13 +119,9 @@ class ClienteSalida(ClienteResumenSalida):
             observaciones=cliente.observaciones,
             version=cliente.version,
             creado_en=cliente.creado_en,
-            creado_por=UsuarioReferencia(
-                id=cliente.creado_por.id, nombre=cliente.creado_por.nombre
-            ),
+            creado_por=UsuarioReferencia.from_model(cliente.creado_por),
             actualizado_en=cliente.actualizado_en,
-            actualizado_por=UsuarioReferencia(
-                id=cliente.actualizado_por.id, nombre=cliente.actualizado_por.nombre
-            ),
+            actualizado_por=UsuarioReferencia.from_model(cliente.actualizado_por),
         )
 
 

@@ -283,6 +283,7 @@ async def test_un_empleado_no_accede_a_la_gestion_de_usuarios(
         await client.post(f"{URL}/{empleado.id}/desactivacion"),
         await client.post(f"{URL}/{empleado.id}/reactivacion"),
         await client.post(f"{URL}/{empleado.id}/restablecimiento-contrasena"),
+        await client.delete(f"{URL}/{empleado.id}"),
     ]
 
     assert {r.status_code for r in respuestas} == {403}

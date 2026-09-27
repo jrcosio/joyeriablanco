@@ -21,6 +21,7 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import { toast } from '../../components/ui/toast-store'
 import { fechaHora } from '../../lib/fechas'
 import { ContrasenaTemporalDialog } from './ContrasenaTemporalDialog'
+import { EliminarUsuarioDialog } from './EliminarUsuarioDialog'
 import { UsuarioAltaDialog } from './UsuarioAltaDialog'
 
 const ROL: Record<Rol, string> = { administrador: 'Administrador', empleado: 'Empleado' }
@@ -33,6 +34,9 @@ type Accion =
 const claseItem =
   'cursor-pointer px-4 py-2.5 body-md text-on-surface outline-none ' +
   'data-[focused]:bg-surface-container-high data-[focused]:text-primary'
+const claseItemPeligro =
+  'cursor-pointer px-4 py-2.5 body-md text-danger outline-none ' +
+  'data-[focused]:bg-surface-container-high'
 
 function Estado({ usuario }: { usuario: UsuarioSalida }) {
   return (
@@ -56,6 +60,7 @@ export function UsuariosPage() {
   const restablecer = useRestablecerContrasena()
   const [alta, setAlta] = useState(false)
   const [accion, setAccion] = useState<Accion | null>(null)
+  const [aEliminar, setAEliminar] = useState<UsuarioSalida | null>(null)
   const [temporal, setTemporal] = useState<{ nombreUsuario: string; contrasena: string } | null>(
     null,
   )
@@ -105,7 +110,8 @@ export function UsuariosPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="body-md text-on-surface-variant">
-          Alta de empleados y administradores, roles, bajas y restablecimiento de contraseñas.
+          Alta de empleados y administradores, roles, bajas, eliminación y restablecimiento de
+          contraseñas.
         </p>
         <Button
           onPress={() => {
@@ -197,6 +203,7 @@ export function UsuariosPage() {
                               if (clave === 'rol') setAccion({ tipo: 'rol', usuario })
                               if (clave === 'restablecer')
                                 setAccion({ tipo: 'restablecer', usuario })
+                              if (clave === 'eliminar') setAEliminar(usuario)
                               if (clave === 'estado') {
                                 if (usuario.activo) {
                                   setAccion({ tipo: 'desactivar', usuario })
@@ -226,6 +233,12 @@ export function UsuariosPage() {
                             >
                               {usuario.activo ? 'Desactivar' : 'Reactivar'}
                             </MenuItem>
+                            {/* Solo un usuario desactivado se puede eliminar (FR-061). */}
+                            {!usuario.activo && !esYo ? (
+                              <MenuItem id="eliminar" className={claseItemPeligro}>
+                                Eliminar
+                              </MenuItem>
+                            ) : null}
                           </Menu>
                         </Popover>
                       </MenuTrigger>
@@ -283,6 +296,13 @@ export function UsuariosPage() {
               ? `Se generará una contraseña temporal para ${accion.usuario.nombre}, se levantará su bloqueo si lo tiene y se cerrarán sus sesiones.`
               : null}
       </ConfirmDialog>
+
+      <EliminarUsuarioDialog
+        usuario={aEliminar}
+        onCerrar={() => {
+          setAEliminar(null)
+        }}
+      />
 
       <ContrasenaTemporalDialog
         datos={temporal}

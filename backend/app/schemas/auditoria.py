@@ -6,6 +6,7 @@ from typing import Any
 
 from app.domain.tipos import TipoEvento
 from app.models.evento_auditoria import EventoAuditoria
+from app.models.usuario import Usuario
 from app.schemas.comunes import SalidaBase
 from app.schemas.usuario import UsuarioReferencia
 
@@ -24,8 +25,8 @@ class EventoSalida(SalidaBase):
 
     @classmethod
     def from_model(cls, evento: EventoAuditoria) -> "EventoSalida":
-        def ref(usuario: Any) -> UsuarioReferencia | None:
-            return UsuarioReferencia(id=usuario.id, nombre=usuario.nombre) if usuario else None
+        def ref(usuario: Usuario | None) -> UsuarioReferencia | None:
+            return UsuarioReferencia.from_model(usuario) if usuario else None
 
         return cls(
             id=evento.id,

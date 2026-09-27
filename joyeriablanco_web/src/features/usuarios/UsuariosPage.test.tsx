@@ -18,8 +18,16 @@ const lucia = {
   rol: 'empleado' as const,
 }
 
+const pablo = {
+  ...lucia,
+  id: '0192f0c0-0000-7000-8000-0000000000bb',
+  nombre: 'Pablo Ortega',
+  nombre_usuario: 'pablo.ortega',
+  activo: false,
+}
+
 function conUsuarios() {
-  server.use(http.get('*/api/v1/usuarios', () => HttpResponse.json([yo.usuario, lucia])))
+  server.use(http.get('*/api/v1/usuarios', () => HttpResponse.json([yo.usuario, lucia, pablo])))
 }
 
 describe('UsuariosPage (US5)', () => {
@@ -77,6 +85,74 @@ describe('UsuariosPage (US5)', () => {
       'aria-disabled',
       'true',
     )
+  })
+
+  it('solo ofrece eliminar a los usuarios desactivados', async () => {
+    conSesion(yo)
+    conUsuarios()
+    renderApp('/configuracion/usuarios')
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: 'Acciones para Lucía Moreno' }))
+    expect(
+      within(await screen.findByRole('menu')).queryByRole('menuitem', { name: 'Eliminar' }),
+    ).toBeNull()
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Acciones para Pablo Ortega' }))
+
+    expect(
+      within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Eliminar' }),
+    ).toBeInTheDocument()
+  })
+
+  it('elimina un usuario desactivado tras escribir su nombre de usuario', async () => {
+    conSesion(yo)
+    conUsuarios()
+    const eliminados: string[] = []
+    server.use(
+      http.delete('*/api/v1/usuarios/:id', ({ params }) => {
+        eliminados.push(String(params.id))
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    renderApp('/configuracion/usuarios')
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: 'Acciones para Pablo Ortega' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Eliminar' }))
+    const dialogo = await screen.findByRole('alertdialog', { name: 'Eliminar usuario' })
+    expect(within(dialogo).getByText(/se conservan/)).toBeInTheDocument()
+    const boton = within(dialogo).getByRole('button', { name: 'Eliminar' })
+    expect(boton).toBeDisabled()
+    await user.type(within(dialogo).getByLabelText(/Escribe el nombre de usuario/), 'Pablo.Ortega')
+    expect(boton).toBeEnabled()
+    await user.click(boton)
+
+    expect(await screen.findByText('Pablo Ortega eliminado.')).toBeInTheDocument()
+    expect(eliminados).toEqual([pablo.id])
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it('muestra el error si el usuario se reactivó mientras tanto', async () => {
+    conSesion(yo)
+    conUsuarios()
+    server.use(
+      http.delete('*/api/v1/usuarios/:id', () =>
+        problema(409, 'usuario-activo', 'Desactiva el usuario antes de eliminarlo.'),
+      ),
+    )
+    renderApp('/configuracion/usuarios')
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: 'Acciones para Pablo Ortega' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Eliminar' }))
+    const dialogo = await screen.findByRole('alertdialog', { name: 'Eliminar usuario' })
+    await user.type(within(dialogo).getByLabelText(/Escribe el nombre de usuario/), 'pablo.ortega')
+    await user.click(within(dialogo).getByRole('button', { name: 'Eliminar' }))
+
+    expect(
+      await within(dialogo).findByText('Desactiva el usuario antes de eliminarlo.'),
+    ).toBeInTheDocument()
   })
 
   it('muestra el error del último administrador', async () => {
