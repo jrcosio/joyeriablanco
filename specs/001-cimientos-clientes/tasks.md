@@ -440,6 +440,102 @@ cierran y la actual sigue.
 
 ---
 
+## Phase 12: Ajuste de cierre — Eliminación de usuarios desactivados (US5, FR-061)
+
+**Goal**: el administrador elimina usuarios desactivados sin alterar nada de lo que registraron.
+El nombre de usuario queda libre (clarificación del 2026-09-28; research R-21).
+
+**Independent Test**: un empleado da de alta un cliente. Se le desactiva y se le elimina. Entonces:
+- Desaparece del listado y no puede entrar.
+- La ficha del cliente muestra "Nombre (eliminado)".
+- Se puede crear otro usuario con su mismo nombre de usuario.
+- La auditoría conserva sus eventos y registra la eliminación.
+
+### Tests for Phase 12 ⚠️ (escribir primero, deben fallar)
+
+- [ ] T118 [P] [US5] Test `backend/tests/integration/test_usuarios_eliminacion.py`:
+  - **Condiciones**:
+    - Usuario activo → 409 `usuario-activo`.
+    - Usuario inexistente o ya eliminado → 404.
+    - Empleado → 403.
+    - Sobre la propia cuenta → 409 `autogestion`.
+  - **Efecto**:
+    - 204 y el usuario desaparece de `GET /v1/usuarios`.
+    - Aparece con `eliminado: true` solo con `incluir_eliminados=true`.
+    - GET, PATCH, desactivación, reactivación y restablecimiento por id → 404.
+    - Sus sesiones se borran y el acceso con sus credenciales da 401 genérico.
+  - **Conservación**:
+    - Los clientes que creó o editó mantienen `version`, `creado_por` y `actualizado_por`, con su
+      nombre y `eliminado: true`.
+    - Sus eventos anteriores siguen intactos.
+    - Se registra `usuario_eliminado` con la instantánea `nombre_usuario`, `nombre` y `rol`.
+  - **Nombre de usuario liberado**:
+    - Un alta con el mismo nombre → 201, y el nuevo usuario entra.
+    - El filtro de auditoría por id distingue a ambos.
+  - **BD**:
+    - El `CHECK` impide `eliminado_en` con `activo=true`.
+    - El índice parcial impide dos no eliminados con el mismo nombre.
+  - **Concurrencia**: reactivar y eliminar a la vez termina en un estado coherente (activo o
+    eliminado), sin 500.
+- [ ] T119 [P] [US5] Ampliar `backend/tests/integration/test_cli.py`: `restablecer-admin` sobre un administrador eliminado responde "no existe"
+- [ ] T120 [P] [US5] Ampliar los tests web:
+  - `joyeriablanco_web/src/features/usuarios/UsuariosPage.test.tsx`:
+    - "Eliminar" solo aparece en usuarios desactivados.
+    - La confirmación exige escribir el nombre de usuario.
+    - Se llama a `DELETE` y se muestra el aviso.
+  - `joyeriablanco_web/src/features/auditoria/AuditoriaPage.test.tsx`: marca "(eliminado)" en la
+    tabla y en el filtro de usuario.
+
+### Implementation for Phase 12
+
+- [ ] T121 [US5] Migración `backend/alembic/versions/0004_eliminacion_usuarios.py`, con `downgrade`:
+  - Columna `eliminado_en` y `CHECK ck_usuarios_eliminado_inactivo`.
+  - El índice único total `uq_usuarios_nombre_usuario_lower` se sustituye por uno parcial
+    `WHERE eliminado_en IS NULL`.
+  - `ck_eventos_auditoria_tipo` se amplía con `usuario_eliminado`.
+- [ ] T122 [US5] Modelo y dominio:
+  - `backend/app/models/usuario.py`: `eliminado_en`, `CHECK`, índice parcial y propiedad
+    `eliminado`.
+  - `backend/app/domain/tipos.py`: `TipoEvento.USUARIO_ELIMINADO`.
+- [ ] T123 [US5] Repositorios:
+  - `backend/app/repositories/usuarios.py`:
+    - `get_by_nombre_usuario` excluye a los eliminados.
+    - `list_usuarios(incluir_eliminados)`.
+    - Lectura por id con `FOR UPDATE`.
+  - `backend/app/repositories/sesiones.py`: `delete_all_for_user`.
+- [ ] T124 [US5] Servicio `backend/app/services/usuarios.py`:
+  - `delete_usuario`: condición previa, lápida, borrado de sesiones y evento.
+  - Editar, desactivar, reactivar y restablecer leen `FOR UPDATE` y tratan al eliminado como
+    inexistente.
+  - Error `UsuarioActivo` (409 `usuario-activo`) en `backend/app/core/errors.py`.
+- [ ] T125 [US5] Esquemas y router:
+  - Campo `eliminado` en `UsuarioSalida` y `UsuarioReferencia` (`backend/app/schemas/usuario.py`,
+    `cliente.py` y `auditoria.py`).
+  - `DELETE /v1/usuarios/{id}` (204) y `incluir_eliminados` en `backend/app/api/v1/usuarios.py`.
+- [ ] T126 [US5] Web, usuarios:
+  - Regenerar los tipos (`exportar-openapi` + `gen:api`).
+  - `useEliminarUsuario` y `usuariosConEliminadosQuery` en
+    `joyeriablanco_web/src/api/queries/usuarios.ts`.
+  - Acción "Eliminar" solo en desactivados, con confirmación reforzada por nombre de usuario, en
+    `joyeriablanco_web/src/features/usuarios/UsuariosPage.tsx`.
+  - Etiqueta del evento en `joyeriablanco_web/src/features/auditoria/tipos-evento.ts`.
+- [ ] T127 [US5] Web, marca "(eliminado)" con un único formateador en
+  `joyeriablanco_web/src/lib/usuarios.ts`:
+  - `AuditoriaPage.tsx`: actor, afectado y filtro, este último con `usuariosConEliminadosQuery`.
+  - `joyeriablanco_web/src/features/clientes/ClientePanel.tsx`: trazabilidad.
+- [ ] T128 [P] [US5] Ampliar el E2E `joyeriablanco_web/e2e/usuarios.spec.ts`:
+  1. Un empleado da de alta un cliente.
+  2. El administrador lo desactiva y lo elimina escribiendo su nombre de usuario.
+  3. El empleado ya no está en el listado.
+  4. La ficha del cliente muestra "(eliminado)".
+  5. Se crea otro usuario con el mismo nombre de usuario.
+  6. La auditoría muestra "Usuario eliminado".
+- [ ] T129 Añadir la validación de la eliminación a `specs/001-cimientos-clientes/quickstart.md` §2 y ejecutar las puertas de calidad completas (como T115). Todo en verde
+
+**Checkpoint**: FR-061 y SC-013 cumplidos; la feature vuelve a estar lista para cerrarse.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -455,6 +551,7 @@ cierran y la actual sigue.
 - **US8 (F9)**: depende de F2 y de que la web compile; conviene hacerla tras US3.
 - **US6 (F10)**: depende de US1 (el formulario ya existe desde T050).
 - **Polish (F11)**: depende de todas las historias.
+- **Ajuste de cierre (F12)**: depende de US5 (F8) y de US2 (autoría de clientes). Es posterior a F11 porque llegó en la revisión final del responsable.
 
 ### Within Each User Story
 
