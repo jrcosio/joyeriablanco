@@ -561,11 +561,19 @@ desplazar.
       distinto de `visible`.
     - Tras colocarla en vertical con `window.scrollTo`, `document.elementFromPoint` en su centro
       devuelve la propia acción o un descendiente, es decir, que nada la tapa.
-    - El `backgroundColor` calculado de su celda es opaco e igual al del primer ancestro de la
-      tabla con fondo no transparente (la tarjeta).
+    - Solo en tablas: el `backgroundColor` calculado de su `td` es opaco e igual al del primer
+      ancestro de la tabla con fondo no transparente (la tarjeta). El del `th` de la columna es
+      igual al del `thead`. En la lista móvil no hay celda fija y esta comprobación no aplica.
     - Al terminar, el `scrollLeft` de todos los contenedores sigue en 0.
   - **Clientes**, a 768, 1024, 1280 y 1440 px, en `/clientes` sin filtros:
     - Tabla `Listado de clientes` con 25 enlaces `Editar cliente …`, todos medidos.
+    - **Datos largos** (caso límite de la spec), en un test aparte del mismo fichero:
+      - Se intercepta `GET /api/v1/clientes` con `page.route` y se sustituye el nombre, la
+        localidad y el correo del primer elemento por valores muy largos: un nombre de 120
+        caracteres con una palabra de 40 sin espacios, una localidad de 60 y un correo de 80.
+      - La tabla desborda en todos los anchos. Aun así, todas las acciones siguen medidas como
+        visibles y la página no se desplaza.
+      - No se toca la BD de E2E.
     - Cabecera "Teléfono" oculta por debajo de 1280 px y visible a 1280 px o más.
     - Pulsar el lápiz de la **última** fila abre el panel (`getByRole('dialog')`) con el nombre de
       ese cliente como encabezado.

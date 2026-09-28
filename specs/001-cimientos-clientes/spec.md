@@ -656,6 +656,8 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
     localidad, provincia y acciones. El teléfono y el correo quedan en la ficha. En escritorio, el
     menú lateral fijo deja un espacio útil equivalente al de una tableta.
   - **Escritorio de 1280 px o más**: la tabla muestra todas las columnas de FR-031.
+  - Estos anchos solo deciden las columnas de la tabla de clientes. El menú lateral y el resto de la
+    estructura siguen los puntos de corte de FR-040.
   - **Tablas con acciones por fila** (clientes, usuarios y auditoría), en cualquier ancho en que se
     presenten como tabla: la columna de acciones queda fija en el borde derecho y siempre visible.
     Si el contenido de las demás columnas no cabe, se desplaza la tabla dentro de su recuadro, nunca
