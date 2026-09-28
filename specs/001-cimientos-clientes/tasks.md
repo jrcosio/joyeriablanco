@@ -536,6 +536,105 @@ El nombre de usuario queda libre (clarificación del 2026-09-28; research R-21).
 
 ---
 
+## Phase 13: Ajuste de cierre — Acciones siempre visibles en las tablas (US3, US5, FR-031, FR-059, SC-014)
+
+**Goal**: cada fila de las tablas de clientes, usuarios y auditoría muestra su acción sin buscar,
+filtrar ni desplazar, a cualquier ancho y con cualquier dato. Detalles:
+- La columna de acciones queda fija en el borde derecho.
+- Teléfono y correo de clientes se muestran desde 1280 px.
+- Si el resto no cabe, la tabla se desplaza dentro de su tarjeta, nunca la página.
+
+Clarificaciones del 2026-09-28; diagnóstico y decisión en research R-22.
+
+**Independent Test**: con los 40 clientes de ejemplo, en el listado completo sin filtros a 768,
+1024, 1280 y 1440 px, se ven los 25 lápices y el de la última fila abre su ficha. A 360 px y en
+los anchos de SC-014, el menú de cada usuario y el detalle de cada evento de auditoría se ven sin
+desplazar.
+
+### Tests for Phase 13 ⚠️ (escribir primero; el E2E debe fallar con el código actual)
+
+- [ ] T130 [P] [US3] E2E nuevo `joyeriablanco_web/e2e/acciones-visibles.spec.ts` (SC-014, US3-8,
+  US5-13), con `iniciarSesion(page, 'admin.demo')` de `e2e/helpers/acceso.ts`:
+  - **Función de medida** local, con `page.evaluate` y sin desplazar nada en horizontal. Para cada
+    acción de una tabla (o de la lista móvil) comprueba que:
+    - Su rectángulo queda dentro de la ventana y de **todos** sus ancestros con `overflow-x`
+      distinto de `visible`.
+    - Tras colocarla en vertical con `window.scrollTo`, `document.elementFromPoint` en su centro
+      devuelve la propia acción o un descendiente, es decir, que nada la tapa.
+    - El `backgroundColor` calculado de su celda es opaco e igual al del primer ancestro de la
+      tabla con fondo no transparente (la tarjeta).
+    - Al terminar, el `scrollLeft` de todos los contenedores sigue en 0.
+  - **Clientes**, a 768, 1024, 1280 y 1440 px, en `/clientes` sin filtros:
+    - Tabla `Listado de clientes` con 25 enlaces `Editar cliente …`, todos medidos.
+    - Cabecera "Teléfono" oculta por debajo de 1280 px y visible a 1280 px o más.
+    - Pulsar el lápiz de la **última** fila abre el panel (`getByRole('dialog')`) con el nombre de
+      ese cliente como encabezado.
+  - **Clientes, a 360 px**: lista `Listado de clientes` con 25 enlaces medidos. Hoy ya pasa y
+    protege las tarjetas.
+  - **Usuarios**, a 360, 768, 1024, 1280 y 1440 px, en `/configuracion/usuarios`:
+    - Todos los botones `Acciones para …` de la tabla `Usuarios del sistema`, medidos.
+    - El de la última fila abre su menú.
+  - **Auditoría**, en los mismos anchos, en `/configuracion/auditoria`: todos los botones
+    `Ver detalle: …` de la tabla `Eventos de auditoría`, medidos.
+  - **En cada ancho**: la página no se desplaza en horizontal, con la misma comprobación que
+    `sinDesplazamientoHorizontal` de `e2e/responsive.spec.ts`.
+  - Antes de T132 debe fallar al menos en:
+    - Clientes, a 1024, 1280 y 1440 px.
+    - Usuarios, a 360 px.
+    - Auditoría, a 360 y 1024 px.
+
+    Son los cortes medidos en R-22.
+- [ ] T131 [P] [US3] Ampliar `joyeriablanco_web/src/features/clientes/ClientesPage.test.tsx`:
+  - Con tres clientes en el listado, la tabla tiene exactamente un enlace
+    `Editar cliente {nombre}` por fila, cada uno a la ficha de su cliente.
+  - Es una salvaguarda de regresión contra cualquier condición futura sobre las acciones (FR-031).
+    jsdom no maqueta, así que pasa ya hoy; el corte visual lo cubre T130.
+
+### Implementation for Phase 13
+
+- [ ] T132 [US3] Clases compartidas en `joyeriablanco_web/src/components/ui/tabla.ts`, con el
+  mismo patrón que `field.ts` y JSDoc que remite a FR-059 y R-22:
+  - `tablaDesplazable`: `overflow-x-auto`.
+  - `accionesCabecera`: `sticky right-0 w-px whitespace-nowrap bg-surface-container`.
+  - `accionesCelda`: `sticky right-0 w-px whitespace-nowrap bg-surface-container-low
+    transition-colors group-hover:bg-surface-container-high`.
+
+  Solo tokens de DESIGN.md: sin filetes verticales, sin sombras y sin paradas de tabulación
+  nuevas.
+- [ ] T133 [US3] `joyeriablanco_web/src/features/clientes/TablaClientes.tsx`:
+  - La `<table>` va dentro de un `div` con `hidden md:block` más `tablaDesplazable`, y pasa a
+    `w-full border-collapse`.
+  - `th` y `td` de Teléfono y Correo con `hidden xl:table-cell`, en lugar de `lg:`.
+  - `th` de Acciones con `accionesCabecera`, conservando `text-right`.
+  - `td` de Acciones con `accionesCelda`, conservando `text-right`.
+  - `group` en cada `<tr>` del cuerpo.
+  - La lista móvil, el enlace `Editar` y el esqueleto de carga no cambian.
+- [ ] T134 [P] [US5] `joyeriablanco_web/src/features/usuarios/UsuariosPage.tsx`:
+  - La `<table>` va dentro de `<div className={tablaDesplazable}>`.
+  - Columna "Acciones" (`th` con `i === 4` y su `td`) con `accionesCabecera` y `accionesCelda`.
+  - `group` en cada `<tr>` del cuerpo.
+  - El menú (`MenuTrigger` y `Popover`) no cambia.
+- [ ] T135 [P] [US5] `joyeriablanco_web/src/features/auditoria/AuditoriaPage.tsx`:
+  - El `div` que envuelve la tabla usa `tablaDesplazable`.
+  - Última columna ("Detalle", solo para lectores de pantalla, y su `td` con el botón
+    `Ver detalle`) con `accionesCabecera` y `accionesCelda`.
+  - `group` en cada `<tr>` del cuerpo.
+- [ ] T136 Puertas de calidad completas (como T115), todo en verde:
+  - En `joyeriablanco_web/`, ejecutar
+    `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens`.
+  - `npx playwright test`, con la suite completa.
+  - Comprobación visual en el entorno de desarrollo (`http://localhost:5173`), a 360, 768, 1024,
+    1280 y 1440 px:
+    - Al desplazar una tabla, la columna fija tapa por completo lo que pasa por debajo, también en
+      hover.
+    - El foco visible del lápiz no se recorta.
+    - Con el foco en una acción, las flechas desplazan la tabla (FR-052).
+  - El backend no cambia: sin migraciones, sin cambios en la API y sin regenerar tipos.
+
+**Checkpoint**: FR-031, FR-059 y SC-014 cumplidos; la feature vuelve a estar lista para cerrarse.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -552,6 +651,7 @@ El nombre de usuario queda libre (clarificación del 2026-09-28; research R-21).
 - **US6 (F10)**: depende de US1 (el formulario ya existe desde T050).
 - **Polish (F11)**: depende de todas las historias.
 - **Ajuste de cierre (F12)**: depende de US5 (F8) y de US2 (autoría de clientes). Es posterior a F11 porque llegó en la revisión final del responsable.
+- **Ajuste de cierre (F13)**: depende de US3 (F5), US5 (F8) y de los E2E de F6. Solo toca la web. Es posterior a F12 porque llegó al probar el listado tras la fusión de la feature.
 
 ### Within Each User Story
 
@@ -566,6 +666,7 @@ El nombre de usuario queda libre (clarificación del 2026-09-28; research R-21).
 - US1: T031–T036 (tests) en paralelo; T037–T039, T043 y T046 en paralelo.
 - US2: T054–T057 en paralelo; T058, T059, T065 y T067 en paralelo.
 - US5 puede hacerse en paralelo con US2–US4 una vez cerrada US1.
+- F13: T130 y T131 en paralelo; T134 y T135 en paralelo tras T132, junto con T133.
 
 ---
 
