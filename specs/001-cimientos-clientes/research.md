@@ -504,3 +504,78 @@ NIF de entidad la detectará la consulta al censo de la AEAT en una feature post
   inalterable ya contiene su nombre de usuario en eventos anteriores.
 - **Reservar para siempre el nombre de usuario**: descartado por el responsable (clarificación del
   2026-09-28).
+
+## R-22. Acciones siempre visibles en las tablas (ajuste de cierre, 2026-09-28)
+
+**Diagnóstico** (medido el 2026-09-28 en el entorno E2E, con los 40 clientes de ejemplo y
+Chromium). Cada celda indica cuántas acciones de fila quedan fuera de la vista sin desplazar:
+
+| Ancho | Clientes (editar) | Usuarios (menú de acciones) | Auditoría (ver detalle) |
+|---|---|---|---|
+| 360 px | 0/25 (tarjetas) | 3/3 | 25/25 |
+| 768 px | 0/25 | 0/3 | 0/25 |
+| 1024 px | 25/25 | 0/3 | 25/25 |
+| 1280 px | 25/25 | 0/3 | 0/25 |
+| 1440 px | 25/25 | 0/3 | 0/25 |
+| 1600 px | 0/25 | 0/3 | 0/25 |
+
+- **Causa**: el ancho mínimo de la tabla supera el espacio útil de la tarjeta.
+  - El relleno de DESIGN.md (1rem × 1.5rem por celda) suma 3rem por columna.
+  - El correo reserva hasta 224 px sin cortar.
+  - Desde 1024 px, el menú lateral fijo (20rem) y los márgenes (2 × 2.5rem) dejan unos 624 px a
+    1024 px y unos 880 px a 1280 px.
+  - La tarjeta (`Card` con `overflow-hidden`) recorta lo que sobra. Lo primero que desaparece es la
+    última columna, la de acciones.
+  - En auditoría la tabla ya se desplaza (`overflow-x-auto`), pero la acción queda al final del
+    desplazamiento.
+- **Por qué no lo detectaban los tests**:
+  - Los E2E filtran siempre antes de pulsar "Editar".
+  - `responsive.spec.ts` mide el desplazamiento de la *página*, que no existe porque la tarjeta
+    recorta.
+  - jsdom (Vitest) no calcula la maquetación.
+
+**Decisión** (FR-031, FR-059, SC-014):
+- **Contenedor de desplazamiento**: la `<table>` de clientes, usuarios y auditoría va dentro de un
+  `div` con `overflow-x-auto`, dentro de la `Card`. La `Card` conserva `overflow-hidden` para su
+  filete.
+- **Columna de acciones fija**: `th` y `td` de la última columna con `position: sticky; right: 0`.
+  - Ancho ajustado al botón: `w-px whitespace-nowrap`.
+  - Fondo sólido del token de su fila, para tapar lo que pasa por debajo al desplazar: cabecera
+    `surface-container`, fila `surface-container-low` y hover `surface-container-high` (con `group`
+    en la fila y `group-hover:` en la celda).
+  - Sin filete vertical ni sombra. DESIGN.md solo admite filetes horizontales en las tablas y no
+    define sombras para ellas.
+- **Clases compartidas**, definidas una vez en `src/components/ui/tabla.ts` (mismo patrón que
+  `field.ts`): contenedor desplazable, cabecera fija y celda fija. Las consumen `TablaClientes`,
+  `UsuariosPage` y `AuditoriaPage`.
+- **Teléfono y correo de clientes** desde `xl` (1280 px, punto de corte por defecto de Tailwind, que
+  `tokens.css` no redefine). Antes se mostraban desde `lg`. Por debajo quedan en la ficha (FR-059).
+- **Lista móvil de clientes** (tarjetas por debajo de 768 px): sin cambios. Ya incluye la acción y la
+  medición da 0 cortes.
+
+**Razón**:
+- Es la única opción que garantiza la acción visible **con cualquier dato**, sea un nombre, una
+  localidad o un correo largos, sin quitar columnas ni tocar el relleno de DESIGN.md.
+- Pasar teléfono y correo a 1280 px evita desplazar la tabla en el caso normal entre 1024 y
+  1279 px. Ahí, con el menú fijo, el espacio útil es el de una tableta (FR-059).
+- `position: sticky` en celdas de tabla es CSS estándar, soportado por los navegadores objetivo
+  (Chrome, Edge, Firefox y Safari actuales). No hace falta JavaScript.
+- La auditoría ya usaba `overflow-x-auto`, así que las tres tablas quedan con el mismo patrón.
+
+**Alternativas descartadas**:
+- **Solo fijar la columna de acciones, sin mover teléfono y correo**: entre 1024 y 1279 px casi
+  siempre habría que desplazar para ver localidad y provincia.
+- **Unir teléfono y correo en una columna "Contacto"**: se aparta del mockup y no garantiza nada
+  con datos largos.
+- **Reducir el relleno de las celdas**: sería una desviación de DESIGN.md (1rem × 1.5rem).
+- **`table-layout: fixed` con anchos por columna**: obliga a cortar o partir nombres e
+  identificaciones y sigue sin caber en 360 px.
+- **Solo `overflow-x-auto`, sin columna fija**: la acción seguiría al final del desplazamiento,
+  como ya pasa en auditoría.
+
+**Verificación** (SC-014): E2E `e2e/acciones-visibles.spec.ts`, en los anchos de SC-014 y sin
+desplazar nada. Comprueba que:
+- El rectángulo de cada acción queda dentro de todos sus contenedores con desbordamiento y de la
+  ventana.
+- El punto central de cada acción es la propia acción, así que nada la tapa.
+- El fondo de la celda fija coincide con el del contenedor de la tabla.

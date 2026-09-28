@@ -22,6 +22,9 @@ Sobre esa base se entregan:
   trazabilidad de lo que registraron (ajuste de cierre del 2026-09-28, FR-061, R-21).
 - **Gestión de clientes**: identificación fiscal validada y alineada con el diseño de registro
   oficial de la AEAT, búsqueda sin tildes, indicadores, concurrencia optimista y baja lógica.
+- **Acciones siempre visibles** en las tablas de clientes, usuarios y auditoría: columna de
+  acciones fija a la derecha, teléfono y correo de clientes desde 1280 px y desplazamiento de la
+  tabla dentro de su tarjeta (ajuste de cierre del 2026-09-28, FR-031, FR-059, SC-014, R-22).
 
 Decisiones y versiones en [research.md](research.md).
 
@@ -95,15 +98,25 @@ de complejidad queda vacía.
 - **V**: la regla vive en `services/usuarios.py`; el router solo delega.
 - **VIII**: `DELETE /v1/usuarios/{id}`, columna `eliminado_en` y evento `usuario_eliminado`.
 
+**Re-check del ajuste de cierre** (2026-09-28, acciones visibles, FR-031, FR-059, SC-014): sin
+violaciones.
+- **Sistema de diseño**: la celda fija usa fondos de los tokens (`surface-container`,
+  `surface-container-low` y `surface-container-high`), sin filetes verticales ni sombras. Las
+  clases se definen una sola vez en `src/components/ui/tabla.ts`. La fila nueva de la tabla de
+  desviaciones del mockup (teléfono y correo desde 1280 px) está justificada en la spec. Sigue sin
+  haber desviaciones de DESIGN.md.
+- **I (SDD)**: rama `001-ajuste-listado-clientes`, con ciclo completo y la fase 13 en `tasks.md`.
+- Solo cambia la web. La API, la BD y los principios II a VII no se ven afectados.
+
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
 specs/001-cimientos-clientes/
-├── spec.md              # Especificación (con Clarifications 2026-09-27)
+├── spec.md              # Especificación (con Clarifications 2026-09-27 y 2026-09-28)
 ├── plan.md              # Este fichero
-├── research.md          # Fase 0: decisiones, versiones y fuentes oficiales (R-20)
+├── research.md          # Fase 0: decisiones, versiones y fuentes oficiales (R-20), ajustes (R-21, R-22)
 ├── data-model.md        # Fase 1: tablas, restricciones y estados
 ├── quickstart.md        # Fase 1: puesta en marcha y validación
 ├── contracts/
@@ -208,6 +221,13 @@ fijados en CLAUDE.md). La infraestructura compartida va en la raíz (`docker-com
    - `DELETE /v1/usuarios/{id}` y `incluir_eliminados`.
    - Marca "(eliminado)" en la web.
    - Pruebas unitarias, de integración y E2E.
+9. **Ajuste de cierre**, acciones siempre visibles en las tablas (FR-031, FR-059, SC-014, R-22):
+   - Primero el E2E `e2e/acciones-visibles.spec.ts` y el test unitario del listado, que deben
+     fallar.
+   - Clases compartidas en `src/components/ui/tabla.ts`.
+   - Aplicarlas en `TablaClientes.tsx` (con teléfono y correo en `xl`), `UsuariosPage.tsx` y
+     `AuditoriaPage.tsx`.
+   - Solo cambia la web: sin migraciones, sin cambios en la API y sin regenerar tipos.
 
 ## Complexity Tracking
 
