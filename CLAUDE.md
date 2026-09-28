@@ -137,11 +137,23 @@ concurrencia (secuencia de BD o bloqueo explícito sobre tabla de contadores).
 
 **`MAX(numero)+1` sin lock está prohibido.**
 
+- Formato de la serie ordinaria: **`FAC-AAAA-NNNN`**.
+- El número de una factura emitida solo cambia mediante una **corrección trazable** (ver abajo),
+  con control de unicidad por serie y año.
+- Un número usado, **incluido uno anulado, no se reutiliza jamás**.
+- La regla de correlatividad del número introducido a mano la fija la spec 002.
+
 ## Reglas innegociables de Verifactu
 
-- **Nada de `UPDATE` ni `DELETE`** sobre facturas ni sobre registros de facturación. La restricción
-  va **en la base de datos** (triggers/reglas y privilegios), no solo en la aplicación.
-- Las correcciones son factura rectificativa, registro de anulación o registro de subsanación.
+- **Nada de `UPDATE` ni `DELETE`** sobre facturas emitidas ni sobre registros de facturación. La
+  restricción va **en la base de datos** (triggers/reglas y privilegios), no solo en la aplicación.
+- Los **borradores** de factura sí se editan y se borran: no tienen número ni registro. La factura
+  es inalterable desde que se **emite**.
+- **«Modificar» una factura emitida** (incluido su número) es **siempre una corrección trazable**:
+  factura rectificativa, registro de anulación + nueva alta, o registro de subsanación, según diga
+  la documentación oficial para cada tipo de error. El original se conserva y la corrección queda
+  en un historial visible. Sobrescribir es ilegal (LGT art. 201 bis.1.d) aunque la UI diga
+  «Modificar».
 - Cada factura emitida genera un **registro de alta con huella SHA-256 encadenada** con la del
   registro anterior.
 - **Los formatos se toman de la documentación oficial de la AEAT y se citan en la spec** (URL +

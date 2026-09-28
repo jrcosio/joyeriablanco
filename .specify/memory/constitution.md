@@ -1,35 +1,37 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Cambio de version: 1.1.0 -> 2.0.0
-Motivo del bump: MAJOR. Se redefine parte del principio I (NO NEGOCIABLE): desaparece la
-puerta de revision humana obligatoria entre fases. Decision explicita del responsable del
-proyecto (2026-09-27): "no me preguntes cada paso del sdd hazlo... y lo que me tengas que
-preguntar que sea para aclarar dudas".
+Cambio de version: 2.0.0 -> 2.1.0
+Motivo del bump: MINOR. Ampliacion material del principio III y de la restriccion
+"Numeracion", sin eliminar ni redefinir ninguna regla existente: la prohibicion de UPDATE/DELETE
+en BD sobre facturas emitidas y registros sigue intacta. Decision explicita del responsable del
+proyecto (2026-09-28), al arrancar la feature 002-facturas: "Se puede modificar, ya que pueden
+existir errores. cambia la constitucion", eligiendo la opcion "Modificar con correccion
+trazable" y los borradores ("Guardar borrador" / "Emitir factura").
 
 Principios modificados:
-  - I. Desarrollo dirigido por especificacion (SDD) - mismo titulo, cambio de fondo:
-      ANTES: "Entre fase y fase se PARA y se espera revision humana. No se encadenan comandos
-             sin que el artefacto anterior haya sido aprobado."
-      AHORA: las fases se encadenan sin aprobacion intermedia; solo se detiene la ejecucion
-             para consultar dudas que requieren decision humana (clarify, ambiguedades de
-             dominio/normativas, contradicciones con la spec). Cada fase termina con un commit
-             atomico en la rama de la feature. implement exige un tasks.md que haya superado
-             analyze sin problemas criticos (sustituye a "tasks.md aprobado").
-    Se mantienen: ciclo completo obligatorio, clarify y analyze no opcionales, parada y
-    correccion de la spec ante contradicciones durante implement, rama propia por feature.
+  - III. Inalterabilidad de los documentos emitidos - mismo titulo, ampliado:
+      + Los borradores de factura son editables y eliminables (no son facturas expedidas, no
+        tienen numero definitivo ni registro). La inalterabilidad empieza al emitir.
+      + "Modificar" una factura emitida, incluido su numero, se admite SOLO como correccion
+        trazable (subsanacion, anulacion + nueva alta o rectificativa segun la normativa),
+        conservando el original y con historial visible. Nunca UPDATE ni DELETE.
+      + Razon ampliada con la LGT art. 201 bis.1.d (verificado en BOE el 2026-09-28).
 
 Secciones modificadas:
-  - Flujo de trabajo y puertas de calidad, punto 2: alineado con el nuevo principio I.
+  - Restricciones tecnicas > Numeracion: formato FAC-AAAA-NNNN; cambio de numero solo por
+    correccion trazable con unicidad por serie y ano; un numero usado o anulado no se reutiliza;
+    la regla de correlatividad del numero manual la fija la spec 002 tras su clarify.
 
 Secciones anadidas: ninguna. Secciones eliminadas: ninguna.
 
 Artefactos dependientes:
-  - CLAUDE.md                       actualizado: "Como se trabaja aqui" sin paradas entre fases
+  - CLAUDE.md                       actualizado: "Numeracion" y "Reglas innegociables de Verifactu"
   - .specify/templates/*.md         sin cambios: leen la constitucion en tiempo de ejecucion
-  - .claude/skills/speckit-*        sin cambios: no imponen paradas por si mismos
+  - .claude/skills/speckit-*        sin cambios
 
 Historico:
+  - 2.0.0 (2026-09-27) principio I: fases encadenadas sin aprobacion intermedia.
   - 1.1.0 (2026-09-27) restriccion "Sistema de diseno" (docs/DESIGN.md normativo).
   - 1.0.0 (2026-09-12) adopcion inicial con los principios I-IX.
 
@@ -100,13 +102,34 @@ No es una preferencia de diseño: lo impone el reglamento.
 Una factura emitida y su registro de facturación NO se editan ni se borran. La prohibición se
 impone a nivel de BASE DE DATOS (triggers/reglas y privilegios), no solo en la capa de aplicación.
 
-Las correcciones se realizan mediante factura rectificativa, registro de anulación o registro de
-subsanación.
+Los **borradores de factura** SÍ se pueden editar y eliminar. Un borrador todavía no es una
+factura expedida: no tiene número definitivo ni genera registro de facturación. La factura pasa a
+ser inalterable al **emitirse**, y en ese momento recibe su número y su registro de alta.
+
+La aplicación PUEDE ofrecer la acción **«Modificar»** sobre una factura emitida, incluido su
+número. Esa acción NUNCA es un `UPDATE` ni un `DELETE`. Consiste en generar la corrección que
+prescriba la normativa para ese tipo de error:
+
+- Un registro de subsanación.
+- Un registro de anulación seguido de un nuevo registro de alta.
+- Una factura rectificativa.
+
+La versión original se conserva intacta y la corrección queda en un historial visible desde la
+propia factura. Qué corrección corresponde a cada caso se toma de la documentación oficial de la
+AEAT y se cita en la spec. Lo que no se pueda verificar en fuente oficial queda como pregunta
+abierta.
 
 Los presupuestos SÍ son editables mientras estén en estado `borrador`.
 
-**Razón**: una restricción que solo vive en el código de aplicación se salta con un `UPDATE` manual
-en una consola de base de datos.
+**Razón**:
+
+- Una restricción que solo vive en el código de aplicación se salta con un `UPDATE` manual en una
+  consola de base de datos.
+- La inalterabilidad no nace de esta constitución, sino del RRSIF, y la LGT tipifica como
+  infracción grave los sistemas que «permitan alterar transacciones ya registradas incumpliendo la
+  normativa aplicable» (art. 201 bis.1.d, verificado en BOE el 2026-09-28). Por eso ninguna
+  enmienda de este documento puede habilitar la sobrescritura: «Modificar» solo es admisible como
+  corrección trazable.
 
 ### IV. Cumplimiento Verifactu por diseño
 
@@ -223,6 +246,15 @@ frente a concurrencia mediante secuencia de base de datos o bloqueo explícito s
 contadores. Queda PROHIBIDO `MAX(numero)+1` sin lock. La estrategia elegida se justifica en la spec
 de la feature correspondiente.
 
+- **Formato** de la serie ordinaria de facturas: `FAC-AAAA-NNNN`, con el año natural y un
+  correlativo de 4 dígitos.
+- El número de una factura emitida se puede cambiar, pero solo mediante la corrección trazable del
+  principio III y con control de unicidad por serie y año.
+- Un número ya usado, incluido uno anulado, NO se reutiliza jamás.
+- La regla exacta de correlatividad cuando el número se introduce a mano la fija la spec de la
+  feature de facturas tras su `clarify`. Mientras no se fije, rige «sin huecos y sin
+  reutilización».
+
 **Precios**: las líneas se introducen sin IVA (base imponible); el servidor calcula cuota y total.
 
 ## Flujo de trabajo y puertas de calidad
@@ -257,4 +289,4 @@ subordinado a esta constitución.
 `docs/DESIGN.md` es la especificación normativa del sistema de diseño y está subordinado a esta
 constitución. Sus cambios materiales requieren aprobación explícita del responsable del proyecto.
 
-**Version**: 2.0.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-27
+**Version**: 2.1.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-28
