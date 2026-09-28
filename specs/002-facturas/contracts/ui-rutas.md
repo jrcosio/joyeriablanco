@@ -1,0 +1,69 @@
+# Contrato de la interfaz — rutas nuevas de la feature 002
+
+Este documento amplía el [ui-rutas.md de 001](../../001-cimientos-clientes/contracts/ui-rutas.md). Los
+comportamientos comunes de 001 siguen vigentes: guardas, 401, CSRF, shell y estado en la URL.
+Los endpoints son los de [openapi.yaml](openapi.yaml).
+
+| Ruta | Acceso | Pantalla | Endpoints |
+|---|---|---|---|
+| `/facturas` | Sesión | Listado de facturas y borradores: búsqueda arriba, filtros de año y mes, orden, tabla y paginación. Sin indicadores ni columna de estado (FR-032 a FR-035) | `GET /v1/facturas`, `GET /v1/facturas/parametros` |
+| `/facturas/nueva` | Sesión | Modal «Nueva factura» sobre `/facturas` | `POST /v1/borradores-factura`, `POST /v1/facturas`, `GET /v1/clientes` (selector), `POST /v1/clientes` (alta desde el modal) |
+| `/facturas/borradores/$borradorId` | Sesión | Modal «Borrador» editable, con «Eliminar borrador», «Guardar borrador» y «Emitir factura» | `GET/PUT/DELETE /v1/borradores-factura/{id}`, `POST …/emision` |
+| `/facturas/$facturaId` | Sesión | Modal de consulta de una factura emitida: estado, enlaces e historial. «Anular» y «Modificar» solo para administradores y solo si está vigente | `GET /v1/facturas/{id}`, `POST …/anulacion` |
+| `/facturas/$facturaId/modificar` | Administrador | Modal «Modificar factura» con los datos precargados, cliente y líneas editables. Al guardar pide el motivo y, en su caso, la causa | `POST /v1/facturas/{id}/modificacion` |
+| `/configuracion/facturacion` | Administrador | Pestaña «Facturación»: IVA por defecto, clave de régimen, modalidad, datos del emisor y próximo número con ajuste al alza | `GET/PUT /v1/configuracion/facturacion`, `POST /v1/configuracion/facturacion/contador` |
+
+## Comportamientos
+
+- **Menú lateral**: se activa Facturas (`/facturas`). Presupuestos sigue deshabilitada con el chip
+  «Próximamente» (FR-041). Tras iniciar sesión se sigue entrando en `/clientes`, como en 001.
+- **Estado en la URL** (R-12): `q`, `anio`, `mes`, `orden` y `pagina` son *search params*, con la
+  misma validación Zod, debounce de 300 ms y `replace: true` que en clientes. Abrir y cerrar el
+  modal conserva esos parámetros.
+- **Modal sobre el listado** (R-13, FR-037):
+  - Se renderiza en el `<Outlet/>` de `/facturas`, así que el listado sigue detrás.
+  - Al cerrarlo se vuelve a `/facturas` con los mismos filtros.
+  - Si hay cambios sin guardar, cerrar, pulsar Escape o «Cancelar» piden confirmación (FR-036).
+- **Número**: siempre en solo lectura. En un borrador se muestra «Se asigna al emitir», con el
+  próximo número previsto como ayuda. En una emitida, el número definitivo (FR-010).
+- **Emitir** (FR-021):
+  - **Confirmación**: siempre se pide antes de emitir.
+  - **Emisión no disponible**: el botón está deshabilitado y se explica qué falta, con un enlace a
+    Configuración si el usuario es administrador (FR-004).
+  - **Tras emitir**: se cierra el modal, aparece el aviso «Factura FAC-2026-0001 emitida» y se
+    invalida la caché `['facturas']`.
+- **Previsualización**: los importes se calculan en el navegador con `lib/dinero.ts` (R-11). Tras
+  cada guardado se muestran los que devuelve la API.
+- **«Nuevo cliente» desde el modal** (FR-046): abre `ClienteAltaPanel` por encima. Al guardar,
+  vuelve al modal con el cliente elegido y todo lo escrito intacto. Se invalida `['clientes']`.
+- **Modificar** (FR-023, FR-024): al pulsar «Guardar» se abre un diálogo con:
+  - El motivo, con dos opciones.
+  - Si es «ya entregada», la causa, también con dos opciones.
+  - Un texto libre obligatorio.
+  - El aviso de lo que se va a generar («Se anulará FAC-2026-0007 y se emitirá una factura
+    nueva» o «Se emitirá la rectificativa REC-2026-000N»).
+  - El aviso de IVA si el tipo vigente difiere del de la original.
+- **Anular** (FR-025): diálogo con la casilla obligatoria «Declaro que esta factura no debió
+  emitirse» y el motivo.
+- **Rol**: un empleado no ve «Anular», «Modificar» ni la pestaña Facturación. La API decide en
+  cualquier caso (FR-023, FR-025).
+- **Historial** (FR-026): una sección plegable del modal de consulta con las correcciones y los
+  registros de facturación (tipo, secuencia, huella abreviada y fecha y hora de generación), y
+  enlaces a la factura anulada o a la vigente.
+
+## Aplicación de DESIGN.md por elemento
+
+Se usan los tokens del frontmatter de [`docs/DESIGN.md`](../../../docs/DESIGN.md). Los elementos
+que no aparecen aquí se aplican como en 001.
+
+| Elemento | Nivel / superficie | Tipografía | Notas |
+|---|---|---|---|
+| Tabla de facturas | Igual que clientes | Número en `title-md` con cifras tabulares; importes alineados a la derecha en `body-md` tabular | Marcas «Borrador», «Anulada» y «Rectificada» como chip de 1 px, radio 0 y `label-sm`: `warning` para borrador y `on-surface-variant` para anulada y rectificada. No hay columna de estado. Acciones fijas a la derecha (001, R-22) |
+| Columnas según el ancho | — | — | Por debajo de 768 px, tarjetas. Qué columnas se ocultan en 768–1535 px se mide al implementar, igual que en R-22 de 001. SC-008 exige que las acciones se vean en todos los anchos |
+| Modal de factura (`ModalDocumento`) | Nivel 2 · `surface-container-high`, borde `tertiary` @ 35 %, `shadow-nivel-2` | Título en Bodoni `headline-md`; secciones en `title-lg` | `max-w-5xl` centrado; pantalla completa por debajo de 768 px. Cuerpo desplazable y pie fijo con filete superior de 1 px `primary-container` @ 18 % |
+| Resumen del cliente | Nivel 1 · `surface-container` | Etiquetas `label-sm` en `on-surface-variant`; datos `body-md` | Filete de 1 px `primary-container` @ 18 % |
+| Tabla de líneas | Contenedor `surface-container-low` | Cabecera `label-md` en mayúsculas | Campos de DESIGN.md. Unidades y precio con `CampoDecimal`; el precio lleva el símbolo € fijo en `primary-container`. Importe en solo lectura, alineado a la derecha y tabular |
+| Totales | Caja de resumen con acento `primary-container` (DESIGN.md, «Totals Section») | Base e IVA en `body-md`; total en Bodoni `headline-md` en `primary` | Etiqueta «IVA (21 %)» con el tipo vigente |
+| Botones del modal | «Emitir factura»: primario. «Guardar borrador», «Modificar» y «Añadir línea»: secundario. «Cancelar» y «Cerrar»: ghost. «Anular» y «Eliminar borrador»: destructivo | `label-lg` en mayúsculas | En móvil se apilan a ancho completo |
+| Diálogos (confirmar, motivo, anular, contador) | Nivel 2, `Dialog` de 001 | `title-lg` y `body-md` | Radio 0 en las opciones del motivo y la causa |
+| Pestaña Facturación | Tarjeta nivel 1 | Formularios de 001 | El próximo número se muestra en Bodoni `headline-sm` con el botón secundario «Ajustar» |

@@ -89,6 +89,21 @@ izquierda."
   abre por encima el formulario de cliente de 001. Al guardarlo, se vuelve a la factura con ese
   cliente elegido y sin perder lo escrito (FR-046).
 
+### Session 2026-09-28 (plan)
+
+Preguntas surgidas del research del plan, que se basa en las fuentes oficiales F-9 y F-3.
+
+- Q: Al rectificar una factura ya entregada, ¿cómo se elige la causa que exige la AEAT? → A: El
+  modal la pregunta con dos opciones (FR-024):
+  - **«Devolución, descuento o cambio de precio posterior a la venta, o IVA mal aplicado»**:
+    código R1.
+  - **«Error en datos o importes de la factura»**: código R4.
+- Q: ¿Entran las devoluciones en esta feature? → A: Sí, parciales y totales, como rectificativas
+  R1 por sustitución.
+  - **Devolución parcial**: la rectificativa lleva menos líneas o unidades.
+  - **Devolución total**: la rectificativa no lleva líneas y su total es 0 €.
+  - **Límite**: una rectificativa nunca puede dar un total negativo (FR-012, casos límite).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Configurar la facturación (Priority: P1)
@@ -260,17 +275,21 @@ cosas:
    siguiente número, p. ej. `FAC-2026-0012`. `FAC-2026-0007` sigue constando en la serie, marcada
    como anulada.
 3. **Given** `FAC-2026-0007`, ya entregada, **When** se corrige una unidad y se guarda indicando «Hay
-   que corregir una factura ya entregada», **Then** se emite la rectificativa por sustitución, p.
+   que corregir una factura ya entregada» con la causa «Error en datos o importes», **Then** se emite la rectificativa por sustitución, p.
    ej. `REC-2026-0001`, con los datos corregidos. La rectificativa identifica la factura original
    y el importe de la rectificación (F-6, art. 15.4 y 15.5), y la original queda marcada como
    rectificada.
-4. **Given** una factura duplicada por error, **When** se pulsa «Anular», se declara que no debió
+4. **Given** `FAC-2026-0009`, ya entregada, cuyo cliente devuelve todas las piezas, **When** se
+   modifica quitando todas las líneas y se indica la causa «Devolución, descuento o cambio de
+   precio posterior», **Then** se emite una rectificativa R1 por sustitución con total 0 €. Además,
+   `FAC-2026-0009` queda rectificada y su importe consta como importe rectificado.
+5. **Given** una factura duplicada por error, **When** se pulsa «Anular», se declara que no debió
    emitirse y se indica el motivo, **Then** se genera su registro de anulación sin emitir otra
    factura, y su número no vuelve a usarse.
-5. **Given** una factura ya corregida o anulada, **When** se consulta, **Then** se ve con claridad
+6. **Given** una factura ya corregida o anulada, **When** se consulta, **Then** se ve con claridad
    su situación, con acceso directo a la factura vigente que la sustituye, si la hay. Además, no
    ofrece «Modificar» ni «Anular».
-6. **Given** un empleado, **When** consulta una factura emitida, **Then** no ve «Anular» ni
+7. **Given** un empleado, **When** consulta una factura emitida, **Then** no ve «Anular» ni
    «Modificar», y el servidor rechaza cualquier intento suyo de anular o modificar.
 
 ---
@@ -312,15 +331,21 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   emitida de la serie en ese año. Así la numeración sigue el orden cronológico.
 - **Cambio del IVA por defecto con un borrador abierto**: al emitirse, el borrador usa el tipo
   vigente en ese momento y el modal avisa si ha cambiado desde que se guardó.
+- **IVA de una rectificativa o una reemisión**: se aplica el tipo de Configuración vigente al
+  emitirla, igual que en cualquier factura (FR-013). Si no coincide con el de la factura original,
+  el modal lo avisa antes de guardar (research R-4).
 - **Cambios en el cliente después de emitir**: la factura emitida conserva los datos del cliente y
   del emisor tal como estaban al emitirla. Editar después la ficha del cliente no la altera.
 - **Cliente con facturas**: no se puede borrar. Se ofrece desactivarlo, y el borrado lo rechaza el
   sistema con el motivo (001, FR-037). Los borradores también cuentan como documentos.
 - **Usuario eliminado**: las facturas que emitió siguen mostrando su nombre con la marca
   "(eliminado)" (001, FR-061).
-- **Importes límite**: el sistema no admite una factura sin líneas ni con un total de cero o
-  negativo, ni una línea con unidades a cero o negativas, ni un precio negativo. Los importes
-  admiten dos decimales.
+- **Importes límite**: los importes admiten dos decimales, y ninguna línea puede tener unidades a
+  cero o negativas ni un precio negativo.
+  - **Factura ordinaria**: no se admite sin líneas ni con un total de cero.
+  - **Rectificativa**: puede quedarse sin líneas y con total 0 € en una devolución total, pero
+    nunca con un total negativo (Clarifications).
+  - **Borrador**: puede guardarse incompleto, sin cliente o sin líneas. Todo se exige al emitir.
 - **Redondeo**: las cifras con medio céntimo se redondean siempre igual (FR-015). La suma de las
   líneas que se muestra coincide al céntimo con la base imponible registrada.
 - **Ajuste del próximo número**: se rechaza cualquier valor igual o inferior al último número usado
@@ -330,8 +355,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **Modificar una factura ya corregida**: solo se puede modificar o anular la factura vigente. La
   original queda como consulta.
 - **Fechas de la factura que sustituye**: la factura nueva tras una anulación y la rectificativa se
-  expiden con la fecha de hoy (FR-018). Si la operación ocurrió otro día, conservan como fecha de
-  la operación la de la factura original (F-6, art. 6.1.i).
+  expiden con la fecha de hoy (FR-018). Como fecha de la operación conservan la de la factura
+  original (F-6, art. 6.1.i; F-9).
 - **Rectificar una rectificativa**: una rectificativa vigente se puede modificar o anular igual que
   cualquier otra factura emitida.
 - **Sesión caducada con el modal abierto**: lo tecleado no se pierde sin aviso. Al volver a entrar
@@ -344,8 +369,9 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 #### Configuración de facturación
 
 - **FR-001**: Configuración DEBE tener una sección «Facturación», solo para administradores, con:
-  - **IVA por defecto**: un porcentaje con hasta dos decimales, entre 0 y 100, que vale 21 al
-    instalar.
+  - **IVA por defecto**: vale 21 al instalar y solo admite los tipos de IVA que las validaciones
+    oficiales permiten para una operación sujeta y no exenta en la fecha actual (F-3, §15.1). Hoy
+    son 0, 4, 10 y 21. Un tipo nuevo, si cambia la ley, exige actualizar esa lista en el sistema.
   - **Datos del emisor**: razón social o nombre y apellidos, NIF y domicilio completo (dirección,
     código postal, localidad y provincia), exigidos por F-6, art. 6.1.c, d y e.
   - **Modalidad del sistema de facturación**: VERI\*FACTU o no VERI\*FACTU. Empieza sin valor,
@@ -394,11 +420,14 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 
 #### Contenido e importes de la factura
 
-- **FR-011**: Cada factura, sea borrador o emitida, DEBE tener:
+- **FR-011**: Cada factura emitida DEBE tener:
   - Fecha de expedición.
   - Cliente destinatario, elegido entre los clientes activos.
-  - Al menos una línea.
+  - Al menos una línea. En una rectificativa puede no haber ninguna (devolución total).
   - Autor y fechas de creación y emisión.
+
+  Un borrador puede guardarse incompleto, sin cliente o sin líneas. Los requisitos se comprueban
+  al emitir.
 - **FR-012**: Cada línea DEBE tener:
   - **Unidades**: mayor que cero, con hasta dos decimales.
   - **Descripción**: obligatoria, de hasta 500 caracteres.
@@ -432,12 +461,16 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **FR-018**: La fecha de expedición NO DEBE ser posterior al día actual ni anterior a la de la
   última factura emitida de la misma serie en ese año, en hora de España peninsular. La fecha de
   la operación solo se indica si es distinta de la de expedición (F-6, art. 6.1.i). No se pide al
-  crear una factura: la factura nueva tras una anulación y la rectificativa la heredan de la
-  original, y se muestra en solo lectura.
+  crear una factura. La factura nueva tras una anulación y la rectificativa heredan como fecha de
+  la operación la de la original, o su fecha de expedición si no tenía ninguna (F-9: «la fecha de
+  realización de la operación correspondiente a la factura original»). Se muestra en solo
+  lectura.
 - **FR-045**: La descripción del objeto de la factura, obligatoria en el registro con un máximo de
   500 caracteres (F-1), DEBE formarse automáticamente al emitir:
   - Se unen las descripciones de las líneas, en su orden y separadas por «; ».
   - Si el resultado supera los 500 caracteres, se recorta a 500, terminando en «…».
+  - En una rectificativa sin líneas, la descripción es «Devolución total de la factura
+    <número rectificado>».
   - No se pide ningún dato adicional en el modal.
 
 #### Ciclo de vida: borrador y emisión
@@ -472,9 +505,14 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
     rectificativa **por sustitución** en la serie `REC`, con los datos corregidos. Debe:
     - Identificar la factura rectificada.
     - Expresar el importe de la rectificación junto a los datos tal como quedan (F-6, art. 15.4
-      y 15.5).
+      y 15.5; F-9, opción 1).
 
-  El tipo de rectificativa y la codificación de sus campos se toman de F-1 y se citan en el plan.
+    El modal pide además la causa (F-9):
+    - **«Devolución, descuento o cambio de precio posterior a la venta, o IVA mal aplicado»**:
+      tipo R1.
+    - **«Error en datos o importes de la factura»**: tipo R4.
+
+  La codificación completa de los campos del registro está en research R-4.
   La declaración del motivo y su texto quedan guardados con la corrección.
 
   El servidor DEBE rechazar cualquier modificación o anulación que pida un empleado. Los empleados
@@ -508,6 +546,14 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   oficial (F-2) y encadenada con la del registro inmediatamente anterior del sistema, sea de alta
   o de anulación. El primer registro de la cadena se marca como tal. La cadena DEBE mantenerse
   lineal aunque haya operaciones simultáneas.
+
+  Antes de generar cada registro, el sistema DEBE comprobar dos cosas sobre el último registro
+  (F-10, Orden art. 7.i):
+  - Que está bien encadenado, recalculando su huella.
+  - Que su fecha de generación no es más de un minuto posterior a la actual.
+
+  Si alguna falla, no genera el registro, no emite nada y avisa (F-8, art. 8.2.a: «detecte y
+  avise»).
 - **FR-030**: Cada registro DEBE guardar la modalidad del sistema de facturación con la que se
   generó (constitución IV) y un estado de remisión. En esta feature, el estado de remisión queda
   como «pendiente» porque la remisión llega con la feature 004.
@@ -740,8 +786,33 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   sistemas que "permitan alterar transacciones ya registradas incumpliendo la normativa
   aplicable", con multa de 150.000 € por ejercicio y tipo de sistema (apartado 4).
 - **F-8**: Reglamento de requisitos de los sistemas informáticos de facturación, RD 1007/2023
-  (RRSIF). Art. 10 (registro de alta) y art. 11 (registro de anulación), según la cita de F-4 y F-5.
-  El texto del BOE se transcribe en el plan.
+  (RRSIF), BOE-A-2023-24840, texto consolidado con última actualización publicada el 03/12/2025.
+  Se citan:
+  - Art. 8.2: integridad, trazabilidad y conservación.
+  - Art. 9: registro «simultáneo o inmediatamente anterior» a la expedición.
+  - Art. 10: contenido del alta.
+  - Art. 11: anulación «cuando se haya emitido erróneamente una factura».
+  - Art. 12: huella y firma.
+  - Art. 16: VERI\*FACTU; exención de firma y permanencia hasta fin del año natural.
+
+  Transcripción en research R-1.
+- **F-9**: AEAT, preguntas frecuentes VERI\*FACTU, página "Procedimientos de facturación"
+  (actualizada el 22/07/2026; consulta 2026-09-28):
+  - Criterio de las claves F1, R1 y R4. R4 incluye «cuando se haya consignado erróneamente algún
+    dato no monetario de la factura».
+  - Rectificativa por sustitución (opción 1): importes correctos en el desglose, y la «base
+    rectificada» y la «cuota rectificada» de la original.
+  - Fecha de operación de la rectificativa: la de la factura original.
+  - Factura emitida por error: anulación y, si procede, nueva factura «con un número de factura o
+    fecha de expedición diferente».
+- **F-10**: Orden HAC/1177/2024 (BOE-A-2024-22138, con la corrección de errores BOE-A-2024-23180):
+  - Art. 3: exenciones en VERI\*FACTU.
+  - Art. 7: encadenamiento, primer registro, cadena única y margen de un minuto.
+  - Art. 13: campos de la huella.
+  - Art. 14: firma XAdES en no VERI\*FACTU.
+  - Art. 17: permanencia en VERI\*FACTU hasta el 31 de diciembre.
+
+  Transcripción en research R-1.
 - **Preguntas abiertas** (se resuelven en `clarify` o en el research del plan): las de 001,
   research R-20.4, que afectan al destinatario del registro.
 
@@ -783,10 +854,20 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   peninsular, como en 001.
 - **Remisión y validez**: sin remisión (feature 004), los registros se generan y conservan con su
   estado «pendiente».
+  - En modalidad no VERI\*FACTU, además, cada registro debe firmarse al generarse y hay que llevar
+    un registro de eventos (F-8, arts. 8.3 y 12; F-10, arts. 9 y 14). Ninguna de las dos cosas
+    está en esta feature.
+  - Por eso la modalidad debe decidirse antes de emitir facturas reales.
   - El uso en producción de facturas reales antes de terminar las features 003 y 004 es decisión del
     responsable.
   - El plazo de adaptación vigente es el 1 de enero de 2027 para contribuyentes del Impuesto sobre
     Sociedades y el 1 de julio de 2027 para el resto (constitución, marco normativo).
+- **Identificación del sistema en cada registro** (F-1, bloque `SistemaInformatico`): datos del
+  productor y del sistema.
+  - Quién figura como productor depende de la declaración responsable, pendiente de la asesoría
+    (TODO(DECLARACION_RESPONSABLE) de la constitución).
+  - En desarrollo y pruebas se usan valores ficticios. En producción, el sistema no emite mientras
+    no estén configurados.
 - **Tests obligatorios** (constitución VII): esta feature toca tres de los cuatro:
   - Numeración bajo concurrencia.
   - Importes y redondeos.

@@ -1,0 +1,597 @@
+openapi: 3.1.0
+info:
+  title: Joyería Blanco — API de gestión (feature 002, facturación)
+  version: 0.2.0
+  description: |
+    Contrato de la feature 002. **Solo contiene las operaciones nuevas.** La API completa es la
+    unión de `specs/*/contracts/openapi.yaml` (research R-14), y el test de contrato compara la
+    aplicación con esa unión. Las convenciones de 001 siguen vigentes: autenticación, CSRF,
+    errores RFC 9457 y fechas RFC 3339.
+
+    **Importes** (constitución II, research R-10): se envían y se reciben SIEMPRE como cadena
+    decimal con punto (`"1290.00"`). Un número JSON en un campo de importe o cantidad se rechaza
+    con 422. La web nunca envía totales. Los calcula y los devuelve el servidor (FR-014).
+
+    **Catálogo de `type` de error nuevo** (`/problemas/...`):
+
+    | `type` | Estado | Notas |
+    |---|---|---|
+    | `emision-no-disponible` | 409 | Falta el emisor, la modalidad o, en producción, el productor. `faltan: [...]` |
+    | `cliente-no-facturable` | 422 | Cliente inactivo o sin domicilio completo. `faltan: [...]` (FR-017) |
+    | `fecha-expedicion` | 422 | Fecha futura o anterior a la última emitida de la serie (FR-018) |
+    | `tipo-iva-no-admitido` | 422 | Tipo no admitido por F-3 §15.1 en la fecha (R-10) |
+    | `factura-ya-corregida` | 409 | La factura ya tiene una corrección (R-8) |
+    | `factura-no-modificable` | 409 | La factura está anulada o rectificada (FR-026) |
+    | `contador-no-ajustable` | 409 | El próximo número debe superar el último usado (FR-010) |
+    | `cadena-inconsistente` | 409 | Ha fallado la comprobación previa de la cadena (FR-029, R-6) |
+
+    También se usan los de 001: `validacion`, `no-autenticado`, `sin-permiso`, `csrf`,
+    `origen`, `no-encontrado`, `conflicto-version` y `cliente-con-documentos` (este último ya
+    efectivo en `DELETE /v1/clientes/{id}`, FR-042).
+servers:
+  - url: /api
+tags:
+  - name: facturas
+  - name: borradores
+  - name: configuracion
+
+paths:
+  /v1/configuracion/facturacion:
+    get:
+      tags: [configuracion]
+      summary: Configuración de facturación (solo administradores, FR-001)
+      responses:
+        "200":
+          description: Configuración vigente
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConfiguracionFacturacionSalida" }
+        "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
+    put:
+      tags: [configuracion]
+      summary: Cambiar la configuración de facturación con concurrencia optimista (FR-001 a FR-003)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfiguracionFacturacionEntrada" }
+      responses:
+        "200":
+          description: Configuración actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConfiguracionFacturacionSalida" }
+        "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
+        "409": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/configuracion/facturacion/contador:
+    post:
+      tags: [configuracion]
+      summary: Ajustar al alza el próximo número de la serie FAC del año en curso (FR-010)
+      description: |
+        Con `simular: true` no cambia nada y devuelve el hueco que resultaría, para el aviso
+        previo. Con `simular: false` aplica el ajuste bajo cerrojo y lo audita con su motivo.
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AjusteContadorEntrada" }
+      responses:
+        "200":
+          description: Resultado (simulado o aplicado)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AjusteContadorSalida" }
+        "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
+        "409": { description: "`contador-no-ajustable`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/facturas/parametros:
+    get:
+      tags: [facturas]
+      summary: Datos que necesita el modal (IVA vigente, si se puede emitir y el próximo número previsto)
+      responses:
+        "200":
+          description: Parámetros de facturación
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParametrosFacturacionSalida" }
+
+  /v1/facturas:
+    get:
+      tags: [facturas]
+      summary: Listado de facturas y borradores con búsqueda, filtros y orden (FR-032 a FR-035)
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Coincidencia parcial en número, cliente e identificación, sin tildes ni mayúsculas" }
+        - { name: anio, in: query, schema: { oneOf: [{ type: integer, minimum: 2024, maximum: 9999 }, { type: string, enum: [todos] }] }, description: "Por defecto, el año en curso" }
+        - { name: mes, in: query, schema: { type: integer, minimum: 1, maximum: 12 } }
+        - { name: orden, in: query, schema: { type: string, enum: [recientes, antiguas, total_desc, total_asc], default: recientes } }
+        - { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Pagina" }
+        - { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Tamano" }
+      responses:
+        "200":
+          description: Página del listado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaginaFacturas" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+    post:
+      tags: [facturas]
+      summary: Emitir una factura nueva sin borrador previo (FR-007, FR-021)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FacturaEntrada" }
+      responses:
+        "201":
+          description: Factura emitida, con su registro de alta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FacturaSalida" }
+        "409": { description: "`emision-no-disponible` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { description: "`validacion`, `cliente-no-facturable`, `fecha-expedicion` o `tipo-iva-no-admitido`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/facturas/{facturaId}:
+    parameters: [{ $ref: "#/components/parameters/FacturaId" }]
+    get:
+      tags: [facturas]
+      summary: Detalle de una factura emitida, con su estado, enlaces e historial (FR-026)
+      responses:
+        "200":
+          description: Factura
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FacturaSalida" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+
+  /v1/facturas/{facturaId}/anulacion:
+    parameters: [{ $ref: "#/components/parameters/FacturaId" }]
+    post:
+      tags: [facturas]
+      summary: Anular una factura que no debió emitirse, sin reemitirla (solo administradores, FR-025)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnulacionEntrada" }
+      responses:
+        "200":
+          description: Factura anulada. Se devuelve la factura con su estado e historial actualizados
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FacturaSalida" }
+        "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`factura-ya-corregida`, `factura-no-modificable` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/facturas/{facturaId}/modificacion:
+    parameters: [{ $ref: "#/components/parameters/FacturaId" }]
+    post:
+      tags: [facturas]
+      summary: Modificar una factura emitida mediante corrección trazable (solo administradores, FR-023, FR-024)
+      description: |
+        - `motivo = no_debio_emitirse`: anula la original y emite una FAC nueva con el siguiente
+          número.
+        - `motivo = factura_entregada`: emite una rectificativa por sustitución (REC, R1 o R4 según
+          `causa`).
+
+        Devuelve la factura NUEVA. La original queda anulada o rectificada.
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ModificacionEntrada" }
+      responses:
+        "201":
+          description: Factura nueva (reemisión FAC o rectificativa REC)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FacturaSalida" }
+        "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`factura-ya-corregida`, `factura-no-modificable`, `emision-no-disponible` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/borradores-factura:
+    post:
+      tags: [borradores]
+      summary: Guardar un borrador nuevo; puede estar incompleto (FR-011, FR-019)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BorradorEntrada" }
+      responses:
+        "201":
+          description: Borrador creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BorradorSalida" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/borradores-factura/{borradorId}:
+    parameters: [{ $ref: "#/components/parameters/BorradorId" }]
+    get:
+      tags: [borradores]
+      summary: Borrador con sus líneas y los totales previstos con el IVA vigente
+      responses:
+        "200":
+          description: Borrador
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BorradorSalida" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+    put:
+      tags: [borradores]
+      summary: Guardar cambios en el borrador con concurrencia optimista (FR-020)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BorradorEdicionEntrada" }
+      responses:
+        "200":
+          description: Borrador actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BorradorSalida" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`conflicto-version`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+    delete:
+      tags: [borradores]
+      summary: Borrar el borrador; no consume número ni genera registro (FR-019)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      responses:
+        "204": { description: Borrador eliminado (queda en la auditoría) }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+
+  /v1/borradores-factura/{borradorId}/emision:
+    parameters: [{ $ref: "#/components/parameters/BorradorId" }]
+    post:
+      tags: [borradores]
+      summary: Emitir el borrador con su contenido actual; lo sustituye por la factura emitida (R-9)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BorradorEdicionEntrada" }
+      responses:
+        "201":
+          description: Factura emitida. El borrador deja de existir
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FacturaSalida" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`conflicto-version`, `emision-no-disponible` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+components:
+  parameters:
+    FacturaId:
+      name: facturaId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    BorradorId:
+      name: borradorId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  schemas:
+    Importe:
+      type: string
+      pattern: "^-?[0-9]{1,10}\\.[0-9]{2}$"
+      description: Importe en euros con dos decimales, como cadena (salida)
+      examples: ["1290.00"]
+    ImporteEntrada:
+      type: string
+      pattern: "^[0-9]{1,10}(\\.[0-9]{1,2})?$"
+      description: Importe sin IVA como cadena; nunca un número JSON (entrada)
+      examples: ["45", "1200.00"]
+    CantidadEntrada:
+      type: string
+      pattern: "^[0-9]{1,5}(\\.[0-9]{1,2})?$"
+      description: Unidades mayores que cero, con hasta dos decimales
+      examples: ["2", "1.50"]
+    TipoIva:
+      type: string
+      pattern: "^[0-9]{1,2}(\\.[0-9]{1,2})?$"
+      description: "Porcentaje de IVA. Admitidos hoy: 0, 4, 10 y 21 (F-3 §15.1)"
+      examples: ["21.00"]
+    Modalidad: { type: string, enum: [verifactu, no_verifactu] }
+    EstadoFactura:
+      type: string
+      enum: [borrador, vigente, anulada, rectificada]
+    TipoFactura:
+      type: string
+      enum: [F1, R1, R4]
+      description: Lista L2 de F-1
+    MotivoModificacion:
+      type: string
+      enum: [no_debio_emitirse, factura_entregada]
+    CausaRectificacion:
+      type: string
+      enum: [devolucion_o_precio, error_datos]
+      description: "devolucion_o_precio → R1; error_datos → R4 (F-9)"
+    TipoCorreccion:
+      type: string
+      enum: [anulacion, anulacion_y_reemision, rectificacion_sustitucion]
+
+    DatosEmisor:
+      type: object
+      required: [nombre, nif, direccion, codigo_postal, localidad]
+      properties:
+        nombre: { type: [string, "null"], maxLength: 120 }
+        nif: { type: [string, "null"], pattern: "^[0-9A-Z]{9}$" }
+        direccion: { type: [string, "null"], maxLength: 200 }
+        codigo_postal: { type: [string, "null"], pattern: "^[0-9]{5}$" }
+        localidad: { type: [string, "null"], maxLength: 100 }
+        provincia: { type: [string, "null"], description: "Nombre de la provincia derivada del código postal (solo salida)" }
+
+    ConfiguracionFacturacionEntrada:
+      type: object
+      required: [version, iva_por_defecto, clave_regimen, modalidad, emisor]
+      properties:
+        version: { type: integer, minimum: 1 }
+        iva_por_defecto: { $ref: "#/components/schemas/TipoIva" }
+        clave_regimen: { type: string, pattern: "^[0-9]{2}$", description: Lista L8A de F-1 }
+        modalidad: { oneOf: [{ $ref: "#/components/schemas/Modalidad" }, { type: "null" }] }
+        emisor: { $ref: "#/components/schemas/DatosEmisor" }
+    ConfiguracionFacturacionSalida:
+      allOf:
+        - $ref: "#/components/schemas/ConfiguracionFacturacionEntrada"
+        - type: object
+          required: [emision_posible, faltan, proximo_numero, actualizado_en]
+          properties:
+            emision_posible: { type: boolean }
+            faltan: { type: array, items: { type: string }, description: "Campos que impiden emitir (FR-004)" }
+            proximo_numero: { type: string, description: "Número que recibirá la próxima factura FAC del año en curso", examples: ["FAC-2026-0006"] }
+            tipos_iva_admitidos: { type: array, items: { $ref: "#/components/schemas/TipoIva" } }
+            actualizado_en: { type: string, format: date-time }
+            actualizado_por: { oneOf: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }, { type: "null" }] }
+
+    AjusteContadorEntrada:
+      type: object
+      required: [proximo_numero, motivo, simular]
+      properties:
+        proximo_numero: { type: integer, minimum: 2 }
+        motivo: { type: string, minLength: 1, maxLength: 500 }
+        simular: { type: boolean }
+    AjusteContadorSalida:
+      type: object
+      required: [serie, anio, ultimo_usado, proximo_numero, numeros_sin_usar, aplicado]
+      properties:
+        serie: { type: string, enum: [FAC] }
+        anio: { type: integer }
+        ultimo_usado: { type: integer, minimum: 0 }
+        proximo_numero: { type: integer }
+        numeros_sin_usar: { type: integer, minimum: 0, description: "Hueco que quedará (aviso previo, FR-010)" }
+        aplicado: { type: boolean }
+
+    ParametrosFacturacionSalida:
+      type: object
+      required: [iva_por_defecto, emision_posible, faltan, proximo_numero, hoy]
+      properties:
+        iva_por_defecto: { $ref: "#/components/schemas/TipoIva" }
+        emision_posible: { type: boolean }
+        faltan: { type: array, items: { type: string } }
+        proximo_numero: { type: string, description: "Solo informativo; el definitivo se asigna al emitir" }
+        hoy: { type: string, format: date, description: "Fecha actual en Europe/Madrid" }
+        fecha_minima: { type: [string, "null"], format: date, description: "Fecha de la última factura FAC emitida del año (FR-018)" }
+
+    LineaEntrada:
+      type: object
+      required: [unidades, descripcion, precio_unitario]
+      properties:
+        unidades: { $ref: "#/components/schemas/CantidadEntrada" }
+        descripcion: { type: string, minLength: 1, maxLength: 500 }
+        precio_unitario: { $ref: "#/components/schemas/ImporteEntrada" }
+    LineaSalida:
+      type: object
+      required: [orden, unidades, descripcion, precio_unitario, tipo_iva, importe]
+      properties:
+        orden: { type: integer }
+        unidades: { type: string }
+        descripcion: { type: string }
+        precio_unitario: { $ref: "#/components/schemas/Importe" }
+        tipo_iva: { $ref: "#/components/schemas/TipoIva" }
+        importe: { $ref: "#/components/schemas/Importe" }
+    Desglose:
+      type: object
+      required: [tipo_iva, base, cuota]
+      properties:
+        tipo_iva: { $ref: "#/components/schemas/TipoIva" }
+        base: { $ref: "#/components/schemas/Importe" }
+        cuota: { $ref: "#/components/schemas/Importe" }
+    Totales:
+      type: object
+      required: [desglose, base_total, cuota_total, importe_total]
+      properties:
+        desglose: { type: array, items: { $ref: "#/components/schemas/Desglose" } }
+        base_total: { $ref: "#/components/schemas/Importe" }
+        cuota_total: { $ref: "#/components/schemas/Importe" }
+        importe_total: { $ref: "#/components/schemas/Importe" }
+
+    ClienteFacturaSalida:
+      type: object
+      description: Datos del destinatario. En una factura emitida, la copia tomada al emitir (FR-016)
+      required: [id, nombre, identificacion_pais, identificacion_tipo, identificacion_numero]
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string }
+        identificacion_pais: { type: string }
+        identificacion_tipo: { type: string }
+        identificacion_numero: { type: string }
+        direccion: { type: [string, "null"] }
+        codigo_postal: { type: [string, "null"] }
+        localidad: { type: [string, "null"] }
+        provincia: { type: [string, "null"] }
+        pais: { type: string }
+        activo: { type: boolean, description: "Solo en borradores: estado actual del cliente" }
+
+    FacturaEntrada:
+      type: object
+      required: [fecha_expedicion, cliente_id, lineas]
+      additionalProperties: false
+      description: Sin totales, que calcula el servidor (FR-014)
+      properties:
+        fecha_expedicion: { type: string, format: date }
+        cliente_id: { type: string, format: uuid }
+        lineas: { type: array, minItems: 1, maxItems: 100, items: { $ref: "#/components/schemas/LineaEntrada" } }
+
+    BorradorEntrada:
+      type: object
+      required: [fecha_expedicion, lineas]
+      additionalProperties: false
+      properties:
+        fecha_expedicion: { type: string, format: date }
+        cliente_id: { type: [string, "null"], format: uuid }
+        lineas: { type: array, maxItems: 100, items: { $ref: "#/components/schemas/LineaEntrada" } }
+    BorradorEdicionEntrada:
+      allOf:
+        - $ref: "#/components/schemas/BorradorEntrada"
+        - type: object
+          required: [version]
+          properties:
+            version: { type: integer, minimum: 1 }
+    BorradorSalida:
+      type: object
+      required: [id, version, fecha_expedicion, cliente, lineas, totales_previstos, creado_en, creado_por, actualizado_en, actualizado_por]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer }
+        fecha_expedicion: { type: string, format: date }
+        cliente: { oneOf: [{ $ref: "#/components/schemas/ClienteFacturaSalida" }, { type: "null" }] }
+        lineas:
+          type: array
+          items:
+            type: object
+            required: [orden, unidades, descripcion, precio_unitario, importe]
+            properties:
+              orden: { type: integer }
+              unidades: { type: string }
+              descripcion: { type: string }
+              precio_unitario: { $ref: "#/components/schemas/Importe" }
+              importe: { $ref: "#/components/schemas/Importe" }
+        totales_previstos: { $ref: "#/components/schemas/Totales" }
+        creado_en: { type: string, format: date-time }
+        creado_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
+        actualizado_en: { type: string, format: date-time }
+        actualizado_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
+
+    AnulacionEntrada:
+      type: object
+      required: [declaracion_no_debio_emitirse, motivo_texto]
+      additionalProperties: false
+      properties:
+        declaracion_no_debio_emitirse: { type: boolean, const: true, description: "Declaración obligatoria (FR-025)" }
+        motivo_texto: { type: string, minLength: 1, maxLength: 500 }
+
+    ModificacionEntrada:
+      type: object
+      required: [motivo, motivo_texto, cliente_id, lineas]
+      additionalProperties: false
+      properties:
+        motivo: { $ref: "#/components/schemas/MotivoModificacion" }
+        causa: { oneOf: [{ $ref: "#/components/schemas/CausaRectificacion" }, { type: "null" }], description: "Obligatoria si motivo = factura_entregada" }
+        motivo_texto: { type: string, minLength: 1, maxLength: 500 }
+        cliente_id: { type: string, format: uuid }
+        lineas:
+          type: array
+          maxItems: 100
+          description: "Puede estar vacía solo en una rectificativa con causa devolucion_o_precio (devolución total)"
+          items: { $ref: "#/components/schemas/LineaEntrada" }
+
+    Correccion:
+      type: object
+      required: [tipo, motivo, motivo_texto, creada_en, creada_por]
+      properties:
+        tipo: { $ref: "#/components/schemas/TipoCorreccion" }
+        motivo: { $ref: "#/components/schemas/MotivoModificacion" }
+        motivo_texto: { type: string }
+        creada_en: { type: string, format: date-time }
+        creada_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
+        factura_nueva: { oneOf: [{ $ref: "#/components/schemas/FacturaReferencia" }, { type: "null" }] }
+    FacturaReferencia:
+      type: object
+      required: [id, num_serie]
+      properties:
+        id: { type: string, format: uuid }
+        num_serie: { type: string }
+    RegistroResumen:
+      type: object
+      required: [tipo, secuencia, huella, fecha_hora_huso_gen, estado_remision]
+      properties:
+        tipo: { type: string, enum: [alta, anulacion] }
+        secuencia: { type: integer }
+        huella: { type: string, pattern: "^[0-9A-F]{64}$" }
+        fecha_hora_huso_gen: { type: string }
+        estado_remision: { type: string, enum: [pendiente] }
+
+    FacturaSalida:
+      type: object
+      required: [id, num_serie, tipo_factura, estado, fecha_expedicion, emisor, cliente, lineas, totales, descripcion_operacion, emitida_en, emitida_por, registros]
+      properties:
+        id: { type: string, format: uuid }
+        num_serie: { type: string, examples: ["FAC-2026-0001"] }
+        tipo_factura: { $ref: "#/components/schemas/TipoFactura" }
+        tipo_rectificativa: { type: [string, "null"], enum: [S, null] }
+        estado: { $ref: "#/components/schemas/EstadoFactura" }
+        fecha_expedicion: { type: string, format: date }
+        fecha_operacion: { type: [string, "null"], format: date }
+        emisor: { $ref: "#/components/schemas/DatosEmisor" }
+        cliente: { $ref: "#/components/schemas/ClienteFacturaSalida" }
+        lineas: { type: array, items: { $ref: "#/components/schemas/LineaSalida" } }
+        totales: { $ref: "#/components/schemas/Totales" }
+        descripcion_operacion: { type: string }
+        rectifica_a:
+          oneOf:
+            - type: object
+              required: [factura, base_rectificada, cuota_rectificada, causa]
+              properties:
+                factura: { $ref: "#/components/schemas/FacturaReferencia" }
+                base_rectificada: { $ref: "#/components/schemas/Importe" }
+                cuota_rectificada: { $ref: "#/components/schemas/Importe" }
+                causa: { $ref: "#/components/schemas/CausaRectificacion" }
+            - type: "null"
+        sustituye_a: { oneOf: [{ $ref: "#/components/schemas/FacturaReferencia" }, { type: "null" }], description: "Factura anulada a la que reemplaza (reemisión)" }
+        correccion: { oneOf: [{ $ref: "#/components/schemas/Correccion" }, { type: "null" }], description: "Corrección que ha sufrido ESTA factura (si está anulada o rectificada)" }
+        emitida_en: { type: string, format: date-time }
+        emitida_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
+        registros: { type: array, items: { $ref: "#/components/schemas/RegistroResumen" } }
+
+    FacturaResumenSalida:
+      type: object
+      required: [tipo_documento, id, num_serie, fecha, cliente_nombre, identificacion, base, cuota, total, estado]
+      properties:
+        tipo_documento: { type: string, enum: [borrador, factura] }
+        id: { type: string, format: uuid }
+        num_serie: { type: [string, "null"], description: "null en un borrador (la web muestra «Borrador»)" }
+        fecha: { type: string, format: date }
+        cliente_nombre: { type: [string, "null"] }
+        identificacion: { type: [string, "null"] }
+        base: { $ref: "#/components/schemas/Importe" }
+        cuota: { $ref: "#/components/schemas/Importe" }
+        total: { $ref: "#/components/schemas/Importe" }
+        estado: { $ref: "#/components/schemas/EstadoFactura" }
+    PaginaFacturas:
+      type: object
+      required: [elementos, total, pagina, tamano]
+      properties:
+        elementos: { type: array, items: { $ref: "#/components/schemas/FacturaResumenSalida" } }
+        total: { type: integer, minimum: 0 }
+        pagina: { type: integer, minimum: 1 }
+        tamano: { type: integer, minimum: 1, maximum: 100 }
