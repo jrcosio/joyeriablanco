@@ -52,6 +52,18 @@
     entidad Usuario.
   - Todos los puntos siguen pasando: sin marcadores pendientes, requisitos comprobables y criterio
     SC-013 medible y sin detalles de implementación.
+- **Revalidación del 2026-09-28** (ajuste de cierre, acciones visibles en el listado de clientes):
+  - Se añaden SC-014, el escenario 8 de US3, el escenario 13 de US5, el caso límite de datos
+    largos en una tabla, dos preguntas a la sesión de clarificación del 2026-09-28 y una fila a la
+    tabla de desviaciones del mockup. Se ajustan FR-031 y FR-059, que pasa a cubrir también el
+    escritorio de menos de 1280 px y las tres tablas con acciones por fila (clientes, usuarios y
+    auditoría).
+  - El alcance a usuarios y auditoría sale de medir la aplicación con los datos de ejemplo. El
+    menú de acciones de usuarios se corta a 360 px y el detalle de auditoría queda fuera de vista
+    a 360 px y 1024 px. El responsable decide incluirlos.
+  - Todos los puntos siguen pasando: sin marcadores pendientes, SC-014 medible (el 100 % de las
+    filas en anchos concretos) y los requisitos describen lo que ve el usuario, no cómo se
+    maqueta.
 - **Referencias técnicas permitidas**: la spec solo menciona el nombre de fichero y la URL de la
   fuente oficial AEAT, que la constitución (principio IV) exige citar. No es un detalle de
   implementación.
