@@ -16,7 +16,9 @@ incorporadas abajo.
 
 **Ajustes de cierre** (2026-09-28), pedidos por el responsable antes de dar la feature por
 terminada: "los usuarios del sistema, cuando se desactivan, tienen que tener la posibilidad de
-eliminarles después, sin que eso afecte a facturas o cosas que hayan creado" (FR-061).
+eliminarles después, sin que eso afecte a facturas o cosas que hayan creado" (FR-061). Y, tras
+probar el listado de clientes: "si no está solo un cliente en la lista no se puede editar y eso es
+raro, se tiene que editar siempre" (FR-031, FR-059).
 
 **Referencias**: mockup [`assets/mockup-clientes.png`](assets/mockup-clientes.png) (orientativo) ·
 sistema de diseño [`docs/DESIGN.md`](../../docs/DESIGN.md) (normativo, constitución 1.1.0)
@@ -49,6 +51,21 @@ sistema de diseño [`docs/DESIGN.md`](../../docs/DESIGN.md) (normativo, constitu
 - Q: Cuando se elimina un usuario, ¿su nombre de usuario queda libre para dar de alta a otra
   persona? → A: Sí, queda libre. El historial distingue a ambos y al eliminado lo muestra con la
   marca "(eliminado)" (FR-061).
+- Q: Con el listado completo, la columna de acciones queda cortada y solo se puede editar al buscar
+  hasta dejar un cliente. ¿Cómo se garantiza que cada fila tenga siempre su acción de editar? → A: La
+  columna de acciones queda fija en el borde derecho de la tabla y siempre visible. El teléfono y el
+  correo solo se muestran en la tabla a partir de 1280 px (umbral corregido a 1536 px en la última
+  pregunta de esta sesión); por debajo quedan en la ficha. Si algún dato largo no cabe, se desplaza
+  la tabla dentro de su recuadro, nunca la página (FR-031, FR-059).
+- Q: El mismo corte aparece en Usuarios, cuyo menú de acciones no se ve en un móvil de 360 px, y en
+  Auditoría, cuyo botón de detalle queda fuera de vista a 360 px y a 1024 px. ¿Entran en el ajuste?
+  → A: Sí. Las tres tablas con acciones por fila (clientes, usuarios y auditoría) mantienen la
+  columna de acciones fija en el borde derecho y siempre visible (FR-059, SC-014).
+- Q: Medido durante la implementación con los datos de ejemplo, la columna fija tapa el correo entre
+  1280 y 1535 px y la provincia entre 1024 y 1279 px, porque las columnas no caben junto al menú
+  lateral. ¿Qué columnas se muestran en cada ancho? → A: El teléfono y el correo, desde 1536 px. La
+  provincia no se muestra entre 1024 y 1279 px. Lo que no aparece en la tabla se consulta en la
+  ficha (FR-059, research R-22).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -161,6 +178,10 @@ ordenaciones, la paginación y el cálculo de los indicadores.
    se ven todos los resultados sin duplicados ni omisiones.
 7. **Given** una búsqueda sin resultados, **When** se ejecuta, **Then** se muestra un estado vacío
    explicativo con la opción de limpiar los filtros.
+8. **Given** el listado completo, sin búsqueda ni filtros, con una página llena de clientes, **When**
+   se mira en una pantalla de 768, 1024, 1280, 1440 o 1536 px de ancho, **Then** cada fila muestra su
+   acción "Editar cliente {nombre}" sin desplazar nada, y al pulsarla se abre la ficha de ese
+   cliente.
 
 ---
 
@@ -242,6 +263,9 @@ de usuario puede volver a usarse.
 12. **Given** un usuario eliminado, **When** un administrador da de alta otro usuario con el mismo
     nombre de usuario, **Then** el alta se permite, el nuevo usuario entra con normalidad y la
     auditoría distingue a ambos.
+13. **Given** la lista de usuarios o una página de la auditoría, **When** un administrador la abre en
+    una pantalla de 360, 768, 1024, 1280 o 1440 px de ancho, **Then** cada fila muestra su acción
+    (el menú de acciones del usuario o el detalle del evento) sin desplazar nada.
 
 ---
 
@@ -351,6 +375,9 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
 - **Pantallas estrechas** (móvil, menos de 768 px): el menú lateral se convierte en cajón, las
   acciones se apilan a ancho completo y la tabla sigue siendo legible sin desplazamiento horizontal
   de la página.
+- **Datos largos en una tabla** (nombres, localidades, correos o descripciones extensos, en
+  clientes, usuarios o auditoría): la acción de cada fila sigue visible. Si el resto de columnas no
+  cabe, se desplaza la tabla dentro de su recuadro y la página no.
 - **Caída momentánea del servidor**: la web muestra un mensaje de error comprensible y permite
   reintentar, sin perder lo tecleado en un formulario abierto.
 
@@ -549,7 +576,9 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
 - **FR-031**: El listado de clientes DEBE:
   - Estar paginado en el servidor, con 25 elementos por página por defecto y 100 como máximo.
   - Mostrar por fila el nombre con su tipo, la identificación, la localidad, la provincia, el
-    teléfono, el correo y las acciones.
+    teléfono, el correo y las acciones. Las columnas visibles según el ancho se fijan en FR-059.
+  - Mantener visibles las acciones de **todas** las filas, sin tener que buscar, filtrar ni
+    desplazar, sea cual sea el número de filas o la longitud de sus datos.
   - Devolver una lista vacía con el total real cuando se pide una página posterior a la última.
 - **FR-032**: La búsqueda DEBE encontrar coincidencias parciales en el nombre, la identificación y la
   localidad, sin distinguir mayúsculas ni tildes.
@@ -624,13 +653,25 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
     usuario.
   - **Al cerrar con cambios sin guardar**: si se cierra un formulario con cambios, DEBE pedirse
     confirmación antes de descartarlos.
-- **FR-059**: En pantallas estrechas la interfaz DEBE adaptarse así:
+- **FR-059**: Según el ancho de la pantalla, la interfaz DEBE adaptarse así:
   - **Móvil** (menos de 768 px): cada cliente del listado se presenta como una tarjeta con nombre y
     tipo, identificación, localidad y provincia, contacto y acciones. Los filtros y el botón
     "Nuevo cliente" se apilan a ancho completo. Los paneles de alta y edición ocupan la pantalla
     completa.
-  - **Tableta**: la tabla muestra cliente, identificación, localidad, provincia y acciones. El
-    teléfono y el correo quedan en la ficha.
+  - **Tableta** (de 768 a 1023 px): la tabla muestra cliente, identificación, localidad, provincia
+    y acciones. El teléfono y el correo quedan en la ficha.
+  - **Escritorio de 1024 a 1279 px**: la tabla muestra cliente, identificación, localidad y
+    acciones. La provincia, el teléfono y el correo quedan en la ficha, porque el menú lateral fijo
+    deja menos espacio útil que en una tableta.
+  - **Escritorio de 1280 a 1535 px**: la tabla muestra cliente, identificación, localidad, provincia
+    y acciones. El teléfono y el correo quedan en la ficha.
+  - **Escritorio de 1536 px o más**: la tabla muestra todas las columnas de FR-031.
+  - Estos anchos solo deciden las columnas de la tabla de clientes. El menú lateral y el resto de la
+    estructura siguen los puntos de corte de FR-040.
+  - **Tablas con acciones por fila** (clientes, usuarios y auditoría), en cualquier ancho en que se
+    presenten como tabla: la columna de acciones queda fija en el borde derecho y siempre visible.
+    Si el contenido de las demás columnas no cabe, se desplaza la tabla dentro de su recuadro, nunca
+    la página.
 - **FR-060**: Fechas, países e iconos:
   - **Fechas y horas**: en la ficha y en la auditoría se muestran en formato español, en hora de
     España peninsular (p. ej. "27/05/2025, 14:32").
@@ -760,6 +801,12 @@ desde el exterior y que la aplicación funciona igual que en desarrollo.
     mostrando su nombre.
   - El 100 % de sus intentos de acceso se rechazan.
   - El 100 % de los intentos de eliminar un usuario activo se rechazan en el servidor.
+- **SC-014**: El 100 % de las filas muestran su acción sin desplazar nada:
+  - En el listado completo de clientes (una página de 25, sin búsqueda ni filtros), a 768 px,
+    1024 px, 1280 px, 1440 px y 1536 px de ancho. Por debajo de 768 px los clientes se muestran en tarjetas,
+    que ya incluyen la acción (FR-059).
+  - En la lista de usuarios y en una página completa de la auditoría, a 360 px, 768 px, 1024 px,
+    1280 px y 1440 px de ancho.
 
 ## Conformidad con el sistema de diseño y desviaciones del mockup
 
@@ -775,6 +822,7 @@ Conforme a la constitución 1.1.0 ("Sistema de diseño"), el mockup es orientati
 | Botón "Nuevo cliente" con letra serif en caja mixta | Manrope en mayúsculas con espaciado (botón primario de DESIGN.md) | DESIGN.md prevalece sobre el mockup |
 | Cabeceras de la tabla en caja mixta | Mayúsculas con espaciado (`label-md`) | DESIGN.md prevalece sobre el mockup |
 | Nombre del cliente en la tabla con letra serif | Manrope (`title-md`) con el tipo en `label-sm` en mayúsculas y color `primary` | DESIGN.md reserva Bodoni para titulares y cifras; los datos tabulares van en Manrope |
+| Teléfono, correo y provincia en la tabla en cualquier ancho de escritorio | Teléfono y correo en la tabla a partir de 1536 px; provincia oculta entre 1024 y 1279 px. Lo que no aparece, en la ficha (FR-059) | Con el menú lateral a la izquierda esas columnas no caben: la de acciones, fija, las taparía (medido en research R-22; ajuste de cierre, 2026-09-28) |
 
 Desviaciones de `docs/DESIGN.md`: **ninguna**.
 

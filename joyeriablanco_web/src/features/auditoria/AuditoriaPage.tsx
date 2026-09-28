@@ -14,6 +14,7 @@ import { campoCaja, campoContenedor, campoEtiqueta } from '../../components/ui/f
 import { Pagination } from '../../components/ui/Pagination'
 import { Select } from '../../components/ui/Select'
 import { Skeleton } from '../../components/ui/Skeleton'
+import { accionesCabecera, accionesCelda, tablaDesplazable } from '../../components/ui/tabla'
 import { fechaHora, finDia, inicioDia } from '../../lib/fechas'
 import { nombreConEstado } from '../../lib/usuarios'
 import { TIPOS_EVENTO } from './tipos-evento'
@@ -237,7 +238,7 @@ export function AuditoriaPage({
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className={tablaDesplazable}>
               <table className="w-full border-collapse">
                 <caption className="sr-only">Eventos de auditoría</caption>
                 <thead className="border-b border-primary-container/25 bg-surface-container">
@@ -248,7 +249,7 @@ export function AuditoriaPage({
                         scope="col"
                         className={`px-6 py-4 text-left label-md text-on-surface-variant ${
                           i === 3 || i === 4 ? 'hidden lg:table-cell' : ''
-                        }`}
+                        } ${i === 5 ? accionesCabecera : ''}`}
                       >
                         {c || <span className="sr-only">Detalle</span>}
                       </th>
@@ -259,7 +260,7 @@ export function AuditoriaPage({
                   {consulta.data.elementos.map((evento) => (
                     <tr
                       key={evento.id}
-                      className="border-b border-primary-container/18 last:border-b-0 hover:bg-surface-container-high"
+                      className="group border-b border-primary-container/18 last:border-b-0 hover:bg-surface-container-high"
                     >
                       <td className="px-6 py-3 body-md tabular-nums whitespace-nowrap">
                         {fechaHora(evento.ocurrido_en)}
@@ -270,7 +271,7 @@ export function AuditoriaPage({
                       <td className="hidden px-6 py-3 body-sm tabular-nums text-on-surface-variant lg:table-cell">
                         {evento.origen_ip ?? '—'}
                       </td>
-                      <td className="px-6 py-3 text-right">
+                      <td className={`px-6 py-3 text-right ${accionesCelda}`}>
                         <Button
                           variant="icon"
                           aria-label={`Ver detalle: ${TIPOS_EVENTO[evento.tipo]} de ${fechaHora(evento.ocurrido_en)}`}

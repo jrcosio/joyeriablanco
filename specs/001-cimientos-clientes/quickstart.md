@@ -106,7 +106,7 @@ docker compose -f docker-compose.prod.yml exec api joyeria crear-admin --usuario
    - `cp .env.example .env`.
    - Poner `DOMINIO=<dominio>` y `TLS_MODO=acme`.
    - Generar contraseñas largas y aleatorias para `POSTGRES_PASSWORD`, `DB_OWNER_PASSWORD` y
-     `DB_APP_PASSWORD` (p. ej. `openssl rand -base64 32`).
+     `DB_APP_PASSWORD` (p. ej. `openssl rand -hex 32`).
    - No hace falta tocar `ENTORNO`, `ORIGEN_PERMITIDO` ni `SESION_COOKIE_SEGURA`: el compose de
      producción los fija a `produccion`, `https://<dominio>` y `true`.
 4. **Arranque**: `docker compose -f docker-compose.prod.yml --env-file .env up -d --build`. Caddy
@@ -124,10 +124,12 @@ docker compose -f docker-compose.prod.yml exec api joyeria crear-admin --usuario
 ### Cambio de las contraseñas de la base de datos (FR-048)
 
 ```bash
-# 1. Generar la nueva contraseña y cambiarla en PostgreSQL (como superusuario)
-NUEVA=$(openssl rand -base64 32)
-docker compose -f docker-compose.prod.yml exec -T db sh -c \
-  'psql -U "$POSTGRES_USER" -d postgres -v pwd="$1" -c "ALTER ROLE jb_app PASSWORD :'"'"'pwd'"'"'"' _ "$NUEVA"
+# 1. Generar la nueva contraseña y cambiarla en PostgreSQL (como superusuario).
+#    En hexadecimal no hay comillas que escapar. La sentencia va por la entrada estándar porque
+#    `psql -c` no sustituye variables.
+NUEVA=$(openssl rand -hex 32)
+printf "ALTER ROLE jb_app PASSWORD '%s';\n" "$NUEVA" | docker compose -f docker-compose.prod.yml \
+  exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres'
 # 2. Actualizar DB_APP_PASSWORD en .env con el mismo valor
 # 3. Recrear los servicios que la usan
 docker compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate api
