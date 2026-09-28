@@ -1,36 +1,38 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Cambio de version: 2.0.0 -> 2.1.0
-Motivo del bump: MINOR. Ampliacion material del principio III y de la restriccion
-"Numeracion", sin eliminar ni redefinir ninguna regla existente: la prohibicion de UPDATE/DELETE
-en BD sobre facturas emitidas y registros sigue intacta. Decision explicita del responsable del
-proyecto (2026-09-28), al arrancar la feature 002-facturas: "Se puede modificar, ya que pueden
-existir errores. cambia la constitucion", eligiendo la opcion "Modificar con correccion
-trazable" y los borradores ("Guardar borrador" / "Emitir factura").
+Cambio de version: 2.1.0 -> 2.2.0
+Motivo del bump: MINOR. Se concreta la restriccion "Numeracion" con una regla nueva y una
+excepcion explicita y acotada al "sin huecos". No se redefine ni elimina ningun principio.
+Decision explicita del responsable del proyecto (2026-09-28), durante el specify de 002-facturas:
+  - "Automatico + proximo numero": el numero nunca se introduce a mano.
+  - Ajuste del proximo numero "en cualquier momento, al alza", elegido sabiendo que deja huecos
+    dentro del sistema que habra que poder justificar.
 
 Principios modificados:
-  - III. Inalterabilidad de los documentos emitidos - mismo titulo, ampliado:
-      + Los borradores de factura son editables y eliminables (no son facturas expedidas, no
-        tienen numero definitivo ni registro). La inalterabilidad empieza al emitir.
-      + "Modificar" una factura emitida, incluido su numero, se admite SOLO como correccion
-        trazable (subsanacion, anulacion + nueva alta o rectificativa segun la normativa),
-        conservando el original y con historial visible. Nunca UPDATE ni DELETE.
-      + Razon ampliada con la LGT art. 201 bis.1.d (verificado en BOE el 2026-09-28).
+  - III. Inalterabilidad de los documentos emitidos: redaccion (PATCH dentro de este bump).
+    "Modificar ... incluido su numero" pasa a "tambien cuando el error esta en su numero"; el
+    numero se corrige anulando y reemitiendo, nunca editandolo.
 
 Secciones modificadas:
-  - Restricciones tecnicas > Numeracion: formato FAC-AAAA-NNNN; cambio de numero solo por
-    correccion trazable con unicidad por serie y ano; un numero usado o anulado no se reutiliza;
-    la regla de correlatividad del numero manual la fija la spec 002 tras su clarify.
+  - Restricciones tecnicas > Numeracion:
+      + serie de rectificativas REC-AAAA-NNNN (ROF art. 6.1.a, 2.o);
+      + el numero nunca se introduce a mano; toda factura nueva recibe el siguiente de su serie;
+      + unica excepcion al "sin huecos": ajuste administrativo al alza del proximo numero de la
+        serie ordinaria del ano en curso, motivado, auditado, con aviso previo y seguro frente a
+        concurrencia;
+      - desaparece "La regla exacta de correlatividad ... la fija la spec" (ya fijada).
 
 Secciones anadidas: ninguna. Secciones eliminadas: ninguna.
 
 Artefactos dependientes:
-  - CLAUDE.md                       actualizado: "Numeracion" y "Reglas innegociables de Verifactu"
-  - .specify/templates/*.md         sin cambios: leen la constitucion en tiempo de ejecucion
-  - .claude/skills/speckit-*        sin cambios
+  - CLAUDE.md                       actualizado: "Numeracion"
+  - specs/002-facturas/spec.md      conforme: FR-006, FR-009, FR-010 y FR-024
+  - .specify/templates/*.md         sin cambios
 
 Historico:
+  - 2.1.0 (2026-09-28) principio III: borradores editables y "Modificar" como correccion
+    trazable; numeracion FAC-AAAA-NNNN sin reutilizacion.
   - 2.0.0 (2026-09-27) principio I: fases encadenadas sin aprobacion intermedia.
   - 1.1.0 (2026-09-27) restriccion "Sistema de diseno" (docs/DESIGN.md normativo).
   - 1.0.0 (2026-09-12) adopcion inicial con los principios I-IX.
@@ -38,6 +40,8 @@ Historico:
 TODO pendientes (no bloquean la ratificacion, se resuelven en el clarify de su feature):
   - TODO(MODALIDAD_VERIFACTU): elegir entre VERI*FACTU y no VERI*FACTU. El principio IV
     exige que el diseno soporte ambas, por lo que la eleccion no altera esta constitucion.
+    Estado (2026-09-28, specify de 002): pendiente de la asesoria; es una opcion de
+    Configuracion sin valor inicial y DEBE fijarse antes de la feature 004.
   - TODO(DECLARACION_RESPONSABLE): determinar quien la suscribe (art. 13 RRSIF). Pendiente
     de confirmacion por la asesoria.
 -->
@@ -106,8 +110,8 @@ Los **borradores de factura** SÍ se pueden editar y eliminar. Un borrador todav
 factura expedida: no tiene número definitivo ni genera registro de facturación. La factura pasa a
 ser inalterable al **emitirse**, y en ese momento recibe su número y su registro de alta.
 
-La aplicación PUEDE ofrecer la acción **«Modificar»** sobre una factura emitida, incluido su
-número. Esa acción NUNCA es un `UPDATE` ni un `DELETE`. Consiste en generar la corrección que
+La aplicación PUEDE ofrecer la acción **«Modificar»** sobre una factura emitida, también cuando el
+error está en su número. Esa acción NUNCA es un `UPDATE` ni un `DELETE`. Consiste en generar la corrección que
 prescriba la normativa para ese tipo de error:
 
 - Un registro de subsanación.
@@ -246,14 +250,26 @@ frente a concurrencia mediante secuencia de base de datos o bloqueo explícito s
 contadores. Queda PROHIBIDO `MAX(numero)+1` sin lock. La estrategia elegida se justifica en la spec
 de la feature correspondiente.
 
-- **Formato** de la serie ordinaria de facturas: `FAC-AAAA-NNNN`, con el año natural y un
-  correlativo de 4 dígitos.
-- El número de una factura emitida se puede cambiar, pero solo mediante la corrección trazable del
-  principio III y con control de unicidad por serie y año.
-- Un número ya usado, incluido uno anulado, NO se reutiliza jamás.
-- La regla exacta de correlatividad cuando el número se introduce a mano la fija la spec de la
-  feature de facturas tras su `clarify`. Mientras no se fije, rige «sin huecos y sin
-  reutilización».
+- **Formato**:
+  - Serie ordinaria: `FAC-AAAA-NNNN`.
+  - Serie de rectificativas, que es propia como exige el ROF (art. 6.1.a, 2.º): `REC-AAAA-NNNN`.
+  - En ambas, `AAAA` es el año natural de la fecha de expedición y `NNNN` un correlativo de
+    4 dígitos.
+- **Asignación**: el número de una factura NUNCA se introduce a mano. Toda factura nueva recibe el
+  siguiente número de su serie, incluidas la que sustituye a una anulada y la rectificativa.
+- **Número erróneo**: una factura emitida con un número erróneo se corrige mediante la corrección
+  trazable del principio III, anulándola y reemitiéndola con el siguiente número.
+- **Reutilización**: un número ya usado, incluido uno anulado, NO se reutiliza jamás.
+- **Única excepción al «sin huecos»**: un administrador puede ajustar **al alza** el próximo
+  número de la serie ordinaria del año en curso, en cualquier momento. Las condiciones son:
+  - El nuevo valor debe ser siempre superior al último número usado, incluidos los anulados.
+  - El motivo es obligatorio y queda en la auditoría.
+  - Antes de guardar, se avisa de cuántos números quedarán sin usar.
+  - El ajuste es seguro frente a emisiones concurrentes.
+
+  Los números que se saltan no se asignan después a ninguna factura. El responsable del proyecto
+  asume que esos huecos deben poder justificarse, por ejemplo por la continuación de la numeración
+  de otro sistema. Fuera de este ajuste, la regla «sin huecos y sin reutilización» es absoluta.
 
 **Precios**: las líneas se introducen sin IVA (base imponible); el servidor calcula cuota y total.
 
@@ -289,4 +305,4 @@ subordinado a esta constitución.
 `docs/DESIGN.md` es la especificación normativa del sistema de diseño y está subordinado a esta
 constitución. Sus cambios materiales requieren aprobación explícita del responsable del proyecto.
 
-**Version**: 2.1.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-28
+**Version**: 2.2.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-28

@@ -137,11 +137,14 @@ concurrencia (secuencia de BD o bloqueo explícito sobre tabla de contadores).
 
 **`MAX(numero)+1` sin lock está prohibido.**
 
-- Formato de la serie ordinaria: **`FAC-AAAA-NNNN`**.
-- El número de una factura emitida solo cambia mediante una **corrección trazable** (ver abajo),
-  con control de unicidad por serie y año.
+- Series: ordinaria **`FAC-AAAA-NNNN`** y rectificativas **`REC-AAAA-NNNN`** (serie propia,
+  ROF art. 6.1.a).
+- **El número nunca se escribe a mano.** Toda factura nueva recibe el siguiente de su serie. Un
+  número erróneo se corrige anulando y reemitiendo, mediante corrección trazable (ver abajo).
 - Un número usado, **incluido uno anulado, no se reutiliza jamás**.
-- La regla de correlatividad del número introducido a mano la fija la spec 002.
+- **Única excepción al «sin huecos»**: un administrador puede ajustar **al alza** el próximo número
+  de la serie ordinaria del año, siempre por encima del último usado, con motivo auditado, aviso
+  previo y seguro frente a concurrencia (constitución 2.2.0).
 
 ## Reglas innegociables de Verifactu
 
