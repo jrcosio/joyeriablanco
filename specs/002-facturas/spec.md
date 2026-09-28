@@ -1,0 +1,758 @@
+# Feature Specification: Facturación con registro Verifactu
+
+**Feature Branch**: `002-facturas`
+
+**Created**: 2026-09-28
+
+**Status**: Draft
+
+**Input**: Descripción del responsable del proyecto (2026-09-28): "Siguiente feature, las facturas.
+Tienes en `temporal` dos ejemplos de cómo quiero que sean las facturas. No quiero los indicadores
+de KPI ni nada de eso: quiero que salga en el listado las facturas y arriba lo de buscar, la misma
+lógica que los clientes. Lo que pasa es que para crear, editar, etc. quiero que sea como la
+captura, es decir, un modal por encima, lógicamente con el estilo que tenemos en la web. En
+configurar estaría bien poder poner el IVA por defecto al 21 %, pero que se pueda cambiar por si
+en un futuro cambia. Lo de estado de la factura que sale en el ejemplo sobra, y la numeración de
+las facturas es el año más un número incremental (FAC-2026-0002). Aunque sea un campo único,
+estaría bien que también se pudiera editar, ya que si hay errores se puedan subsanar, pero
+lógicamente con control para evitar duplicidad. En el ejemplo el menú está a la derecha y es a la
+izquierda."
+
+**Referencias**:
+- Mockups orientativos:
+  - [`assets/mockup-facturas.png`](assets/mockup-facturas.png) (listado).
+  - [`assets/mockup-nueva-factura.png`](assets/mockup-nueva-factura.png) (modal «Nueva factura»).
+- Sistema de diseño normativo: [`docs/DESIGN.md`](../../docs/DESIGN.md).
+- Constitución 2.1.0: principios II, III, IV, VI y VII.
+- Feature previa: [`specs/001-cimientos-clientes`](../001-cimientos-clientes/spec.md).
+
+## Clarifications
+
+### Session 2026-09-28 (decisiones previas a la especificación)
+
+- Q: ¿Qué entra en esta feature? → A: Facturas, con su registro de facturación de alta y la huella
+  encadenada, inalterables en el almacenamiento. Quedan para features posteriores:
+  - El PDF con el código QR (003).
+  - La remisión a la AEAT (004).
+  - Los presupuestos (005).
+- Q: ¿Se pueden editar las facturas? → A: Sí, y cambia según la factura esté en borrador o emitida:
+  - **Borrador**: se edita y se borra libremente.
+  - **Emitida**: se puede «Modificar», incluido su número, pero solo mediante una **corrección
+    trazable**. El original se conserva y la corrección queda en un historial visible.
+  - El responsable pidió cambiar la constitución para permitirlo, y se enmendó a la 2.1.0
+    (principio III). La sobrescritura no es posible porque la inalterabilidad la impone la
+    normativa, no la constitución (LGT art. 201 bis.1.d, F-7).
+- Q: ¿Se usan borradores? → A: Sí, con los botones «Guardar borrador» y «Emitir factura», como en la
+  captura.
+- Q: ¿Cómo se elige el IVA en la factura? → A: Siempre es el tipo por defecto de Configuración. En la
+  factura no hay selector.
+- Q: ¿Indicadores y estado de cobro? → A: Ninguno de los dos. El listado no tiene KPI ni columna de
+  estado (Cobrada, Pendiente o Vencida).
+
+### Session 2026-09-28 (specify)
+
+- Q: ¿Modalidad VERI\*FACTU o no VERI\*FACTU? → A: Pendiente de la asesoría.
+  - Es una opción de Configuración sin valor inicial.
+  - Hay que fijarla antes de la feature 004.
+  - El TODO(MODALIDAD_VERIFACTU) de la constitución sigue abierto (FR-001, FR-004).
+- Q: ¿Qué tipos de factura emite esta feature? → A: Solo completas (F1), siempre con un cliente
+  identificado de la cartera. Las simplificadas quedan fuera de alcance (FR-005).
+- Q: ¿Cómo decide «Modificar» qué corrección genera? → A: Pregunta el motivo (FR-024).
+  - **«La factura no debió emitirse o no llegó a entregarse»**: anulación, y después una factura
+    nueva con el siguiente número.
+  - **«Hay que corregir una factura ya entregada»**: factura rectificativa por sustitución en su
+    propia serie.
+  - **Consulta intermedia**: el responsable eligió primero «siempre anular y reemitir». Se le
+    advirtió de que, para una venta real ya entregada, el ROF art. 15 obliga a la rectificativa,
+    y de que la AEAT reserva la anulación a las facturas que no debieron emitirse (F-4,
+    aclaración 17). Tras eso eligió preguntar el motivo.
+- Q: ¿Cómo se corrige el número? → A: Nunca a mano en la factura.
+  - Toda factura nueva recibe el siguiente número de su serie, incluidas la que sustituye a una
+    anulada y la rectificativa.
+  - El administrador puede ajustar al alza el próximo número de la serie del año **en cualquier
+    momento**, siempre por encima del último usado y con un motivo obligatorio, que queda en la
+    auditoría (FR-010).
+  - El responsable eligió esa opción sabiendo que deja huecos dentro del sistema, que habrá que
+    poder justificar.
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Configurar la facturación (Priority: P1)
+
+Antes de facturar, el administrador abre Configuración → Facturación. Allí fija el tipo de IVA por
+defecto, que viene al 21 %, y los datos de la joyería como emisora de las facturas. Si un día
+cambia el tipo general, lo actualiza en esa misma pantalla.
+
+**Why this priority**: sin los datos del emisor no se puede expedir una factura válida (F-6,
+art. 6.1), y el IVA por defecto es lo que se aplica en cada línea.
+
+**Independent Test**: un administrador guarda el IVA y los datos del emisor, y luego se comprueba
+dos cosas: que una factura nueva usa ese tipo y que un empleado no puede entrar en la sección.
+
+**Acceptance Scenarios**:
+
+1. **Given** una instalación nueva, **When** el administrador abre Configuración → Facturación,
+   **Then** el IVA por defecto aparece al 21 % y los datos del emisor, vacíos, marcados como
+   necesarios para emitir.
+2. **Given** el IVA por defecto al 21 %, **When** el administrador lo cambia a otro tipo válido y
+   guarda, **Then** los borradores nuevos y los que se emitan a partir de ese momento usan el tipo
+   nuevo, y las facturas ya emitidas conservan el suyo.
+3. **Given** un empleado, **When** intenta abrir o guardar la configuración de facturación,
+   **Then** el sistema se lo impide.
+4. **Given** datos del emisor incompletos o la modalidad sin elegir, **When** alguien intenta emitir
+   una factura, **Then** no se emite y un aviso indica qué falta y que lo debe completar un
+   administrador.
+5. **Given** la serie de 2026 con la última factura `FAC-2026-0005`, **When** el administrador fija
+   el próximo número en 143 e indica el motivo (p. ej. "continuación de la numeración del programa
+   anterior"), **Then** la siguiente factura emitida es `FAC-2026-0143` y el cambio queda en la
+   auditoría con su motivo.
+6. **Given** la misma serie, **When** el administrador intenta fijar el próximo número en 5 o menos,
+   **Then** el sistema lo rechaza, porque ese número ya se ha usado.
+
+---
+
+### User Story 2 - Crear y emitir una factura en el modal (Priority: P1)
+
+Desde el listado, un empleado pulsa «Nueva factura» y se abre un modal por encima del listado.
+Elige al cliente, que se muestra con sus datos fiscales, y añade las líneas con las unidades, la
+descripción y el precio unitario sin IVA. El modal va mostrando la base imponible, el IVA y el
+total. Puede guardarlo como borrador o emitirlo directamente. Al emitir, la factura recibe su
+número definitivo `FAC-AAAA-NNNN` y queda registrada con su huella.
+
+**Why this priority**: facturar es el objetivo de la fase 1 del proyecto.
+
+**Independent Test**: con el emisor configurado y un cliente activo, se crea una factura de varias
+líneas y se emite. Hay que comprobar el número asignado, los importes calculados por el servidor,
+el registro de alta y su huella encadenada con la del registro anterior.
+
+**Acceptance Scenarios**:
+
+1. **Given** el listado de facturas, **When** se pulsa «Nueva factura», **Then** se abre un modal
+   sobre el listado con tres secciones: datos de emisión (número, fecha y cliente), detalle (líneas)
+   y totales. La fecha propuesta es la de hoy.
+2. **Given** el modal abierto, **When** se elige un cliente, **Then** se muestra su nombre o razón
+   social, su identificación fiscal y su domicilio. Los clientes inactivos no se pueden elegir.
+3. **Given** una línea con 2 unidades a 45,00 € y otra con 1 unidad a 1.200,00 €, **When** se
+   rellenan, **Then** el modal previsualiza unos importes de 90,00 € y 1.200,00 €, una base
+   imponible de 1.290,00 €, un IVA (21 %) de 270,90 € y un total de 1.560,90 €.
+4. **Given** una factura completa, **When** se pulsa «Emitir factura» y se confirma el aviso de
+   que después no se podrá editar, **Then** se asigna el siguiente número de la serie del año de
+   la fecha de expedición (p. ej. `FAC-2026-0001` si es la primera del año). Además se genera el
+   registro de alta con su huella encadenada y la factura aparece en el listado.
+5. **Given** dos usuarios que emiten facturas a la vez, **When** ambas emisiones terminan, **Then**
+   tienen números consecutivos distintos, sin huecos ni duplicados, y sus registros quedan
+   encadenados en el orden en que se emitieron.
+6. **Given** una factura a medias, **When** se pulsa «Guardar borrador», **Then** se guarda sin
+   número definitivo ni registro, y aparece en el listado con la marca «Borrador».
+7. **Given** un cliente al que le falta un dato obligatorio para la factura, como el domicilio,
+   **When** se intenta emitir, **Then** no se emite y se indica el dato que falta, con acceso a
+   la ficha del cliente para completarlo.
+8. **Given** el modal con cambios, **When** se pulsa «Cancelar» o se cierra, **Then** se pide
+   confirmación antes de descartarlos.
+
+---
+
+### User Story 3 - Consultar y buscar facturas (Priority: P1)
+
+Un empleado abre Facturas y ve el listado paginado, con la búsqueda arriba, igual que en clientes.
+Busca por número, cliente o identificación fiscal, filtra por año y mes, y ordena el resultado.
+
+**Why this priority**: localizar una factura es la operación diaria más frecuente, y es la puerta a
+consultarla, modificarla y, más adelante, imprimirla.
+
+**Independent Test**: con facturas de ejemplo cargadas se prueban la búsqueda, cada filtro, el
+orden y la paginación, y se comprueba que no hay indicadores ni columna de estado.
+
+**Acceptance Scenarios**:
+
+1. **Given** facturas emitidas y borradores de varios años, **When** se abre Facturas, **Then**
+   aparecen las del año en curso, primero las más recientes, con estas columnas: número, fecha,
+   cliente, identificación, base imponible, IVA, total y acciones. No hay indicadores ni columna
+   de estado.
+2. **Given** una factura de "María López García", **When** se busca "maria lopez", su NIF o
+   "2026-0005", **Then** la factura aparece en los resultados.
+3. **Given** los filtros de año y mes, **When** se combinan con una búsqueda, **Then** el resultado
+   cumple todas las condiciones a la vez.
+4. **Given** un borrador, una factura anulada o una rectificada, **When** aparecen en el listado,
+   **Then** cada una se distingue con una marca discreta en la columna del número, sin columna de
+   estado.
+5. **Given** una página completa de facturas, **When** se mira a 768, 1024, 1280, 1440 o 1536 px de
+   ancho, **Then** cada fila muestra sus acciones sin desplazar nada.
+6. **Given** una búsqueda sin resultados, **When** se ejecuta, **Then** aparece un estado vacío con
+   la opción de limpiar los filtros. Si todavía no hay ninguna factura, el estado vacío invita a
+   crear la primera.
+
+---
+
+### User Story 4 - Editar y borrar borradores (Priority: P2)
+
+Un empleado retoma un borrador desde el listado. Lo abre en el mismo modal, lo cambia y lo vuelve a
+guardar o lo emite. Si ya no lo necesita, lo borra.
+
+**Why this priority**: permite preparar facturas con calma y corregir errores antes de emitir. Es
+el momento en que corregir no tiene ningún coste fiscal (F-4, aclaración 17, caso 1).
+
+**Independent Test**: se crea un borrador, se modifica, se borra y se comprueba que no ha dejado
+registro de facturación ni ha consumido ningún número.
+
+**Acceptance Scenarios**:
+
+1. **Given** un borrador, **When** se abre desde el listado, **Then** el modal muestra sus datos
+   editables y los botones «Cancelar», «Eliminar borrador», «Guardar borrador» y «Emitir factura».
+2. **Given** un borrador abierto por dos usuarios, **When** ambos guardan, **Then** el segundo
+   recibe un aviso de que el borrador ha cambiado desde que lo abrió, y nada se sobrescribe sin
+   que lo sepa.
+3. **Given** un borrador, **When** se borra con confirmación, **Then** desaparece del listado sin
+   dejar número consumido ni registro de facturación.
+4. **Given** un borrador cuyo cliente se ha desactivado, **When** se intenta emitir, **Then** no se
+   emite hasta que se elija otro cliente o se reactive el cliente.
+
+---
+
+### User Story 5 - Modificar o anular una factura emitida (Priority: P2)
+
+Un empleado detecta un error en una factura ya emitida, como un dato del cliente, un importe o una
+descripción. Pulsa «Modificar» y el mismo modal se abre con los datos de la factura. Hace los
+cambios y, al guardar, indica qué ha pasado.
+
+- **Si la factura no debió emitirse o no llegó a entregarse al cliente**: se anula y se emite una
+  factura nueva, con el siguiente número.
+- **Si ya se entregó**: se emite una factura rectificativa que sustituye a la original.
+
+Si la factura sobraba del todo, por ejemplo por estar duplicada, se «Anula» sin emitir otra. En
+ningún caso se sobrescribe nada: se conserva la original y queda constancia en su historial.
+
+**Why this priority**: los errores en facturas emitidas existen, y el responsable necesita
+subsanarlos sin salir de la aplicación. La obligación legal hace que la forma de hacerlo sea
+crítica.
+
+**Independent Test**: sobre una factura emitida se hace una modificación y se comprueban cuatro
+cosas:
+- La factura original y su registro siguen intactos.
+- Existe la corrección, con su registro encadenado.
+- El historial la muestra.
+- Ningún número se ha reutilizado.
+
+**Acceptance Scenarios**:
+
+1. **Given** una factura emitida, **When** se abre desde el listado, **Then** el modal la muestra en
+   modo consulta, con las acciones «Anular» y «Modificar» y su historial de correcciones.
+2. **Given** `FAC-2026-0007`, que no llegó a entregarse, **When** se modifica el cliente y se guarda
+   indicando «La factura no debió emitirse o no llegó a entregarse», **Then** se genera el registro
+   de anulación de `FAC-2026-0007` y se emite una factura nueva con los datos corregidos y el
+   siguiente número, p. ej. `FAC-2026-0012`. `FAC-2026-0007` sigue constando en la serie, marcada
+   como anulada.
+3. **Given** `FAC-2026-0007`, ya entregada, **When** se corrige una unidad y se guarda indicando «Hay
+   que corregir una factura ya entregada», **Then** se emite la rectificativa por sustitución, p.
+   ej. `REC-2026-0001`, con los datos corregidos. La rectificativa identifica la factura original
+   y el importe de la rectificación (F-6, art. 15.4 y 15.5), y la original queda marcada como
+   rectificada.
+4. **Given** una factura duplicada por error, **When** se pulsa «Anular», se declara que no debió
+   emitirse y se indica el motivo, **Then** se genera su registro de anulación sin emitir otra
+   factura, y su número no vuelve a usarse.
+5. **Given** una factura ya corregida o anulada, **When** se consulta, **Then** se ve con claridad
+   su situación, con acceso directo a la factura vigente que la sustituye, si la hay. Además, no
+   ofrece «Modificar» ni «Anular».
+
+---
+
+### User Story 6 - Integridad comprobable del registro de facturación (Priority: P3)
+
+El responsable técnico, o un inspector ante un requerimiento, necesita comprobar que la cadena de
+registros de facturación no se ha alterado. El sistema recalcula todas las huellas en orden e
+informa de si la cadena está íntegra o de cuál es el primer registro que no cuadra.
+
+**Why this priority**: la integridad y la trazabilidad son requisitos del sistema de facturación
+(F-8). Poder comprobarlas cierra el círculo de la inalterabilidad, aunque no sea una operación
+diaria.
+
+**Independent Test**: se emiten y corrigen varias facturas y se lanza la comprobación, que debe
+salir íntegra. Luego, en una base de pruebas y saltándose las protecciones con privilegios de
+superusuario, se altera un registro y se repite: debe señalar ese registro.
+
+**Acceptance Scenarios**:
+
+1. **Given** una cadena de registros sin alterar, **When** se lanza la comprobación, **Then** informa
+   de que la cadena es íntegra, con el número de registros revisados.
+2. **Given** un registro alterado por fuera del sistema, **When** se lanza la comprobación, **Then**
+   identifica el primer registro cuya huella no coincide.
+
+---
+
+### Edge Cases
+
+- **Cambio de año**: la primera factura con fecha de expedición del 1 de enero de 2027 recibe
+  `FAC-2027-0001`, aunque la serie de 2026 no haya terminado. El año del número es siempre el de
+  la fecha de expedición.
+- **Emisiones simultáneas**: dos o más emisiones al mismo tiempo nunca obtienen el mismo número ni
+  dejan huecos, y sus registros se encadenan sin bifurcaciones.
+- **Fallo durante la emisión**: si algo falla al asignar el número, generar el registro o calcular
+  la huella, la emisión se deshace entera. No queda número consumido ni registro a medias, y el
+  borrador sigue intacto.
+- **Fecha de expedición**: no puede ser posterior a hoy ni anterior a la de la última factura
+  emitida de la serie en ese año. Así la numeración sigue el orden cronológico.
+- **Cambio del IVA por defecto con un borrador abierto**: al emitirse, el borrador usa el tipo
+  vigente en ese momento y el modal avisa si ha cambiado desde que se guardó.
+- **Cambios en el cliente después de emitir**: la factura emitida conserva los datos del cliente y
+  del emisor tal como estaban al emitirla. Editar después la ficha del cliente no la altera.
+- **Cliente con facturas**: no se puede borrar. Se ofrece desactivarlo, y el borrado lo rechaza el
+  sistema con el motivo (001, FR-037). Los borradores también cuentan como documentos.
+- **Usuario eliminado**: las facturas que emitió siguen mostrando su nombre con la marca
+  "(eliminado)" (001, FR-061).
+- **Importes límite**: el sistema no admite una factura sin líneas ni con un total de cero o
+  negativo, ni una línea con unidades a cero o negativas, ni un precio negativo. Los importes
+  admiten dos decimales.
+- **Redondeo**: las cifras con medio céntimo se redondean siempre igual (FR-015). La suma de las
+  líneas que se muestra coincide al céntimo con la base imponible registrada.
+- **Ajuste del próximo número**: se rechaza cualquier valor igual o inferior al último número usado
+  de la serie y año, aunque ese número corresponda a una factura anulada. También se rechaza si
+  falta el motivo. Dos ajustes simultáneos no pueden dejar el contador por debajo de un número ya
+  asignado.
+- **Modificar una factura ya corregida**: solo se puede modificar o anular la factura vigente. La
+  original queda como consulta.
+- **Fechas de la factura que sustituye**: la factura nueva tras una anulación y la rectificativa se
+  expiden con la fecha de hoy (FR-018). Si la operación ocurrió otro día, conservan como fecha de
+  la operación la de la factura original (F-6, art. 6.1.i).
+- **Rectificar una rectificativa**: una rectificativa vigente se puede modificar o anular igual que
+  cualquier otra factura emitida.
+- **Sesión caducada con el modal abierto**: lo tecleado no se pierde sin aviso. Al volver a entrar
+  se informa de que hay que repetir la acción.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+#### Configuración de facturación
+
+- **FR-001**: Configuración DEBE tener una sección «Facturación», solo para administradores, con:
+  - **IVA por defecto**: un porcentaje con hasta dos decimales, entre 0 y 100, que vale 21 al
+    instalar.
+  - **Datos del emisor**: razón social o nombre y apellidos, NIF y domicilio completo (dirección,
+    código postal, localidad y provincia), exigidos por F-6, art. 6.1.c, d y e.
+  - **Modalidad del sistema de facturación**: VERI\*FACTU o no VERI\*FACTU. Empieza sin valor,
+    porque la elección está pendiente de la asesoría (Clarifications). La elige el administrador y
+    DEBE fijarse antes de la feature 004.
+  - **Próximo número de la serie ordinaria del año en curso**: solo informativo, salvo el ajuste
+    de FR-010.
+- **FR-002**: El NIF del emisor DEBE validarse con las mismas reglas que el de los clientes (001,
+  FR-024 y FR-026).
+- **FR-003**: Todo cambio en la configuración de facturación DEBE quedar en la auditoría con el
+  valor anterior y el nuevo. Un cambio nunca altera facturas emitidas ni sus registros.
+- **FR-004**: Mientras falte algún dato obligatorio del emisor o la modalidad, NO DEBE poder
+  emitirse ninguna factura. Sí se pueden guardar borradores.
+
+#### Tipos de factura y numeración
+
+- **FR-005**: Esta feature emite solo **facturas completas**, siempre con un cliente identificado de
+  la cartera: ordinarias y, como corrección, rectificativas. Las facturas simplificadas quedan
+  fuera de alcance (Clarifications).
+- **FR-006**: La serie ordinaria DEBE numerarse `FAC-AAAA-NNNN`:
+  - `AAAA` es el año de la fecha de expedición.
+  - `NNNN` es un correlativo de cuatro dígitos que empieza en `0001` cada año natural.
+  - Si en un año se superan las 9.999 facturas, el correlativo pasa a tener más cifras sin cambiar
+    el resto del formato.
+- **FR-007**: El número definitivo DEBE asignarse en el momento de emitir, dentro de la misma
+  operación que genera el registro de alta. La asignación debe ser segura cuando hay emisiones
+  simultáneas: sin huecos, sin duplicados y sin reutilizar números (constitución, "Numeración").
+- **FR-008**: Un número ya usado NO DEBE volver a usarse nunca, ni siquiera el de una factura
+  anulada, que sigue constando en su serie (F-4, aclaración 6; F-5).
+- **FR-009**: Las facturas rectificativas DEBEN numerarse en una serie propia, distinta de la
+  ordinaria (F-6, art. 6.1.a, 2.º). Su formato es `REC-AAAA-NNNN`, con las mismas reglas de FR-006
+  y la misma asignación segura de FR-007.
+- **FR-010**: El número de una factura NUNCA se introduce a mano. En el modal se muestra como dato
+  de solo lectura: «Se asigna al emitir» en un borrador, y el número definitivo en una factura
+  emitida. Corregir la numeración solo es posible de dos formas:
+  - **Una factura concreta con número erróneo**: se anula y se reemite con el siguiente número
+    (FR-024).
+  - **El contador de la serie ordinaria del año en curso**: un administrador puede ajustar al alza
+    el próximo número en cualquier momento. Las condiciones son:
+    - El valor debe ser mayor que el último número usado, incluidos los anulados.
+    - El motivo es obligatorio y queda en la auditoría.
+    - Antes de guardar, se avisa de cuántos números quedarán sin usar.
+    - El ajuste es seguro frente a emisiones simultáneas: nunca provoca un duplicado.
+
+#### Contenido e importes de la factura
+
+- **FR-011**: Cada factura, sea borrador o emitida, DEBE tener:
+  - Fecha de expedición.
+  - Cliente destinatario, elegido entre los clientes activos.
+  - Al menos una línea.
+  - Autor y fechas de creación y emisión.
+- **FR-012**: Cada línea DEBE tener:
+  - **Unidades**: mayor que cero, con hasta dos decimales.
+  - **Descripción**: obligatoria, de hasta 500 caracteres.
+  - **Precio unitario sin IVA**: cero o mayor, con dos decimales.
+
+  El importe de la línea lo calcula el servidor.
+- **FR-013**: El tipo de IVA de cada línea DEBE ser el de la configuración vigente al emitir, y se
+  guarda en la propia línea (constitución II). En el modal no hay selector de IVA. La etiqueta de
+  los totales muestra el tipo aplicado, p. ej. «IVA (21 %)».
+- **FR-014**: El servidor DEBE calcular y devolver:
+  - El importe de cada línea.
+  - La base imponible y la cuota de cada tipo de IVA.
+  - La base total, la cuota total y el total de la factura.
+
+  La web solo previsualiza. Nunca envía importes calculados, y si los enviara el servidor los
+  ignoraría (constitución VI).
+- **FR-015**: Una única política de redondeo para todo el sistema:
+  - El importe de cada línea se redondea al céntimo.
+  - La base de cada tipo es la suma de los importes de sus líneas.
+  - La cuota de cada tipo se calcula sobre su base y se redondea al céntimo.
+  - El medio céntimo siempre se redondea alejándose de cero.
+
+  La política DEBE contrastarse con las tolerancias oficiales de validación (F-3) antes de la
+  implementación (constitución II).
+- **FR-016**: Al emitir, la factura DEBE guardar una copia de los datos del emisor y del
+  destinatario tal como están en ese momento. Los cambios posteriores en la configuración o en la
+  ficha del cliente no alteran la factura emitida.
+- **FR-017**: Para emitir una factura completa, el destinatario DEBE tener su identificación
+  fiscal y su domicilio: dirección, código postal y localidad (F-6, art. 6.1.c, d y e). Si falta
+  algo, el sistema lo indica y ofrece abrir la ficha del cliente.
+- **FR-018**: La fecha de expedición NO DEBE ser posterior al día actual ni anterior a la de la
+  última factura emitida de la misma serie en ese año, en hora de España peninsular. La fecha de
+  la operación solo se indica si es distinta de la de expedición (F-6, art. 6.1.i). No se pide al
+  crear una factura: la factura nueva tras una anulación y la rectificativa la heredan de la
+  original, y se muestra en solo lectura.
+
+#### Ciclo de vida: borrador y emisión
+
+- **FR-019**: Un borrador DEBE poder crearse, editarse y borrarse por cualquier usuario autenticado,
+  sin número definitivo ni registro de facturación (constitución III; F-4, aclaración 6). El
+  borrado es definitivo y queda en la auditoría.
+- **FR-020**: La edición concurrente de un borrador DEBE detectarse igual que la de un cliente
+  (001, FR-030): nunca se sobrescriben cambios ajenos sin aviso.
+- **FR-021**: Emitir DEBE pedir una confirmación que explique que la factura no podrá editarse y
+  que los cambios posteriores se harán mediante corrección. La emisión es atómica: número,
+  factura, registro de alta y huella se guardan juntos o no se guarda nada.
+- **FR-022**: Una factura emitida y su registro NO DEBEN poder modificarse ni borrarse por ningún
+  medio. La protección DEBE estar en el propio almacenamiento y resistir también un intento directo
+  con las credenciales del servicio y con las del propietario de los datos (constitución III).
+  Técnicamente se sigue el patrón de la auditoría de 001.
+
+#### Modificar una factura emitida (corrección trazable)
+
+- **FR-023**: Cualquier usuario autenticado DEBE poder «Modificar» la factura vigente de una serie,
+  sea ordinaria o rectificativa. El modal se abre con los datos precargados, y son editables el
+  cliente y las líneas. El número no es editable (FR-010), y la fecha de la operación se hereda
+  (FR-018).
+- **FR-024**: Al guardar una modificación, el modal DEBE pedir el motivo, que es obligatorio y se
+  elige entre dos opciones, con un texto libre adicional. Según el motivo, el sistema genera la
+  corrección que prescribe la normativa (F-4, aclaración 17; F-5; F-6, art. 15):
+  - **«La factura no debió emitirse o no llegó a entregarse al cliente»**, casos 1 y 2.d:
+    1. Registro de anulación de la original.
+    2. Emisión de una factura ordinaria nueva con los datos corregidos y el siguiente número de la
+       serie `FAC`.
+  - **«Hay que corregir una factura ya entregada»**, caso 2.a: emisión de una factura
+    rectificativa **por sustitución** en la serie `REC`, con los datos corregidos. Debe:
+    - Identificar la factura rectificada.
+    - Expresar el importe de la rectificación junto a los datos tal como quedan (F-6, art. 15.4
+      y 15.5).
+
+  El tipo de rectificativa y la codificación de sus campos se toman de F-1 y se citan en el plan.
+  La declaración del motivo y su texto quedan guardados con la corrección.
+- **FR-025**: La factura emitida vigente DEBE ofrecer también «Anular», para el caso 2.d sin factura
+  nueva, por ejemplo una factura duplicada por error:
+  - Exige declarar que la factura no debió emitirse e indicar un motivo.
+  - Genera solo el registro de anulación.
+  - No se ofrece sobre una factura ya anulada ni sobre una rectificada.
+- **FR-026**: La factura original y sus registros DEBEN conservarse intactos:
+  - La original y su corrección quedan enlazadas en ambos sentidos.
+  - El historial de la factura DEBE mostrar cada corrección con su tipo, fecha, autor, motivo y
+    la factura o registro que la materializa.
+  - Las facturas anuladas o rectificadas quedan en modo consulta, con una marca visible y acceso
+    directo a la vigente que las sustituye, si la hay.
+- **FR-027**: Toda corrección DEBE generar sus registros de facturación, encadenados según FR-029:
+  - **Anulación**: registro de anulación de la original y, si se reemite, registro de alta de la
+    factura nueva.
+  - **Rectificativa**: su registro de alta.
+
+  El registro de alta de subsanación (caso 2.b, datos internos del registro) no se ofrece en esta
+  feature, porque aquí esos datos se derivan de la configuración y no los edita el usuario. Llega
+  con la remisión a la AEAT (feature 004), que es donde surgen los rechazos que lo requieren.
+
+#### Registro de facturación y huella
+
+- **FR-028**: Cada emisión, rectificativa incluida, y cada anulación DEBE generar su registro de
+  facturación de alta o de anulación. El contenido, los formatos y las longitudes son exactamente
+  los de los diseños de registro oficiales (F-1), y cada campo se cita en el plan.
+- **FR-029**: Cada registro DEBE llevar su huella SHA-256, calculada según la especificación
+  oficial (F-2) y encadenada con la del registro inmediatamente anterior del sistema, sea de alta
+  o de anulación. El primer registro de la cadena se marca como tal. La cadena DEBE mantenerse
+  lineal aunque haya operaciones simultáneas.
+- **FR-030**: Cada registro DEBE guardar la modalidad del sistema de facturación con la que se
+  generó (constitución IV) y un estado de remisión. En esta feature, el estado de remisión queda
+  como «pendiente» porque la remisión llega con la feature 004.
+- **FR-031**: El sistema DEBE ofrecer una comprobación de la integridad de la cadena. Recalcula
+  todas las huellas en orden e informa de si la cadena está íntegra o de cuál es el primer registro
+  discrepante. En esta feature se lanza desde la consola de administración del servidor.
+
+#### Listado y búsqueda
+
+- **FR-032**: El listado de facturas DEBE seguir la misma lógica que el de clientes (001, FR-031 a
+  FR-033):
+  - Paginado en el servidor, con 25 facturas por página por defecto y 100 como máximo.
+  - Búsqueda, filtros, orden y página reflejados en la dirección de la pantalla.
+  - Las acciones de todas las filas siempre visibles.
+- **FR-033**: Columnas: número, fecha de expedición, cliente, identificación fiscal, base
+  imponible, IVA (cuota), total y acciones. Los importes van en euros con formato español. Un
+  borrador muestra «Borrador» en lugar del número. Una factura anulada o sustituida muestra una
+  marca discreta junto a su número. NO hay columna de estado ni indicadores.
+- **FR-034**: La búsqueda DEBE encontrar coincidencias parciales en el número, el nombre del
+  cliente y su identificación, sin distinguir mayúsculas ni tildes, con las mismas normas de
+  término que en clientes (001, FR-032).
+- **FR-035**: Filtros y orden:
+  - **Año**: el año en curso por defecto, o todos.
+  - **Mes**: todos por defecto.
+  - **Orden**: más recientes (por defecto), más antiguas, total mayor y total menor.
+
+  Todos los órdenes llevan un desempate estable, para que la paginación nunca duplique ni omita
+  facturas.
+- **FR-036**: Estados de pantalla, confirmaciones y avisos iguales que en 001 (FR-057 y FR-058):
+  - Carga sin saltos.
+  - Error con opción de reintentar.
+  - Dos estados vacíos: «no hay resultados» y «todavía no hay facturas».
+  - Aviso breve tras cada acción.
+  - Confirmación al descartar cambios.
+
+#### Modal de factura
+
+- **FR-037**: Crear, consultar, editar y modificar una factura DEBE hacerse en un modal por encima
+  del listado, que sigue visible detrás. El modal tiene tres secciones:
+  - **Datos de emisión**:
+    - Número, en solo lectura (FR-010).
+    - Fecha de expedición y, si la hay, fecha de la operación.
+    - Cliente, con el resumen de nombre, identificación, dirección, localidad y provincia.
+  - **Detalle**: tabla de líneas con unidades, descripción, precio unitario, importe y quitar
+    línea, más el botón «Añadir línea».
+  - **Totales**: base imponible, IVA con su tipo y total de la factura.
+- **FR-038**: Botones del modal según el caso:
+  - **Nueva**: «Cancelar», «Guardar borrador» y «Emitir factura».
+  - **Borrador**: además, «Eliminar borrador».
+  - **Emitida vigente**: «Cerrar», «Anular» y «Modificar».
+  - **Anulada o rectificada**: solo «Cerrar».
+- **FR-039**: El modal DEBE cumplir `docs/DESIGN.md`:
+  - Elevación de nivel 2, esquinas a 0 px y campos monetarios con el símbolo € y cifras tabulares.
+  - Total destacado en la tipografía de cifras.
+  - Botón principal para emitir y secundarios para las demás acciones.
+  - Uso completo con teclado, foco atrapado en el modal y devuelto al cerrarlo, y cierre con
+    Escape sujeto a la confirmación de cambios (001, FR-052).
+- **FR-040**: En móvil (menos de 768 px), el modal DEBE ocupar la pantalla completa y cada línea se
+  presenta apilada, sin desplazamiento horizontal de la página.
+
+#### Integración con el resto del sistema
+
+- **FR-041**: El menú lateral, a la izquierda, DEBE activar la entrada Facturas.
+  Presupuestos sigue deshabilitada con la marca «Próximamente».
+- **FR-042**: Un cliente con cualquier factura, sea borrador o emitida, NO DEBE poder borrarse
+  (001, FR-037). El sistema responde con el motivo y sugiere desactivarlo.
+- **FR-043**: DEBEN quedar en la auditoría:
+  - La creación, la modificación y el borrado de borradores.
+  - La emisión.
+  - Cada corrección.
+  - La comprobación de integridad.
+  - Los cambios de configuración de facturación.
+
+  Los importes que aparecen en la auditoría se guardan como texto decimal exacto, nunca como número
+  de coma flotante (constitución II).
+- **FR-044**: Los datos de ejemplo del entorno de desarrollo DEBEN incluir facturas ficticias,
+  emitidas y en borrador, de varios meses. Su carga sigue prohibida en producción (001, FR-045).
+
+### Key Entities *(include if feature involves data)*
+
+- **Configuración de facturación**: IVA por defecto, datos del emisor y modalidad. Hay una sola, y
+  sus cambios se auditan.
+- **Borrador de factura**: factura en preparación.
+  - Fecha, cliente, líneas, autor y versión para detectar la edición concurrente.
+  - Sin número definitivo ni registro. Se puede editar y borrar.
+- **Factura emitida**: documento expedido e inalterable.
+  - Número y serie, fecha de expedición, copia de los datos del emisor y del destinatario, líneas
+    con su tipo de IVA, desglose por tipo, totales, autor y fecha de emisión.
+  - Si es rectificativa, la referencia a la factura que rectifica.
+  - Si es el caso, la marca de anulada o sustituida.
+- **Línea de factura**: unidades, descripción, precio unitario sin IVA, tipo de IVA e importe.
+- **Serie y contador**: uno por serie (`FAC` ordinaria y `REC` rectificativa) y año natural.
+  - Guarda el último número asignado y serializa las asignaciones simultáneas.
+  - Los ajustes al alza de la serie ordinaria se hacen con motivo y quedan auditados.
+- **Registro de facturación**: extracto oficial de una factura, de alta o de anulación.
+  - Campos de los diseños oficiales (F-1), huella, referencia al registro anterior, modalidad,
+    estado de remisión y fecha y hora de generación.
+  - Inalterable, y forma una cadena lineal.
+- **Corrección**: enlace entre la factura original y lo que la corrige (rectificativa por
+  sustitución, anulación con factura nueva o anulación sola), con motivo declarado, texto, autor y
+  fecha. Es lo que alimenta el historial.
+- **Cliente** (de 001): destinatario. Si tiene facturas, no se puede borrar.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: Un empleado crea y emite una factura de tres líneas para un cliente de la cartera en
+  menos de 2 minutos desde que pulsa «Nueva factura».
+- **SC-002**: En 200 emisiones repartidas entre 10 usuarios simultáneos, los números resultantes
+  son consecutivos, sin ningún hueco ni duplicado, y los registros forman una única cadena sin
+  bifurcaciones.
+- **SC-003**: En un juego de casos de cálculo que incluye medios céntimos, cantidades con
+  decimales e importes grandes, el 100 % de las bases, cuotas y totales coinciden al céntimo con
+  el resultado de referencia calculado a mano con la política de FR-015.
+- **SC-004**: La comprobación de integridad da por íntegra el 100 % de las cadenas generadas sin
+  alterar. Detecta el 100 % de las alteraciones introducidas a propósito en una base de pruebas y
+  señala el registro afectado.
+- **SC-005**: Ningún intento de modificar o borrar una factura emitida o un registro de
+  facturación prospera, incluidos los intentos directos sobre el almacenamiento con las
+  credenciales del servicio y con las del propietario de los datos.
+- **SC-006**: Tras una modificación de una factura emitida, en el 100 % de los casos:
+  - La original sigue consultable con sus datos iniciales.
+  - La corrección existe y está encadenada.
+  - El historial muestra ambas.
+  - Ningún número se ha reutilizado.
+- **SC-007**: Con 20.000 facturas, el 95 % de las búsquedas y cambios de filtro muestran resultados
+  en menos de 1 segundo. Se mide en el entorno local de pruebas de extremo a extremo.
+- **SC-008**: El listado y el modal no provocan desplazamiento horizontal de la página a 360, 768 y
+  1440 px. El 100 % de las filas de una página completa muestran sus acciones a 768, 1024, 1280,
+  1440 y 1536 px.
+- **SC-009**: Todas las pantallas de la feature superan la revisión de conformidad con
+  `docs/DESIGN.md`: colores solo de sus tokens, esquinas a 0 px, tipografías y componentes
+  definidos.
+- **SC-010**: Las pruebas de extremo a extremo cubren las historias P1 y P2 y pasan en su totalidad
+  antes de cerrar la feature.
+
+## Conformidad con el sistema de diseño y desviaciones del mockup
+
+Conforme a la constitución (restricción "Sistema de diseño"), los mockups son orientativos y
+mandan `docs/DESIGN.md` y esta spec. Diferencias deliberadas:
+
+| Elemento del mockup | Decisión en esta feature | Motivo |
+|---|---|---|
+| Menú lateral a la derecha | Menú a la **izquierda** | Decisión del responsable, como en 001 |
+| Marca y lema en la cabecera; usuario "Carlos Martínez" | Cabecera de 001: contexto "Gestión de facturación", fecha y menú de usuario | Coherencia con la estructura ya existente (001, FR-038) |
+| Indicadores «Facturado», «Pendiente de cobro» y «Vencido» | Sin indicadores | Decisión del responsable (2026-09-28) |
+| Columna «Estado» con chips redondeados (Cobrada, Pendiente, Vencida, Emitida, Pagada) | Sin columna de estado. Borrador, anulada y sustituida se marcan en la columna del número | Decisión del responsable. Los chips redondeados y el azul de «Pagada» incumplen DESIGN.md (esquinas a 0 px, colores solo de tokens) |
+| Filtros «Cliente» y «Estado» | El cliente se busca con la búsqueda. No hay filtro de estado | Misma lógica que clientes (FR-034, FR-035) |
+| Campo «Nº de factura» editable al crear | Número en solo lectura, asignado por el servidor al emitir. Una factura con número erróneo se anula y se reemite, y el contador se ajusta en Configuración (FR-010, FR-024) | Constitución (principio III y "Numeración"); correlatividad del ROF (F-6, art. 6.1.a) |
+| «IVA (21%)» fijo | La etiqueta muestra el tipo vigente de Configuración | Decisión del responsable: el IVA se configura (FR-013) |
+| Botón «Nueva factura» con letra serif y caja mixta; esquinas redondeadas en campos y botones | Botón primario de DESIGN.md: Manrope en mayúsculas con espaciado; esquinas a 0 px | DESIGN.md prevalece sobre el mockup |
+| Paginación numérica con recuadro redondeado | Paginación del listado de clientes | Coherencia con 001 y DESIGN.md |
+
+Desviaciones de `docs/DESIGN.md`: **ninguna**.
+
+## Fuentes normativas citadas
+
+- **F-1**: AEAT, *Diseños de registro VERI\*FACTU* (`DsRegistroVeriFactu.xlsx`), versión 1.0
+  (001, F-1).
+  - URL:
+    `https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/DsRegistroVeriFactu.xlsx`.
+  - Los campos del registro de alta y de anulación se transcriben y citan en el plan (research).
+- **F-2**: AEAT, *Especificaciones técnicas para la generación de la huella o hash de los registros
+  de facturación*, versión 0.1.2 (27/08/2024).
+  - Índice oficial:
+    `https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica.html`.
+  - El orden de concatenación y los ejemplos oficiales se transcriben en el plan.
+- **F-3**: AEAT, *Validaciones y errores VERI\*FACTU*, v1.2.2 (08/04/2026) (001, F-3). Las
+  tolerancias de importes y las reglas de fechas se transcriben en el plan.
+- **F-4**: AEAT, *Aclaraciones a dudas de los desarrolladores*, versión 1.3 (4 de diciembre de
+  2025).
+  - URL:
+    `https://sede.agenciatributaria.gob.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/FAQs-Desarrolladores.pdf`.
+  - Consulta: 2026-09-28. SHA-256:
+    `73906dc8afbbb9da35f6cb489980352b42aed66d48828fd62a00168883c09d5e`.
+  - **Aclaración 6**, "Prohibición de numeración duplicada de un registro":
+    - Los borradores y las prefacturas son una operación ordinaria.
+    - Hasta validar la factura, cualquier alteración previa al registro es lícita.
+    - No se puede reutilizar la numeración de ninguna factura expedida, ni siquiera las de prueba,
+      que se anulan.
+  - **Aclaración 17**, "Forma de proceder ante errores cometidos al facturar":
+    1. Antes de expedir, el error se corrige sin más.
+    2. Después de expedir, depende del error:
+       - a) Previsto en el ROF: factura rectificativa.
+       - b) No previsto en el ROF, pero afecta a datos internos del registro: se corrige y se
+         genera un registro de alta de subsanación.
+       - c) Ni en el ROF ni en el registro: se corrige sin registro nuevo.
+       - d) La factura no debió emitirse: registro de anulación.
+    - Añade que la anulación está pensada sobre todo para facturas que no llegaron al cliente, y
+      que los registros de anulación y de subsanación deben ser "muy poco frecuentes".
+- **F-5**: AEAT, preguntas frecuentes VERI\*FACTU (sede electrónica; páginas actualizadas el
+  22/07/2026; consulta 2026-09-28):
+  - **"Registros de facturación: alta"**. Un registro ya producido no se altera. Para cambiar un
+    dato se genera otro registro que lo complete, modifique o anule, sea de anulación completa o
+    de subsanación. Las menciones de la factura que no están en el registro se subsanan
+    directamente.
+  - **"Registros de facturación: anulación"**. Las facturas emitidas, aunque sean erróneas, se
+    mantienen con su numeración. El registro de alta erróneo se conserva, con un registro de
+    anulación vinculado, y ambos aparecen en los listados.
+  - URL base:
+    `https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/`.
+- **F-6**: Reglamento por el que se regulan las obligaciones de facturación, RD 1619/2012
+  (BOE-A-2012-14696, texto consolidado con última actualización publicada el 31/03/2026, consulta
+  2026-09-28):
+  - **Art. 4**: supuestos de factura simplificada, hasta 400 € o, en ventas al por menor, hasta
+    3.000 €.
+  - **Art. 6.1**: contenido de la factura.
+    - a) Numeración correlativa dentro de cada serie, con series específicas obligatorias, entre
+      ellas la de rectificativas.
+    - b) Fecha.
+    - c) Nombre o razón social de emisor y destinatario.
+    - d) NIF.
+    - e) Domicilio de ambos.
+    - f) Descripción, con el precio unitario sin impuesto.
+    - g) Tipo impositivo, etc.
+  - **Art. 7.1.a**: las simplificadas llevan serie separada de las completas del mismo año.
+  - **Art. 15**: rectificativas. Son obligatorias cuando la factura no cumple los arts. 6 o 7 o
+    cuando las cuotas se determinaron mal, y se hacen con una nueva factura que identifica la
+    rectificada.
+- **F-7**: Ley 58/2003, General Tributaria (BOE-A-2003-23186), art. 201 bis, añadido por la Ley
+  11/2021, verificado en el BOE el 2026-09-28. El apartado 1.d tipifica como infracción los
+  sistemas que "permitan alterar transacciones ya registradas incumpliendo la normativa
+  aplicable", con multa de 150.000 € por ejercicio y tipo de sistema (apartado 4).
+- **F-8**: Reglamento de requisitos de los sistemas informáticos de facturación, RD 1007/2023
+  (RRSIF). Art. 10 (registro de alta) y art. 11 (registro de anulación), según la cita de F-4 y F-5.
+  El texto del BOE se transcribe en el plan.
+- **Preguntas abiertas** (se resuelven en `clarify` o en el research del plan): las de 001,
+  research R-20.4, que afectan al destinatario del registro.
+
+## Fuera de alcance
+
+- **Otras features**:
+  - El PDF de la factura y el código QR (003).
+  - La remisión de registros a la AEAT, los certificados y la firma electrónica de los registros
+    (004).
+  - Los presupuestos y su conversión en factura (005).
+- **Cobro**: estado de cobro, pagos, vencimientos, recordatorios e indicadores de facturación.
+- **Tipos de IVA**: varios tipos en una misma factura, líneas exentas o no sujetas, recargo de
+  equivalencia en las líneas y retenciones de IRPF. El tipo es siempre el de Configuración.
+- **Líneas**: descuentos por línea o globales distintos del precio unitario.
+- **Series y tipos**: facturas simplificadas (F2) y cualquier serie distinta de `FAC` y `REC`.
+- **Correcciones**: rectificativas por diferencias y registros de alta de subsanación (feature
+  004).
+- **Contador de rectificativas**: su ajuste manual.
+- **Salidas**: envío de facturas por correo y exportación a otros formatos o a la contabilidad.
+- **Otros**: monedas distintas del euro y la aplicación Android.
+
+## Assumptions
+
+- **Permisos**: empleados y administradores crean, emiten y modifican facturas. Solo los
+  administradores acceden a la configuración de facturación, igual que al resto de Configuración
+  en 001.
+- **Operaciones**: todas son entregas de bienes y prestaciones de servicios sujetas y no exentas de
+  IVA, al tipo único de Configuración. Si en algún momento no fuera así, haría falta una feature
+  nueva.
+- **Cadena de registros**: hay una sola, la del NIF del emisor. La joyería factura desde una única
+  instalación del sistema.
+- **Columna «Facturas» del listado de clientes** (001, FR-035): sigue oculta. Mostrarla no forma
+  parte de lo pedido y alteraría los anchos medidos en 001 (research R-22).
+- **Volumen**: la joyería emite del orden de cientos a pocos miles de facturas al año. Los objetivos
+  de rendimiento se fijan con 20.000 facturas.
+- **Hora de referencia**: las fechas de expedición y el cambio de año se calculan en hora de España
+  peninsular, como en 001.
+- **Remisión y validez**: sin remisión (feature 004), los registros se generan y conservan con su
+  estado «pendiente».
+  - El uso en producción de facturas reales antes de terminar las features 003 y 004 es decisión del
+    responsable.
+  - El plazo de adaptación vigente es el 1 de enero de 2027 para contribuyentes del Impuesto sobre
+    Sociedades y el 1 de julio de 2027 para el resto (constitución, marco normativo).
+- **Tests obligatorios** (constitución VII): esta feature toca tres de los cuatro:
+  - Numeración bajo concurrencia.
+  - Importes y redondeos.
+  - Encadenamiento de huellas.
+
+  Además se prueba la inalterabilidad en el almacenamiento. La conversión de presupuesto a factura
+  llega con la feature 005.
