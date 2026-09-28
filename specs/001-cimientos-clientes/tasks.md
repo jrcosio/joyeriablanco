@@ -554,7 +554,7 @@ desplazar.
 
 ### Tests for Phase 13 ⚠️ (escribir primero; el E2E debe fallar con el código actual)
 
-- [ ] T130 [P] [US3] E2E nuevo `joyeriablanco_web/e2e/acciones-visibles.spec.ts` (SC-014, US3-8,
+- [X] T130 [P] [US3] E2E nuevo `joyeriablanco_web/e2e/acciones-visibles.spec.ts` (SC-014, US3-8,
   US5-13), con `iniciarSesion(page, 'admin.demo')` de `e2e/helpers/acceso.ts`:
   - **Función de medida** local, con `page.evaluate` y sin desplazar nada en horizontal. Para cada
     acción de una tabla (o de la lista móvil) comprueba que:
@@ -594,7 +594,7 @@ desplazar.
     - Auditoría, a 360 y 1024 px.
 
     Son los cortes medidos en R-22.
-- [ ] T131 [P] [US3] Ampliar `joyeriablanco_web/src/features/clientes/ClientesPage.test.tsx`:
+- [X] T131 [P] [US3] Ampliar `joyeriablanco_web/src/features/clientes/ClientesPage.test.tsx`:
   - Con tres clientes en el listado, la tabla tiene exactamente un enlace
     `Editar cliente {nombre}` por fila, cada uno a la ficha de su cliente.
   - Es una salvaguarda de regresión contra cualquier condición futura sobre las acciones (FR-031).
@@ -602,7 +602,7 @@ desplazar.
 
 ### Implementation for Phase 13
 
-- [ ] T132 [US3] Clases compartidas en `joyeriablanco_web/src/components/ui/tabla.ts`, con el
+- [X] T132 [US3] Clases compartidas en `joyeriablanco_web/src/components/ui/tabla.ts`, con el
   mismo patrón que `field.ts` y JSDoc que remite a FR-059 y R-22:
   - `tablaDesplazable`: `overflow-x-auto`.
   - `accionesCabecera`: `sticky right-0 w-px whitespace-nowrap bg-surface-container`.
@@ -611,7 +611,7 @@ desplazar.
 
   Solo tokens de DESIGN.md: sin filetes verticales, sin sombras y sin paradas de tabulación
   nuevas.
-- [ ] T133 [US3] `joyeriablanco_web/src/features/clientes/TablaClientes.tsx`:
+- [X] T133 [US3] `joyeriablanco_web/src/features/clientes/TablaClientes.tsx`:
   - La `<table>` va dentro de un `div` con `hidden md:block` más `tablaDesplazable`, y pasa a
     `w-full border-collapse`.
   - `th` y `td` de Teléfono y Correo con `hidden 2xl:table-cell`, en lugar de `lg:`.
@@ -620,17 +620,17 @@ desplazar.
   - `td` de Acciones con `accionesCelda`, conservando `text-right`.
   - `group` en cada `<tr>` del cuerpo.
   - La lista móvil, el enlace `Editar` y el esqueleto de carga no cambian.
-- [ ] T134 [P] [US5] `joyeriablanco_web/src/features/usuarios/UsuariosPage.tsx`:
+- [X] T134 [P] [US5] `joyeriablanco_web/src/features/usuarios/UsuariosPage.tsx`:
   - La `<table>` va dentro de `<div className={tablaDesplazable}>`.
   - Columna "Acciones" (`th` con `i === 4` y su `td`) con `accionesCabecera` y `accionesCelda`.
   - `group` en cada `<tr>` del cuerpo.
   - El menú (`MenuTrigger` y `Popover`) no cambia.
-- [ ] T135 [P] [US5] `joyeriablanco_web/src/features/auditoria/AuditoriaPage.tsx`:
+- [X] T135 [P] [US5] `joyeriablanco_web/src/features/auditoria/AuditoriaPage.tsx`:
   - El `div` que envuelve la tabla usa `tablaDesplazable`.
   - Última columna ("Detalle", solo para lectores de pantalla, y su `td` con el botón
     `Ver detalle`) con `accionesCabecera` y `accionesCelda`.
   - `group` en cada `<tr>` del cuerpo.
-- [ ] T136 Puertas de calidad completas (como T115), todo en verde:
+- [X] T136 Puertas de calidad completas (como T115), todo en verde:
   - En `joyeriablanco_web/`, ejecutar
     `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens`.
   - `npx playwright test`, con la suite completa.

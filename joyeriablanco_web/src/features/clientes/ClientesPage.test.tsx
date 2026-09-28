@@ -46,6 +46,27 @@ describe('ClientesPage', () => {
     expect(editar.getAttribute('href')).toMatch(new RegExp(`^/clientes/${crearCliente().id}\\?`))
   })
 
+  it('ofrece la acción de editar en cada fila del listado completo (FR-031)', async () => {
+    conSesion(crearSesion())
+    conCatalogos()
+    const clientes = [
+      crearCliente(),
+      crearCliente({ id: 'c2', nombre: 'Joyería Serrano', tipo: 'empresa' }),
+      crearCliente({ id: 'c3', nombre: 'Carlos Martín Ruiz' }),
+    ]
+    conListado(clientes)
+    renderApp('/clientes')
+
+    const tabla = await screen.findByRole('table', { name: 'Listado de clientes' })
+    await within(tabla).findByText('Carlos Martín Ruiz')
+    const editar = within(tabla).getAllByRole('link', { name: /^Editar cliente / })
+    expect(editar).toHaveLength(clientes.length)
+    clientes.forEach((cliente, i) => {
+      expect(editar[i]).toHaveAccessibleName(`Editar cliente ${cliente.nombre}`)
+      expect(editar[i]?.getAttribute('href')).toMatch(new RegExp(`^/clientes/${cliente.id}\\?`))
+    })
+  })
+
   it('muestra esqueletos mientras carga', async () => {
     conSesion(crearSesion())
     conCatalogos()

@@ -18,6 +18,7 @@ import { Chip } from '../../components/ui/Chip'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
+import { accionesCabecera, accionesCelda, tablaDesplazable } from '../../components/ui/tabla'
 import { toast } from '../../components/ui/toast-store'
 import { fechaHora } from '../../lib/fechas'
 import { ContrasenaTemporalDialog } from './ContrasenaTemporalDialog'
@@ -139,115 +140,117 @@ export function UsuariosPage() {
             ))}
           </div>
         ) : (
-          <table className="w-full border-collapse">
-            <caption className="sr-only">Usuarios del sistema</caption>
-            <thead className="border-b border-primary-container/25 bg-surface-container">
-              <tr>
-                {['Usuario', 'Rol', 'Estado', 'Último acceso', 'Acciones'].map((c, i) => (
-                  <th
-                    key={c}
-                    scope="col"
-                    className={`px-6 py-4 text-left label-md text-on-surface-variant ${
-                      i === 1 || i === 3 ? 'hidden md:table-cell' : ''
-                    } ${i === 4 ? 'text-right' : ''}`}
-                  >
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {lista.data.map((usuario) => {
-                const esYo = usuario.id === yo.id
-                return (
-                  <tr
-                    key={usuario.id}
-                    className="border-b border-primary-container/18 last:border-b-0 hover:bg-surface-container-high"
-                  >
-                    <td className="px-6 py-4">
-                      <span className="flex flex-col gap-1">
-                        <span className="title-md text-on-surface">
-                          {usuario.nombre}
-                          {esYo ? (
-                            <span className="body-sm text-on-surface-variant"> (tú)</span>
-                          ) : null}
-                        </span>
-                        <span className="body-sm text-on-surface-variant">
-                          {usuario.nombre_usuario}
-                        </span>
-                      </span>
-                    </td>
-                    <td className="hidden px-6 py-4 label-sm text-primary md:table-cell">
-                      {ROL[usuario.rol]}
-                    </td>
-                    <td className="px-6 py-4">
-                      <Estado usuario={usuario} />
-                    </td>
-                    <td className="hidden px-6 py-4 body-md tabular-nums text-on-surface md:table-cell">
-                      {usuario.ultimo_acceso_en ? fechaHora(usuario.ultimo_acceso_en) : 'Nunca'}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <MenuTrigger>
-                        <Button variant="icon" aria-label={`Acciones para ${usuario.nombre}`}>
-                          <EllipsisVertical aria-hidden="true" className="size-4" />
-                        </Button>
-                        <Popover
-                          placement="bottom end"
-                          className="w-60 border border-primary-container bg-surface-container-lowest"
-                        >
-                          <Menu
-                            aria-label={`Acciones para ${usuario.nombre}`}
-                            className="py-1 outline-none"
-                            disabledKeys={esYo ? ['rol', 'estado'] : []}
-                            onAction={(clave) => {
-                              if (clave === 'rol') setAccion({ tipo: 'rol', usuario })
-                              if (clave === 'restablecer')
-                                setAccion({ tipo: 'restablecer', usuario })
-                              if (clave === 'eliminar') setAEliminar(usuario)
-                              if (clave === 'estado') {
-                                if (usuario.activo) {
-                                  setAccion({ tipo: 'desactivar', usuario })
-                                } else {
-                                  void ejecutar(
-                                    () => reactivar.mutateAsync(usuario.id),
-                                    `${usuario.nombre} reactivado.`,
-                                  )
-                                }
-                              }
-                            }}
-                          >
-                            <MenuItem
-                              id="rol"
-                              className={`${claseItem} data-[disabled]:opacity-40`}
-                            >
-                              {usuario.rol === 'administrador'
-                                ? 'Cambiar a empleado'
-                                : 'Cambiar a administrador'}
-                            </MenuItem>
-                            <MenuItem id="restablecer" className={claseItem}>
-                              Restablecer contraseña
-                            </MenuItem>
-                            <MenuItem
-                              id="estado"
-                              className={`${claseItem} data-[disabled]:opacity-40`}
-                            >
-                              {usuario.activo ? 'Desactivar' : 'Reactivar'}
-                            </MenuItem>
-                            {/* Solo un usuario desactivado se puede eliminar (FR-061). */}
-                            {!usuario.activo && !esYo ? (
-                              <MenuItem id="eliminar" className={claseItemPeligro}>
-                                Eliminar
-                              </MenuItem>
+          <div className={tablaDesplazable}>
+            <table className="w-full border-collapse">
+              <caption className="sr-only">Usuarios del sistema</caption>
+              <thead className="border-b border-primary-container/25 bg-surface-container">
+                <tr>
+                  {['Usuario', 'Rol', 'Estado', 'Último acceso', 'Acciones'].map((c, i) => (
+                    <th
+                      key={c}
+                      scope="col"
+                      className={`px-6 py-4 text-left label-md text-on-surface-variant ${
+                        i === 1 || i === 3 ? 'hidden md:table-cell' : ''
+                      } ${i === 4 ? `${accionesCabecera} text-right` : ''}`}
+                    >
+                      {c}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lista.data.map((usuario) => {
+                  const esYo = usuario.id === yo.id
+                  return (
+                    <tr
+                      key={usuario.id}
+                      className="group border-b border-primary-container/18 last:border-b-0 hover:bg-surface-container-high"
+                    >
+                      <td className="px-6 py-4">
+                        <span className="flex flex-col gap-1">
+                          <span className="title-md text-on-surface">
+                            {usuario.nombre}
+                            {esYo ? (
+                              <span className="body-sm text-on-surface-variant"> (tú)</span>
                             ) : null}
-                          </Menu>
-                        </Popover>
-                      </MenuTrigger>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                          </span>
+                          <span className="body-sm text-on-surface-variant">
+                            {usuario.nombre_usuario}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="hidden px-6 py-4 label-sm text-primary md:table-cell">
+                        {ROL[usuario.rol]}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Estado usuario={usuario} />
+                      </td>
+                      <td className="hidden px-6 py-4 body-md tabular-nums text-on-surface md:table-cell">
+                        {usuario.ultimo_acceso_en ? fechaHora(usuario.ultimo_acceso_en) : 'Nunca'}
+                      </td>
+                      <td className={`px-6 py-4 text-right ${accionesCelda}`}>
+                        <MenuTrigger>
+                          <Button variant="icon" aria-label={`Acciones para ${usuario.nombre}`}>
+                            <EllipsisVertical aria-hidden="true" className="size-4" />
+                          </Button>
+                          <Popover
+                            placement="bottom end"
+                            className="w-60 border border-primary-container bg-surface-container-lowest"
+                          >
+                            <Menu
+                              aria-label={`Acciones para ${usuario.nombre}`}
+                              className="py-1 outline-none"
+                              disabledKeys={esYo ? ['rol', 'estado'] : []}
+                              onAction={(clave) => {
+                                if (clave === 'rol') setAccion({ tipo: 'rol', usuario })
+                                if (clave === 'restablecer')
+                                  setAccion({ tipo: 'restablecer', usuario })
+                                if (clave === 'eliminar') setAEliminar(usuario)
+                                if (clave === 'estado') {
+                                  if (usuario.activo) {
+                                    setAccion({ tipo: 'desactivar', usuario })
+                                  } else {
+                                    void ejecutar(
+                                      () => reactivar.mutateAsync(usuario.id),
+                                      `${usuario.nombre} reactivado.`,
+                                    )
+                                  }
+                                }
+                              }}
+                            >
+                              <MenuItem
+                                id="rol"
+                                className={`${claseItem} data-[disabled]:opacity-40`}
+                              >
+                                {usuario.rol === 'administrador'
+                                  ? 'Cambiar a empleado'
+                                  : 'Cambiar a administrador'}
+                              </MenuItem>
+                              <MenuItem id="restablecer" className={claseItem}>
+                                Restablecer contraseña
+                              </MenuItem>
+                              <MenuItem
+                                id="estado"
+                                className={`${claseItem} data-[disabled]:opacity-40`}
+                              >
+                                {usuario.activo ? 'Desactivar' : 'Reactivar'}
+                              </MenuItem>
+                              {/* Solo un usuario desactivado se puede eliminar (FR-061). */}
+                              {!usuario.activo && !esYo ? (
+                                <MenuItem id="eliminar" className={claseItemPeligro}>
+                                  Eliminar
+                                </MenuItem>
+                              ) : null}
+                            </Menu>
+                          </Popover>
+                        </MenuTrigger>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
