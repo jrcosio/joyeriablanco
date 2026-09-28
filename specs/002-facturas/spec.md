@@ -75,6 +75,20 @@ izquierda."
   - El responsable eligió esa opción sabiendo que deja huecos dentro del sistema, que habrá que
     poder justificar.
 
+### Session 2026-09-28 (clarify)
+
+- Q: ¿En qué régimen de IVA factura la joyería sus ventas? → A: Todas en régimen general, clave
+  01 de la lista L8A (F-1), al tipo de Configuración. La clave queda en Configuración para que la
+  asesoría la confirme o la cambie antes de producción (FR-001).
+- Q: ¿Quién puede anular o modificar una factura ya emitida? → A: Solo los administradores. Los
+  empleados crean borradores y emiten (FR-023, FR-025).
+- Q: ¿Cómo se rellena la descripción del objeto de la factura que exige el registro? → A: Se
+  forma automáticamente con las descripciones de las líneas y se recorta a 500 caracteres. El
+  modal no tiene campos nuevos (FR-045).
+- Q: ¿Se puede dar de alta un cliente nuevo desde el modal de la factura? → A: Sí. «Nuevo cliente»
+  abre por encima el formulario de cliente de 001. Al guardarlo, se vuelve a la factura con ese
+  cliente elegido y sin perder lo escrito (FR-046).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Configurar la facturación (Priority: P1)
@@ -149,6 +163,9 @@ el registro de alta y su huella encadenada con la del registro anterior.
    la ficha del cliente para completarlo.
 8. **Given** el modal con cambios, **When** se pulsa «Cancelar» o se cierra, **Then** se pide
    confirmación antes de descartarlos.
+9. **Given** un cliente que todavía no está en la cartera, **When** se pulsa «Nuevo cliente» junto
+   al selector, se rellena su ficha y se guarda, **Then** el modal de la factura vuelve con ese
+   cliente elegido y conserva las líneas ya escritas.
 
 ---
 
@@ -211,8 +228,8 @@ registro de facturación ni ha consumido ningún número.
 
 ### User Story 5 - Modificar o anular una factura emitida (Priority: P2)
 
-Un empleado detecta un error en una factura ya emitida, como un dato del cliente, un importe o una
-descripción. Pulsa «Modificar» y el mismo modal se abre con los datos de la factura. Hace los
+Un administrador detecta un error en una factura ya emitida, como un dato del cliente, un importe
+o una descripción. Pulsa «Modificar» y el mismo modal se abre con los datos de la factura. Hace los
 cambios y, al guardar, indica qué ha pasado.
 
 - **Si la factura no debió emitirse o no llegó a entregarse al cliente**: se anula y se emite una
@@ -253,6 +270,8 @@ cosas:
 5. **Given** una factura ya corregida o anulada, **When** se consulta, **Then** se ve con claridad
    su situación, con acceso directo a la factura vigente que la sustituye, si la hay. Además, no
    ofrece «Modificar» ni «Anular».
+6. **Given** un empleado, **When** consulta una factura emitida, **Then** no ve «Anular» ni
+   «Modificar», y el servidor rechaza cualquier intento suyo de anular o modificar.
 
 ---
 
@@ -332,6 +351,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   - **Modalidad del sistema de facturación**: VERI\*FACTU o no VERI\*FACTU. Empieza sin valor,
     porque la elección está pendiente de la asesoría (Clarifications). La elige el administrador y
     DEBE fijarse antes de la feature 004.
+  - **Clave de régimen del IVA**: vale 01, «operación de régimen general», al instalar. Solo admite
+    los valores de la lista oficial L8A (F-1), y la asesoría la debe confirmar antes de producción.
   - **Próximo número de la serie ordinaria del año en curso**: solo informativo, salvo el ajuste
     de FR-010.
 - **FR-002**: El NIF del emisor DEBE validarse con las mismas reglas que el de los clientes (001,
@@ -413,6 +434,11 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   la operación solo se indica si es distinta de la de expedición (F-6, art. 6.1.i). No se pide al
   crear una factura: la factura nueva tras una anulación y la rectificativa la heredan de la
   original, y se muestra en solo lectura.
+- **FR-045**: La descripción del objeto de la factura, obligatoria en el registro con un máximo de
+  500 caracteres (F-1), DEBE formarse automáticamente al emitir:
+  - Se unen las descripciones de las líneas, en su orden y separadas por «; ».
+  - Si el resultado supera los 500 caracteres, se recorta a 500, terminando en «…».
+  - No se pide ningún dato adicional en el modal.
 
 #### Ciclo de vida: borrador y emisión
 
@@ -431,7 +457,7 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 
 #### Modificar una factura emitida (corrección trazable)
 
-- **FR-023**: Cualquier usuario autenticado DEBE poder «Modificar» la factura vigente de una serie,
+- **FR-023**: Solo un administrador DEBE poder «Modificar» la factura vigente de una serie,
   sea ordinaria o rectificativa. El modal se abre con los datos precargados, y son editables el
   cliente y las líneas. El número no es editable (FR-010), y la fecha de la operación se hereda
   (FR-018).
@@ -450,8 +476,11 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 
   El tipo de rectificativa y la codificación de sus campos se toman de F-1 y se citan en el plan.
   La declaración del motivo y su texto quedan guardados con la corrección.
-- **FR-025**: La factura emitida vigente DEBE ofrecer también «Anular», para el caso 2.d sin factura
-  nueva, por ejemplo una factura duplicada por error:
+
+  El servidor DEBE rechazar cualquier modificación o anulación que pida un empleado. Los empleados
+  no ven esas acciones en el modal.
+- **FR-025**: La factura emitida vigente DEBE ofrecer también «Anular», solo a los administradores,
+  para el caso 2.d sin factura nueva, por ejemplo una factura duplicada por error:
   - Exige declarar que la factura no debió emitirse e indicar un motivo.
   - Genera solo el registro de anulación.
   - No se ofrece sobre una factura ya anulada ni sobre una rectificada.
@@ -528,7 +557,7 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **FR-038**: Botones del modal según el caso:
   - **Nueva**: «Cancelar», «Guardar borrador» y «Emitir factura».
   - **Borrador**: además, «Eliminar borrador».
-  - **Emitida vigente**: «Cerrar», «Anular» y «Modificar».
+  - **Emitida vigente**: «Cerrar», «Anular» y «Modificar». Los empleados solo ven «Cerrar».
   - **Anulada o rectificada**: solo «Cerrar».
 - **FR-039**: El modal DEBE cumplir `docs/DESIGN.md`:
   - Elevación de nivel 2, esquinas a 0 px y campos monetarios con el símbolo € y cifras tabulares.
@@ -538,6 +567,11 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
     Escape sujeto a la confirmación de cambios (001, FR-052).
 - **FR-040**: En móvil (menos de 768 px), el modal DEBE ocupar la pantalla completa y cada línea se
   presenta apilada, sin desplazamiento horizontal de la página.
+- **FR-046**: Junto al selector de cliente, el modal DEBE ofrecer «Nuevo cliente»:
+  - Abre por encima el formulario de alta de cliente de 001, con sus mismas validaciones.
+  - Al guardarlo, vuelve al modal con el cliente nuevo elegido.
+  - Al cancelarlo, vuelve sin cambios.
+  - En ambos casos se conserva lo ya escrito en la factura.
 
 #### Integración con el resto del sistema
 
@@ -599,7 +633,9 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   señala el registro afectado.
 - **SC-005**: Ningún intento de modificar o borrar una factura emitida o un registro de
   facturación prospera, incluidos los intentos directos sobre el almacenamiento con las
-  credenciales del servicio y con las del propietario de los datos.
+  credenciales del servicio y con las del propietario de los datos. Además, el servidor rechaza el
+  100 % de los intentos de un empleado de anular o modificar una factura emitida, o de cambiar la
+  configuración de facturación.
 - **SC-006**: Tras una modificación de una factura emitida, en el 100 % de los casos:
   - La original sigue consultable con sus datos iniciales.
   - La corrección existe y está encadenada.
@@ -729,12 +765,14 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
 
 ## Assumptions
 
-- **Permisos**: empleados y administradores crean, emiten y modifican facturas. Solo los
-  administradores acceden a la configuración de facturación, igual que al resto de Configuración
-  en 001.
+- **Permisos** (Clarifications):
+  - Empleados y administradores crean, editan y borran borradores, y emiten.
+  - Solo los administradores anulan y modifican facturas emitidas, y acceden a la configuración de
+    facturación, igual que al resto de Configuración en 001.
 - **Operaciones**: todas son entregas de bienes y prestaciones de servicios sujetas y no exentas de
-  IVA, al tipo único de Configuración. Si en algún momento no fuera así, haría falta una feature
-  nueva.
+  IVA, en régimen general y al tipo único de Configuración (Clarifications). No hay ventas en REBU
+  ni de oro de inversión. Si en algún momento no fuera así, haría falta una feature nueva. La
+  calificación de la operación en el registro (lista L9) se deriva de esto en el plan.
 - **Cadena de registros**: hay una sola, la del NIF del emisor. La joyería factura desde una única
   instalación del sistema.
 - **Columna «Facturas» del listado de clientes** (001, FR-035): sigue oculta. Mostrarla no forma
