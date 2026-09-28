@@ -548,16 +548,44 @@ Chromium). Cada celda indica cuántas acciones de fila quedan fuera de la vista 
 - **Clases compartidas**, definidas una vez en `src/components/ui/tabla.ts` (mismo patrón que
   `field.ts`): contenedor desplazable, cabecera fija y celda fija. Las consumen `TablaClientes`,
   `UsuariosPage` y `AuditoriaPage`.
-- **Teléfono y correo de clientes** desde `xl` (1280 px, punto de corte por defecto de Tailwind, que
-  `tokens.css` no redefine). Antes se mostraban desde `lg`. Por debajo quedan en la ficha (FR-059).
+- **Columnas de clientes por ancho** (FR-059), con los puntos de corte por defecto de Tailwind, que
+  `tokens.css` no redefine:
+  - **Teléfono y correo** desde `2xl` (1536 px). Antes, desde `lg`.
+  - **Provincia** oculta entre `lg` y `xl` (1024–1279 px), con `lg:hidden xl:table-cell`.
+  - Lo que no aparece en la tabla se consulta en la ficha.
 - **Lista móvil de clientes** (tarjetas por debajo de 768 px): sin cambios. Ya incluye la acción y la
   medición da 0 cortes.
 
 **Razón**:
 - Es la única opción que garantiza la acción visible **con cualquier dato**, sea un nombre, una
   localidad o un correo largos, sin quitar columnas ni tocar el relleno de DESIGN.md.
-- Pasar teléfono y correo a 1280 px evita desplazar la tabla en el caso normal entre 1024 y
-  1279 px. Ahí, con el menú fijo, el espacio útil es el de una tableta (FR-059).
+- **Umbrales medidos, no estimados** (corrección durante implement, 2026-09-28). El plan fijaba
+  teléfono y correo desde 1280 px, pero la medición con los datos de ejemplo muestra que no
+  caben:
+
+  | Columnas visibles | Ancho mínimo de la tabla |
+  |---|---|
+  | Cliente, NIF/CIF, localidad y acciones | ≈ 549 px |
+  | … más provincia | ≈ 710 px |
+  | … más teléfono y correo | ≈ 1105 px |
+
+  | Ancho de pantalla | Espacio útil de la tarjeta |
+  |---|---|
+  | 768 px | 686 px |
+  | 1024 px | 622 px |
+  | 1280 px | 878 px |
+  | 1440 px | 1038 px |
+  | 1536 px | ≈ 1136 px |
+
+  - Con 1280 px, la columna fija tapaba el correo entre 1280 y 1535 px y la provincia entre 1024 y
+    1279 px.
+  - Con los umbrales decididos por el responsable, la tabla cabe sin desplazar en todos los anchos
+    con los datos de ejemplo:
+    - 4 columnas entre 1024 y 1279 px.
+    - 5 columnas entre 1280 y 1535 px.
+    - 7 columnas desde 1536 px.
+  - A 768 px sobran 24 px, que caen sobre el relleno derecho de la provincia, no sobre su texto.
+  - El desplazamiento dentro de la tarjeta queda para los datos largos.
 - `position: sticky` en celdas de tabla es CSS estándar, soportado por los navegadores objetivo
   (Chrome, Edge, Firefox y Safari actuales). No hace falta JavaScript.
 - La auditoría ya usaba `overflow-x-auto`, así que las tres tablas quedan con el mismo patrón.

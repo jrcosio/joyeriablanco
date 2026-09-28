@@ -541,13 +541,14 @@ El nombre de usuario queda libre (clarificación del 2026-09-28; research R-21).
 **Goal**: cada fila de las tablas de clientes, usuarios y auditoría muestra su acción sin buscar,
 filtrar ni desplazar, a cualquier ancho y con cualquier dato. Detalles:
 - La columna de acciones queda fija en el borde derecho.
-- Teléfono y correo de clientes se muestran desde 1280 px.
+- Teléfono y correo de clientes se muestran desde 1536 px y la provincia se oculta entre 1024 y
+  1279 px. Umbrales medidos y corregidos durante implement (R-22).
 - Si el resto no cabe, la tabla se desplaza dentro de su tarjeta, nunca la página.
 
 Clarificaciones del 2026-09-28; diagnóstico y decisión en research R-22.
 
 **Independent Test**: con los 40 clientes de ejemplo, en el listado completo sin filtros a 768,
-1024, 1280 y 1440 px, se ven los 25 lápices y el de la última fila abre su ficha. A 360 px y en
+1024, 1280, 1440 y 1536 px, se ven los 25 lápices y el de la última fila abre su ficha. A 360 px y en
 los anchos de SC-014, el menú de cada usuario y el detalle de cada evento de auditoría se ven sin
 desplazar.
 
@@ -565,7 +566,7 @@ desplazar.
       ancestro de la tabla con fondo no transparente (la tarjeta). El del `th` de la columna es
       igual al del `thead`. En la lista móvil no hay celda fija y esta comprobación no aplica.
     - Al terminar, el `scrollLeft` de todos los contenedores sigue en 0.
-  - **Clientes**, a 768, 1024, 1280 y 1440 px, en `/clientes` sin filtros:
+  - **Clientes**, a 768, 1024, 1280, 1440 y 1536 px, en `/clientes` sin filtros:
     - Tabla `Listado de clientes` con 25 enlaces `Editar cliente …`, todos medidos.
     - **Datos largos** (caso límite de la spec), en un test aparte del mismo fichero:
       - Se intercepta `GET /api/v1/clientes` con `page.route` y se sustituye el nombre, la
@@ -574,7 +575,8 @@ desplazar.
       - La tabla desborda en todos los anchos. Aun así, todas las acciones siguen medidas como
         visibles y la página no se desplaza.
       - No se toca la BD de E2E.
-    - Cabecera "Teléfono" oculta por debajo de 1280 px y visible a 1280 px o más.
+    - Cabeceras "Teléfono" y "Correo" ocultas por debajo de 1536 px y visibles a 1536 px.
+    - Cabecera "Provincia" oculta a 1024 px y visible a 768, 1280, 1440 y 1536 px.
     - Pulsar el lápiz de la **última** fila abre el panel (`getByRole('dialog')`) con el nombre de
       ese cliente como encabezado.
   - **Clientes, a 360 px**: lista `Listado de clientes` con 25 enlaces medidos. Hoy ya pasa y
@@ -612,7 +614,8 @@ desplazar.
 - [ ] T133 [US3] `joyeriablanco_web/src/features/clientes/TablaClientes.tsx`:
   - La `<table>` va dentro de un `div` con `hidden md:block` más `tablaDesplazable`, y pasa a
     `w-full border-collapse`.
-  - `th` y `td` de Teléfono y Correo con `hidden xl:table-cell`, en lugar de `lg:`.
+  - `th` y `td` de Teléfono y Correo con `hidden 2xl:table-cell`, en lugar de `lg:`.
+  - `th` y `td` de Provincia con `lg:hidden xl:table-cell`.
   - `th` de Acciones con `accionesCabecera`, conservando `text-right`.
   - `td` de Acciones con `accionesCelda`, conservando `text-right`.
   - `group` en cada `<tr>` del cuerpo.
@@ -631,8 +634,10 @@ desplazar.
   - En `joyeriablanco_web/`, ejecutar
     `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens`.
   - `npx playwright test`, con la suite completa.
+  - Medición de las columnas de clientes con los datos de ejemplo a 768, 1024, 1280, 1440 y
+    1536 px: la tabla cabe sin desplazar y la columna fija no tapa texto de otra columna (R-22).
   - Comprobación visual en el entorno de desarrollo (`http://localhost:5173`), a 360, 768, 1024,
-    1280 y 1440 px:
+    1280, 1440 y 1536 px:
     - Al desplazar una tabla, la columna fija tapa por completo lo que pasa por debajo, también en
       hover.
     - El foco visible del lápiz no se recorta.

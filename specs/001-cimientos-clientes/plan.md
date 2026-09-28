@@ -23,8 +23,8 @@ Sobre esa base se entregan:
 - **Gestión de clientes**: identificación fiscal validada y alineada con el diseño de registro
   oficial de la AEAT, búsqueda sin tildes, indicadores, concurrencia optimista y baja lógica.
 - **Acciones siempre visibles** en las tablas de clientes, usuarios y auditoría: columna de
-  acciones fija a la derecha, teléfono y correo de clientes desde 1280 px y desplazamiento de la
-  tabla dentro de su tarjeta (ajuste de cierre del 2026-09-28, FR-031, FR-059, SC-014, R-22).
+  acciones fija a la derecha, teléfono y correo de clientes desde 1536 px (provincia oculta entre
+  1024 y 1279 px) y desplazamiento de la tabla dentro de su tarjeta (ajuste de cierre del 2026-09-28, FR-031, FR-059, SC-014, R-22).
 
 Decisiones y versiones en [research.md](research.md).
 
@@ -103,7 +103,8 @@ violaciones.
 - **Sistema de diseño**: la celda fija usa fondos de los tokens (`surface-container`,
   `surface-container-low` y `surface-container-high`), sin filetes verticales ni sombras. Las
   clases se definen una sola vez en `src/components/ui/tabla.ts`. La fila nueva de la tabla de
-  desviaciones del mockup (teléfono y correo desde 1280 px) está justificada en la spec. Sigue sin
+  desviaciones del mockup (teléfono y correo desde 1536 px, provincia oculta entre 1024 y 1279 px)
+  está justificada en la spec. Sigue sin
   haber desviaciones de DESIGN.md.
 - **I (SDD)**: rama `001-ajuste-listado-clientes`, con ciclo completo y la fase 13 en `tasks.md`.
 - Solo cambia la web. La API, la BD y los principios II a VII no se ven afectados.
@@ -225,8 +226,8 @@ fijados en CLAUDE.md). La infraestructura compartida va en la raíz (`docker-com
    - Primero el E2E `e2e/acciones-visibles.spec.ts` y el test unitario del listado, que deben
      fallar.
    - Clases compartidas en `src/components/ui/tabla.ts`.
-   - Aplicarlas en `TablaClientes.tsx` (con teléfono y correo en `xl`), `UsuariosPage.tsx` y
-     `AuditoriaPage.tsx`.
+   - Aplicarlas en `TablaClientes.tsx` (teléfono y correo en `2xl`, provincia oculta en `lg`),
+     `UsuariosPage.tsx` y `AuditoriaPage.tsx`.
    - Solo cambia la web: sin migraciones, sin cambios en la API y sin regenerar tipos.
 
 ## Complexity Tracking

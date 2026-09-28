@@ -68,8 +68,8 @@ responsive y accesibilidad básica.
 
 - [ ] CHK034 - ¿Se especifica que la acción de cada fila debe verse sin buscar, filtrar ni desplazar, sea cual sea el número de filas o la longitud de sus datos? [Completeness, Spec §FR-031]
 - [ ] CHK035 - ¿Se enumeran explícitamente las tablas a las que aplica la columna de acciones fija (clientes, usuarios y auditoría), sin dejar dudas sobre otras listas? [Clarity, Spec §FR-059]
-- [ ] CHK036 - ¿Están definidos sin solapes los rangos de ancho de FR-059 (menos de 768 px, de 768 a 1279 px y 1280 px o más) y son coherentes con los puntos de corte de FR-040? [Consistency, Spec §FR-059, §FR-040]
-- [ ] CHK037 - ¿Queda justificado en la spec que teléfono y correo aparezcan en la tabla solo desde 1280 px, frente al mockup, y se indica dónde se consultan por debajo? [Consistency, Spec §Conformidad con el sistema de diseño, §FR-059]
+- [ ] CHK036 - ¿Están definidos sin solapes los rangos de ancho de FR-059 (menos de 768 px, 768–1023, 1024–1279, 1280–1535 y 1536 px o más) y son coherentes con los puntos de corte de FR-040? [Consistency, Spec §FR-059, §FR-040]
+- [ ] CHK037 - ¿Queda justificado en la spec que teléfono y correo aparezcan en la tabla solo desde 1536 px, y la provincia se oculte entre 1024 y 1279 px, frente al mockup, y se indica dónde se consultan? [Consistency, Spec §Conformidad con el sistema de diseño, §FR-059]
 - [ ] CHK038 - ¿Se define qué ocurre cuando el contenido de las demás columnas no cabe (la tabla se desplaza dentro de su recuadro) y se prohíbe expresamente el desplazamiento de la página? [Edge Case, Spec §FR-059, §SC-008]
 - [ ] CHK039 - ¿Es medible SC-014, con los anchos, las tablas y el volumen de filas concretos, y sin depender de cómo se maqueta? [Measurability, Spec §SC-014]
 - [ ] CHK040 - ¿Se especifica el aspecto de la columna fija dentro de los tokens de DESIGN.md (fondo de la cabecera, de la fila y del hover) sin introducir filetes verticales ni sombras? [Consistency, Contracts ui-rutas §Aplicación de DESIGN.md, DESIGN §Data Tables]

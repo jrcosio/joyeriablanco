@@ -64,6 +64,11 @@
   - Todos los puntos siguen pasando: sin marcadores pendientes, SC-014 medible (el 100 % de las
     filas en anchos concretos) y los requisitos describen lo que ve el usuario, no cómo se
     maqueta.
+  - **Corrección durante implement** (misma fecha): la medición con los datos de ejemplo contradice
+    el umbral de 1280 px, porque la columna fija tapaba el correo y, entre 1024 y 1279 px, la
+    provincia. El responsable fija teléfono y correo desde 1536 px y oculta la provincia entre 1024
+    y 1279 px. Se ajustan FR-059, US3-8 y SC-014 (se añade 1536 px), una pregunta nueva de
+    clarificación y la fila de desviaciones del mockup. Todos los puntos siguen pasando.
 - **Referencias técnicas permitidas**: la spec solo menciona el nombre de fichero y la URL de la
   fuente oficial AEAT, que la constitución (principio IV) exige citar. No es un detalle de
   implementación.
