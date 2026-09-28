@@ -64,6 +64,19 @@ responsive y accesibilidad básica.
 - [ ] CHK032 - ¿Está definida la confirmación reforzada de la eliminación (texto que hay que escribir, aviso de irreversibilidad)? [Completeness, Spec §FR-058]
 - [ ] CHK033 - ¿Se define de forma coherente cómo se presenta un usuario eliminado en la ficha del cliente, en la auditoría y en su filtro? [Consistency, Spec §FR-061]
 
+## Ajuste de cierre: acciones siempre visibles en las tablas (2026-09-28)
+
+- [ ] CHK034 - ¿Se especifica que la acción de cada fila debe verse sin buscar, filtrar ni desplazar, sea cual sea el número de filas o la longitud de sus datos? [Completeness, Spec §FR-031]
+- [ ] CHK035 - ¿Se enumeran explícitamente las tablas a las que aplica la columna de acciones fija (clientes, usuarios y auditoría), sin dejar dudas sobre otras listas? [Clarity, Spec §FR-059]
+- [ ] CHK036 - ¿Están definidos sin solapes los rangos de ancho de FR-059 (menos de 768 px, de 768 a 1279 px y 1280 px o más) y son coherentes con los puntos de corte de FR-040? [Consistency, Spec §FR-059, §FR-040]
+- [ ] CHK037 - ¿Queda justificado en la spec que teléfono y correo aparezcan en la tabla solo desde 1280 px, frente al mockup, y se indica dónde se consultan por debajo? [Consistency, Spec §Conformidad con el sistema de diseño, §FR-059]
+- [ ] CHK038 - ¿Se define qué ocurre cuando el contenido de las demás columnas no cabe (la tabla se desplaza dentro de su recuadro) y se prohíbe expresamente el desplazamiento de la página? [Edge Case, Spec §FR-059, §SC-008]
+- [ ] CHK039 - ¿Es medible SC-014, con los anchos, las tablas y el volumen de filas concretos, y sin depender de cómo se maqueta? [Measurability, Spec §SC-014]
+- [ ] CHK040 - ¿Se especifica el aspecto de la columna fija dentro de los tokens de DESIGN.md (fondo de la cabecera, de la fila y del hover) sin introducir filetes verticales ni sombras? [Consistency, Contracts ui-rutas §Aplicación de DESIGN.md, DESIGN §Data Tables]
+- [ ] CHK041 - ¿Se mantiene el requisito de texto alternativo de las acciones con icono ("Editar cliente {nombre}", "Acciones para {nombre}", "Ver detalle…") en las tres tablas? [Coverage, Spec §FR-060, §FR-052]
+- [ ] CHK042 - ¿Se aborda el uso con teclado de una tabla con desplazamiento horizontal, es decir, que la acción fija siga siendo alcanzable y con foco visible? [Coverage, Spec §FR-052]
+- [ ] CHK043 - ¿Son coherentes los escenarios de aceptación nuevos (US3-8 y US5-13) con SC-014 en cuanto a anchos y a qué se considera "la acción" en cada tabla? [Consistency, Spec §US3, §US5, §SC-014]
+
 ## Notes
 
 - Mark items `[x]` only after review confirms the requirement-quality criterion is satisfied
