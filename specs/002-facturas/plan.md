@@ -99,7 +99,9 @@ obligatorios de la constitución VII se detallan en R-2, R-7 y R-10.
 **Re-check tras las checklists** (2026-09-29): sin violaciones nuevas.
 - **Fecha editable hacia atrás**: es una decisión del responsable, con el riesgo frente a F-8, art.
   9, documentado como Q-9 para la asesoría (principio IV: lo no verificado queda como pregunta
-  abierta).
+  abierta). Tras la implementación, el responsable la dejó libre dentro de los límites que valida la
+  AEAT (F-3 §3.1.3.1), también en las correcciones y sin orden respecto a la serie; la constitución
+  no regula la fecha, así que no hace falta enmendarla (principio III intacto: ningún `UPDATE`).
 - **Anular una rectificativa**: la original vuelve a estar vigente por derivación, sin ningún
   `UPDATE` (principio III).
 - **Idempotencia**: evita emisiones duplicadas que después exigirían una anulación.

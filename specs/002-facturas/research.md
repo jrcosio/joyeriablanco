@@ -239,7 +239,8 @@ informa**. Se evita así la incoherencia, que queda anotada para cotejarla con e
 2. Se emite una F1 normal con el **siguiente número** de `FAC`. F-9 dice «con un número de factura
    o fecha de expedición diferente», y F-3 (anexo 6.1, ERROR(2)) impide un alta normal con la
    misma clave de una factura ya anulada.
-3. La F1 nueva lleva la fecha de expedición de hoy y la `FechaOperacion` de la original (FR-018).
+3. La F1 nueva propone la fecha de expedición de hoy, editable, y lleva la `FechaOperacion` de la
+   original; la de expedición no puede ser anterior a ella (F-3 §3.1.3.1, error 1146; FR-018).
 
 **IVA de las correcciones**:
 - **Decisión**: el tipo de Configuración vigente al emitir, igual que en cualquier factura
@@ -791,11 +792,11 @@ Ninguna bloquea esta feature. Todas quedan anotadas para la 004 o para la asesor
 | Id | Pregunta | Fuente | Tratamiento en 002 |
 |---|---|---|---|
 | Q-1 | Margen de `FechaHoraHusoGenRegistro` frente a la hora de la AEAT, sin cuantificar (código 2004 truncado) | F-3, punto 20 | Solo es un aviso. Se usa el minuto de F-10, art. 7.f, para la comprobación propia |
-| Q-2 | Límite de 20 años en `FechaExpedicionFactura`: solo figura en `errores.properties` (1133) | F-3 | Queda cubierto por FR-018, que exige el año en curso o el anterior y nunca antes del 28/10/2024 |
+| Q-2 | Límite de 20 años en `FechaExpedicionFactura`: solo figura en `errores.properties` (1133) | F-3 | Queda cubierto por FR-018, que nunca admite fechas anteriores al 28/10/2024 (hasta 2044 ese límite es más estricto) |
 | Q-3 | Qué código de error corresponde a cada casilla de la matriz alta/anulación | F-3, anexo 6 | Se resuelve en la 004 |
 | Q-4 | Signo de `ImporteRectificacion` | F-3 no lo regula | Se consigna el de la original (≥ 0), como en F-9 |
 | Q-5 | `Impuesto` tiene longitud (1) en F-1, pero sus valores tienen 2 caracteres | F-1, fila 38 | No se informa (R-3) |
 | Q-6 | Modalidad VERI\*FACTU o no VERI\*FACTU | Constitución, TODO | Configuración sin valor inicial. Se decide antes de la 004 |
 | Q-7 | Productor del sistema y declaración responsable | F-8, art. 13; constitución, TODO | Variables `SIF_*`, exigidas en producción (R-5) |
 | Q-8 | NIF español no censado (L7 `07`) y errores 1193/2001 | 001, R-20.4 | Se envía el NIF de la ficha. Se trata en la 004 |
-| Q-9 | Fecha de expedición anterior al día de emisión, cuando el registro se genera ese día, frente a la exigencia de F-8, art. 9, de generarlo «simultánea o inmediatamente anterior» | F-8, art. 9; F-3 solo prohíbe fechas futuras | El responsable mantiene la fecha editable hacia atrás (Clarifications 2026-09-29). La asesoría debe validarlo antes de producción |
+| Q-9 | Fecha de expedición anterior al día de emisión, cuando el registro se genera ese día, frente a la exigencia de F-8, art. 9, de generarlo «simultánea o inmediatamente anterior». Desde el cambio tras la implementación, además, sin orden entre fecha y número dentro de la serie (F-6, art. 6.1.a: numeración correlativa) | F-8, art. 9; F-6, art. 6.1.a; F-3 solo prohíbe fechas futuras y anteriores al 28/10/2024 | El responsable quiere la fecha libre dentro de los límites de la AEAT, también en las correcciones (Clarifications, «cambio tras la implementación»). La asesoría debe validarlo antes de producción |

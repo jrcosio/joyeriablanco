@@ -110,13 +110,34 @@ Estas preguntas salen de revisar las checklists de calidad de requisitos.
 
 - Q: ¿Se puede poner a una factura una fecha de expedición anterior al día en que se emite? → A: Sí,
   hacia atrás, nunca antes de la última factura emitida de la serie en ese año ni en el futuro
-  (FR-018).
+  (FR-018). *Los límites propios se retiraron después: ver la sesión «cambio tras la
+  implementación».*
   - Se advirtió al responsable de que F-8, art. 9, exige generar el registro «de forma simultánea o
     inmediatamente anterior a la expedición». Se le propuso usar la fecha de la operación para una
     venta de otro día.
   - Mantuvo la fecha editable. Queda como pregunta abierta para la asesoría (research R-17, Q-9).
 - Q: ¿Se puede anular una factura rectificativa? → A: Sí. Al anularla, la factura que rectificaba
   vuelve a estar vigente y se puede corregir de nuevo (FR-025, FR-048).
+
+### Session 2026-09-29 (cambio tras la implementación)
+
+El responsable pide poder poner a cualquier factura la fecha que corresponda, porque las facturas
+se emiten a final de semana o de mes.
+
+- Q: ¿Qué límites tiene la fecha de expedición? → A: Solo los que valida la AEAT: no posterior a
+  hoy (F-3 §3.1.3.1, error 1112) y no anterior al 28/10/2024 (F-3 §3.1.3.1, error 1152). Se
+  retiran los dos límites propios: no ser anterior a la última factura de la serie y ser del año
+  en curso o del anterior (FR-018).
+  - Una factura puede llevar un número posterior y una fecha anterior a la de la factura
+    precedente de su serie.
+  - El número sale siempre de la serie del año de su fecha: una factura de diciembre de 2025
+    emitida en enero de 2026 lleva `FAC-2025-NNNN` (constitución, «Numeración»).
+  - Sigue abierta para la asesoría la pregunta Q-9 (research R-17), ahora también con este
+    desorden posible entre número y fecha.
+- Q: ¿Se elige también la fecha al corregir una factura emitida? → A: Sí. La factura nueva tras una
+  anulación y la rectificativa tienen la fecha de expedición editable, con los mismos límites y
+  uno más de la AEAT: no puede ser anterior a su fecha de la operación, que es la heredada de la
+  original (F-3 §3.1.3.1, error 1146).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -345,8 +366,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **Fallo durante la emisión**: si algo falla al asignar el número, generar el registro o calcular
   la huella, la emisión se deshace entera. No queda número consumido ni registro a medias, y el
   borrador sigue intacto.
-- **Fecha de expedición**: no puede ser posterior a hoy ni anterior a la de la última factura
-  emitida de la serie en ese año. Así la numeración sigue el orden cronológico.
+- **Fecha de expedición**: cualquiera entre el 28/10/2024 y hoy, en cualquier orden respecto a las
+  demás facturas de la serie (FR-018). El número se toma de la serie del año de esa fecha.
 - **Cambio del IVA por defecto con un borrador abierto**: al emitirse, el borrador usa el tipo
   vigente en ese momento y el modal avisa si ha cambiado desde que se guardó.
 - **IVA de una rectificativa o una reemisión**: se aplica el tipo de Configuración vigente al
@@ -372,9 +393,10 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   asignado.
 - **Modificar una factura ya corregida**: solo se puede modificar o anular la factura vigente. La
   original queda como consulta.
-- **Fechas de la factura que sustituye**: la factura nueva tras una anulación y la rectificativa se
-  expiden con la fecha de hoy (FR-018). Como fecha de la operación conservan la de la factura
-  original (F-6, art. 6.1.i; F-9).
+- **Fechas de la factura que sustituye**: la factura nueva tras una anulación y la rectificativa
+  proponen la fecha de hoy, que se puede cambiar (FR-018). Como fecha de la operación conservan la
+  de la factura original (F-6, art. 6.1.i; F-9), y la de expedición no puede ser anterior a ella
+  (F-3 §3.1.3.1).
 - **Rectificar una rectificativa**: una rectificativa vigente se corrige con «Modificar» y la causa
   correspondiente, que genera una rectificativa nueva de la rectificativa (F-9, ejemplos 4–6).
 - **Anular una rectificativa**: con «Anular» deja de tener efecto y la factura que rectificaba
@@ -390,8 +412,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   genera dos facturas ni dos correcciones (FR-047).
 - **Borrador ya emitido**: si otro usuario emite el mismo borrador, el segundo intento no emite nada
   y se informa de que el borrador ya se ha emitido.
-- **Borrador con fecha antigua**: si al emitir su fecha ya no es válida (FR-018), se indica el
-  motivo en el campo de la fecha para corregirla.
+- **Borrador con fecha no válida**: si al emitir su fecha no cumple FR-018, se indica el motivo en
+  el campo de la fecha para corregirla.
 - **Sesión caducada con el modal abierto**: igual que en 001 (contracts/ui-rutas.md, 401 durante el
   uso). Por seguridad, lo tecleado **no se conserva**: se avisa de que la sesión ha caducado y, tras
   volver a entrar, hay que repetir la acción. Ante un error de red o de servidor sí se conserva lo
@@ -495,24 +517,23 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **FR-017**: Para emitir una factura completa, el destinatario DEBE tener su identificación
   fiscal y su domicilio: dirección, código postal y localidad (F-6, art. 6.1.c, d y e). Si falta
   algo, el sistema lo indica y ofrece abrir la ficha del cliente.
-- **FR-018**: La fecha de expedición de una factura nueva o de un borrador es editable
-  (Clarifications 2026-09-29), en hora de España peninsular. Límites:
-  - **Superior**: NO DEBE ser posterior al día actual (F-3 §3.1.3.1).
-  - **Inferior**:
-    - NO DEBE ser anterior a la de la última factura emitida de la misma serie en ese año. Es una
-      interpretación de la numeración correlativa (F-6, art. 6.1.a).
-    - Debe ser del año en curso o del anterior. Así se cubre el cierre de año sin abrir series de
-      años pasados.
-    - Nunca anterior al 28/10/2024 (F-3 §3.1.3.1).
+- **FR-018**: La fecha de expedición es editable en toda factura: nueva, borrador, la nueva tras
+  una anulación y la rectificativa (Clarifications, «cambio tras la implementación»). Va en hora de
+  España peninsular y propone la de hoy. Solo tiene los límites que valida la AEAT:
+  - **Superior**: NO DEBE ser posterior al día actual (F-3 §3.1.3.1, error 1112).
+  - **Inferior**: NO DEBE ser anterior al 28/10/2024 (F-3 §3.1.3.1, error 1152).
+  - **Correcciones**: NO DEBE ser anterior a la fecha de la operación (F-3 §3.1.3.1, error 1146:
+    solo se admite con las claves de régimen 14 y 15, que no se usan).
+  - **Sin límites propios**: puede ser anterior a la de otras facturas ya emitidas de su serie y de
+    cualquier año. El número se toma siempre de la serie del año de esa fecha.
   - **Pendiente**: que la fecha pueda ser anterior al día de emisión está por validar con la
     asesoría (research R-17, Q-9).
-  - **Correcciones**: la factura nueva tras una anulación y la rectificativa se expiden siempre con
-    la fecha de hoy, sin editarla. La fecha de
-  la operación solo se indica si es distinta de la de expedición (F-6, art. 6.1.i). No se pide al
-  crear una factura. La factura nueva tras una anulación y la rectificativa heredan como fecha de
-  la operación la de la original, o su fecha de expedición si no tenía ninguna (F-9: «la fecha de
-  realización de la operación correspondiente a la factura original»). Se muestra en solo
-  lectura.
+
+  La fecha de la operación solo se indica si es distinta de la de expedición (F-6, art. 6.1.i).
+  No se pide al crear una factura. La factura nueva tras una anulación y la rectificativa heredan
+  como fecha de la operación la de la original, o su fecha de expedición si no tenía ninguna (F-9:
+  «la fecha de realización de la operación correspondiente a la factura original»). Se muestra en
+  solo lectura.
 - **FR-045**: La descripción del objeto de la factura, obligatoria en el registro con un máximo de
   500 caracteres (F-1), DEBE formarse automáticamente al emitir:
   - Se unen las descripciones de las líneas, en su orden y separadas por «; ».
@@ -540,8 +561,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 
 - **FR-023**: Solo un administrador DEBE poder «Modificar» la factura vigente de una serie,
   sea ordinaria o rectificativa. El modal se abre con los datos precargados, y son editables el
-  cliente y las líneas. El número no es editable (FR-010), y la fecha de la operación se hereda
-  (FR-018).
+  cliente, las líneas y la fecha de expedición. El número no es editable (FR-010), y la fecha de
+  la operación se hereda (FR-018).
 - **FR-024**: Al guardar una modificación, el modal DEBE pedir el motivo, que es obligatorio y se
   elige entre dos opciones, con un texto libre adicional. Según el motivo, el sistema genera la
   corrección que prescribe la normativa (F-4, aclaración 17; F-5; F-6, art. 15):

@@ -39,6 +39,10 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
   Ante un duplicado se muestra el mismo aviso que en 001, pero sin el enlace «Ir al cliente»
   (saldría del modal y se perdería la factura): en su lugar, «Usar este cliente» o, si está
   inactivo, «Reactivar y usar», que lo reactiva como en 001 y lo deja elegido.
+- **Fecha de expedición** (FR-018): editable en todos los modos, también al modificar. Propone la
+  de hoy; el campo no admite fechas posteriores a hoy ni anteriores al 28/10/2024 y, al modificar,
+  tampoco anteriores a la fecha de la operación heredada, que se muestra debajo. La API vuelve a
+  validarlo.
 - **Modificar** (FR-023, FR-024): al pulsar «Guardar» se abre un diálogo con:
   - El motivo, con dos opciones.
   - Si es «ya entregada», la causa, también con dos opciones.
