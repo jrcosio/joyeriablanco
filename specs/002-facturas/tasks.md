@@ -142,23 +142,23 @@ piezas web compartidas. Todas las historias dependen de esta fase.
 
 ### Web: piezas compartidas
 
-- [ ] T022 [P] Test `joyeriablanco_web/src/lib/dinero.test.ts`:
+- [X] T022 [P] Test `joyeriablanco_web/src/lib/dinero.test.ts`:
   - `parsear` («1.200,50», «1200,5», «45», errores) y `aApi` (`"1200.50"`).
   - `formatear` («1.560,90 €»).
   - `calcularTotales`, que reproduce los casos de T004, incluido el medio céntimo.
   - No se usa `Number` ni `parseFloat` para los importes.
-- [ ] T023 [P] Implementar `joyeriablanco_web/src/lib/dinero.ts` con `BigInt`, escalado en céntimos y centésimas de unidad, y el redondeo del medio alejándose de cero (research R-11).
-- [ ] T024 [P] Crear `joyeriablanco_web/src/components/ui/ModalDocumento.tsx` con su test `ModalDocumento.test.tsx` (research R-13):
+- [X] T023 [P] Implementar `joyeriablanco_web/src/lib/dinero.ts` con `BigInt`, escalado en céntimos y centésimas de unidad, y el redondeo del medio alejándose de cero (research R-11).
+- [X] T024 [P] Crear `joyeriablanco_web/src/components/ui/ModalDocumento.tsx` con su test `ModalDocumento.test.tsx` (research R-13):
   - Construido sobre `ModalOverlay`/`Modal`/`Dialog` de react-aria: `max-w-5xl`, pantalla completa por debajo de 768 px, cabecera con título Bodoni `headline-md`, cuerpo desplazable y pie fijo.
   - Nivel 2 con tokens.
   - `onIntentarCerrar` para la guarda de cambios.
   - Test: foco atrapado y devuelto, Escape pasa por la guarda y la capa anidada cierra solo la de encima.
-- [ ] T025 [P] Crear `joyeriablanco_web/src/components/ui/CampoDecimal.tsx` con su test:
+- [X] T025 [P] Crear `joyeriablanco_web/src/components/ui/CampoDecimal.tsx` con su test:
   - Símbolo € opcional, fijo, en `primary-container`, y cifras tabulares (DESIGN.md, «Monetary Inputs»).
   - Admite coma decimal y puntos de miles y muestra el error de formato en el campo (FR-049).
   - Usa `lib/dinero.ts`.
-- [ ] T026 [P] Extraer `CampoFecha` de `joyeriablanco_web/src/features/auditoria/AuditoriaPage.tsx` a `joyeriablanco_web/src/components/ui/CampoFecha.tsx`, con `min`/`max` opcionales. AuditoriaPage pasa a usarlo y sus tests siguen en verde.
-- [ ] T027 [P] Crear `joyeriablanco_web/src/lib/idempotencia.ts` con su test (research R-18). `useClaveOperacion()` devuelve un UUID estable, `renovar()` y `enCurso`. La clave se reutiliza en los reintentos y se renueva solo tras un éxito.
+- [X] T026 [P] Extraer `CampoFecha` de `joyeriablanco_web/src/features/auditoria/AuditoriaPage.tsx` a `joyeriablanco_web/src/components/ui/CampoFecha.tsx`, con `min`/`max` opcionales. AuditoriaPage pasa a usarlo y sus tests siguen en verde.
+- [X] T027 [P] Crear `joyeriablanco_web/src/lib/idempotencia.ts` con su test (research R-18). `useClaveOperacion()` devuelve un UUID estable, `renovar()` y `enCurso`. La clave se reutiliza en los reintentos y se renueva solo tras un éxito.
 
 **Checkpoint**: el dominio fiscal está probado con los vectores oficiales, las garantías de la BD
 están activas y las piezas web compartidas listas.
