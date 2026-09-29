@@ -6,7 +6,7 @@ cualquier campo de más (FR-014). Los importes son texto (schemas/importes.py, R
 
 import uuid
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, StringConstraints
 
@@ -146,3 +146,18 @@ class FacturaSalida(SalidaBase):
     emitida_en: datetime
     emitida_por: UsuarioReferencia
     registros: list[RegistroResumen]
+
+
+class FacturaResumenSalida(SalidaBase):
+    """Fila del listado (FR-033): un borrador no tiene número y sus totales son los previstos."""
+
+    tipo_documento: Literal["borrador", "factura"]
+    id: uuid.UUID
+    num_serie: str | None
+    fecha: date
+    cliente_nombre: str | None
+    identificacion: str | None
+    base: ImporteSalida
+    cuota: ImporteSalida
+    total: ImporteSalida
+    estado: EstadoFactura

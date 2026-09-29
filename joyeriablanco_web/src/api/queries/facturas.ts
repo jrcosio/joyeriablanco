@@ -1,9 +1,43 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '../client'
 import type { FacturaEntrada } from '../tipos'
 import { CLIENTES_KEY } from './clientes'
 
 export const FACTURAS_KEY = ['facturas'] as const
+
+export type OrdenFacturas = 'recientes' | 'antiguas' | 'total_desc' | 'total_asc'
+
+/** Filtros del listado en la URL (contracts/ui-rutas.md). Sin `anio`, el año en curso. */
+export interface FiltrosFacturas {
+  q?: string | undefined
+  anio?: number | 'todos' | undefined
+  mes?: number | undefined
+  orden: OrdenFacturas
+  pagina: number
+}
+
+export const TAMANO_PAGINA_FACTURAS = 25
+
+export const facturasListaQuery = (filtros: FiltrosFacturas) =>
+  queryOptions({
+    queryKey: [...FACTURAS_KEY, 'lista', filtros],
+    queryFn: () =>
+      unwrap(
+        api.GET('/api/v1/facturas', {
+          params: {
+            query: {
+              ...(filtros.q ? { q: filtros.q } : {}),
+              ...(filtros.anio !== undefined ? { anio: filtros.anio } : {}),
+              ...(filtros.mes !== undefined ? { mes: filtros.mes } : {}),
+              orden: filtros.orden,
+              pagina: filtros.pagina,
+              tamano: TAMANO_PAGINA_FACTURAS,
+            },
+          },
+        }),
+      ),
+    placeholderData: keepPreviousData,
+  })
 
 export const facturaQuery = (id: string) =>
   queryOptions({

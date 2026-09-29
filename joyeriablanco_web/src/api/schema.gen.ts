@@ -308,6 +308,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/facturas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Facturas */
+        get: operations["listar_facturas_api_v1_facturas_get"];
+        put?: never;
+        /** Emitir Factura */
+        post: operations["emitir_factura_api_v1_facturas_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/facturas/parametros": {
         parameters: {
             query?: never;
@@ -319,23 +337,6 @@ export interface paths {
         get: operations["obtener_parametros_api_v1_facturas_parametros_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/facturas": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Emitir Factura */
-        post: operations["emitir_factura_api_v1_facturas_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -764,6 +765,49 @@ export interface components {
             /** Num Serie */
             num_serie: string;
         };
+        /**
+         * FacturaResumenSalida
+         * @description Fila del listado (FR-033): un borrador no tiene número y sus totales son los previstos.
+         */
+        FacturaResumenSalida: {
+            /**
+             * Tipo Documento
+             * @enum {string}
+             */
+            tipo_documento: "borrador" | "factura";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Num Serie */
+            num_serie: string | null;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /** Cliente Nombre */
+            cliente_nombre: string | null;
+            /** Identificacion */
+            identificacion: string | null;
+            /**
+             * Base
+             * @example 1290.00
+             */
+            base: string;
+            /**
+             * Cuota
+             * @example 1290.00
+             */
+            cuota: string;
+            /**
+             * Total
+             * @example 1290.00
+             */
+            total: string;
+            estado: components["schemas"]["EstadoFactura"];
+        };
         /** FacturaSalida */
         FacturaSalida: {
             /**
@@ -887,6 +931,17 @@ export interface components {
         Pagina_EventoSalida_: {
             /** Elementos */
             elementos: components["schemas"]["EventoSalida"][];
+            /** Total */
+            total: number;
+            /** Pagina */
+            pagina: number;
+            /** Tamano */
+            tamano: number;
+        };
+        /** Pagina[FacturaResumenSalida] */
+        Pagina_FacturaResumenSalida_: {
+            /** Elementos */
+            elementos: components["schemas"]["FacturaResumenSalida"][];
             /** Total */
             total: number;
             /** Pagina */
@@ -1882,9 +1937,17 @@ export interface operations {
             };
         };
     };
-    obtener_parametros_api_v1_facturas_parametros_get: {
+    listar_facturas_api_v1_facturas_get: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string | null;
+                /** @description Por defecto, el año en curso */
+                anio?: number | "todos" | null;
+                mes?: number | null;
+                orden?: "recientes" | "antiguas" | "total_desc" | "total_asc";
+                pagina?: number;
+                tamano?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1897,7 +1960,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ParametrosFacturacionSalida"];
+                    "application/json": components["schemas"]["Pagina_FacturaResumenSalida_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1943,6 +2015,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_parametros_api_v1_facturas_parametros_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParametrosFacturacionSalida"];
                 };
             };
         };

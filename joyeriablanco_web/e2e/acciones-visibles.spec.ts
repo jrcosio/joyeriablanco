@@ -10,6 +10,18 @@ const ANCHOS = [360, 768, 1024, 1280, 1440] as const
 /** Clientes añade 1536 px, desde donde se muestran teléfono y correo (FR-059). */
 const ANCHOS_CLIENTES = [...ANCHOS, 1536] as const
 
+/** Anchos de SC-008 de 002 para la tabla de facturas (más 360 px, con tarjetas). */
+const ANCHOS_FACTURAS = [360, 768, 1024, 1280, 1440, 1536] as const
+
+/** Columnas de la tabla de facturas según el ancho, medidas como en 001 R-22 (002, T056). */
+function columnasFacturas(ancho: number) {
+  return {
+    'NIF/CIF': ancho >= 1280,
+    'Base imponible': ancho >= 1440,
+    IVA: ancho >= 1440,
+  }
+}
+
 /** Columnas de la tabla de clientes según el ancho (FR-059, R-22). */
 function columnasVisibles(ancho: number) {
   return {
@@ -175,6 +187,42 @@ test.describe('Acciones siempre visibles (SC-014, FR-031, FR-059)', () => {
       const detalles = auditoria.getByRole('button', { name: /^Ver detalle: / })
       await esperarVisibles(page, detalles, 1, true)
       await sinDesplazamientoHorizontal(page)
+    })
+  }
+
+  for (const ancho of ANCHOS_FACTURAS) {
+    test(`facturas a ${ancho}px: «Ver factura» en cada fila de una página completa (002, SC-008)`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: ancho, height: 900 })
+      await iniciarSesion(page, 'admin.demo')
+      // Todos los años: los datos de ejemplo llenan más de una página (R-16).
+      await page.goto('/facturas?anio=todos')
+
+      if (ancho < 768) {
+        const lista = page.getByRole('list', { name: 'Listado de facturas' })
+        const ver = lista.getByRole('link', { name: /^Ver factura / })
+        await expect(ver).toHaveCount(25)
+        await esperarVisibles(page, ver, 25, false)
+        await sinDesplazamientoHorizontal(page)
+        return
+      }
+
+      const tabla = page.getByRole('table', { name: 'Listado de facturas' })
+      const ver = tabla.getByRole('link', { name: /^Ver factura / })
+      await expect(ver).toHaveCount(25)
+      await esperarVisibles(page, ver, 25, true)
+      await sinDesplazamientoHorizontal(page)
+      for (const [columna, visible] of Object.entries(columnasFacturas(ancho))) {
+        const cabecera = tabla.getByRole('columnheader', { name: columna, exact: true })
+        if (visible) await expect(cabecera, `${columna} a ${ancho}px`).toBeVisible()
+        else await expect(cabecera, `${columna} a ${ancho}px`).toBeHidden()
+      }
+      // Con las columnas visibles, la tabla cabe en su tarjeta sin desplazarse.
+      const cabe = await tabla.evaluate(
+        (t) => t.scrollWidth <= (t.parentElement?.clientWidth ?? 0) + 0.5,
+      )
+      expect(cabe, `la tabla de facturas cabe a ${ancho}px`).toBe(true)
     })
   }
 

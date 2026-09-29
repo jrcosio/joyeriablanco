@@ -629,6 +629,9 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   imponible, IVA (cuota), total y acciones. Los importes van en euros con formato español. Un
   borrador muestra «Borrador» en lugar del número. Una factura anulada o rectificada muestra una
   marca discreta junto a su número. NO hay columna de estado ni indicadores.
+  - **Según el ancho** (medido, research R-12): la identificación fiscal se muestra desde 1280 px,
+    y la base imponible y el IVA desde 1440 px. El número, la fecha, el cliente, el total y las
+    acciones se ven siempre; por debajo de 768 px, tarjetas (FR-049).
 - **FR-034**: La búsqueda DEBE encontrar coincidencias parciales en el número, el nombre del
   cliente y su identificación, sin distinguir mayúsculas ni tildes, con las mismas normas de
   término que en clientes (001, FR-032).

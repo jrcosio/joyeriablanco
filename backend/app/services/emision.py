@@ -22,6 +22,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Final
 
+from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import (
@@ -108,6 +109,10 @@ async def billable_cliente(db: AsyncSession, cliente_id: uuid.UUID) -> Cliente:
             else "Al cliente le falta el domicilio completo (dirección, código postal y localidad)."
         )
         raise ClienteNoFacturable(detalle, extra={"faltan": faltan, "cliente_id": str(cliente.id)})
+    if "provincia" in inspect(cliente).unloaded:
+        # Cliente dado de alta en esta misma sesión: la provincia se copia a la factura (FR-016)
+        # y en asíncrono no se puede cargar de forma perezosa.
+        await db.refresh(cliente, ["provincia"])
     return cliente
 
 

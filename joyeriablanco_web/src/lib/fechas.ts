@@ -65,3 +65,8 @@ export function fechaCorta(fecha: string): string {
   const [anio = '', mes = '', dia = ''] = fecha.split('-')
   return `${dia}/${mes}/${anio}`
 }
+
+/** Año natural en curso en hora peninsular (el del listado de facturas por defecto, FR-035). */
+export function anioEnCurso(ahora: Date = new Date()): number {
+  return Number(claveDia(ahora).slice(0, 4))
+}

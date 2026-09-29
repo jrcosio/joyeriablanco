@@ -2,13 +2,15 @@
 correcciones (US5). El router valida, delega en los servicios y serializa (constitución V)."""
 
 import uuid
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Header, Response, status
+from fastapi import APIRouter, Depends, Header, Query, Response, status
+from pydantic import Field
 
 from app.api.deps import CurrentSession, DbDep, OrigenDep, get_current_session
 from app.domain.tipos import CausaRectificacion, MotivoModificacion, TipoCorreccion, TipoFactura
 from app.models.factura import Factura
+from app.schemas.comunes import Pagina
 from app.schemas.configuracion_facturacion import DatosEmisorSalida, ParametrosFacturacionSalida
 from app.schemas.factura import (
     ClienteFacturaSalida,
@@ -16,6 +18,7 @@ from app.schemas.factura import (
     DesgloseSalida,
     FacturaEntrada,
     FacturaReferencia,
+    FacturaResumenSalida,
     FacturaSalida,
     LineaEntrada,
     LineaSalida,
@@ -164,6 +167,46 @@ def factura_salida(detalle: DetalleFactura) -> FacturaSalida:
 
 
 # --------------------------------------------------------------------------- rutas
+
+AnioListado = Annotated[int, Field(ge=2024, le=9999)] | Literal["todos"]
+
+
+@router.get("")
+async def listar_facturas(
+    db: DbDep,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    anio: Annotated[AnioListado | None, Query(description="Por defecto, el año en curso")] = None,
+    mes: Annotated[int | None, Query(ge=1, le=12)] = None,
+    orden: Literal["recientes", "antiguas", "total_desc", "total_asc"] = "recientes",
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamano: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> Pagina[FacturaResumenSalida]:
+    filas, total = await servicio.list_facturas(
+        db,
+        servicio.FiltrosFacturas(
+            q=q, anio=anio, mes=mes, orden=orden, pagina=pagina, tamano=tamano
+        ),
+    )
+    return Pagina[FacturaResumenSalida](
+        elementos=[
+            FacturaResumenSalida(
+                tipo_documento="borrador" if f.tipo_documento == "borrador" else "factura",
+                id=f.id,
+                num_serie=f.num_serie,
+                fecha=f.fecha,
+                cliente_nombre=f.cliente_nombre,
+                identificacion=f.identificacion,
+                base=f.base,
+                cuota=f.cuota,
+                total=f.total,
+                estado=f.estado,
+            )
+            for f in filas
+        ],
+        total=total,
+        pagina=pagina,
+        tamano=tamano,
+    )
 
 
 @router.get("/parametros")

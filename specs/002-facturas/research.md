@@ -592,6 +592,11 @@ compensa añadir una dependencia.
   - `facturas (fecha_expedicion DESC, serie, numero DESC)`.
   - GIN trigram sobre `texto_busqueda`.
   - `borradores_factura (fecha_expedicion DESC)`.
+- **Columnas según el ancho** (medidas al implementar, T056, como en 001 R-22): con los datos de
+  ejemplo y una página completa, a 768 y 1024 px (este con el menú lateral fijo) solo caben
+  número, fecha, cliente, total y acciones; la identificación fiscal se muestra desde 1280 px, y
+  la base imponible y el IVA desde 1440 px. La acción, fija a la derecha, se ve en todos los
+  anchos, y por debajo de 768 px el listado pasa a tarjetas.
 - **Respuesta**: `Pagina[FacturaResumenSalida]`, con `tipo_documento` (`borrador` o `factura`), `id`,
   `num_serie`, `fecha`, `cliente_nombre`, `identificacion`, `base`, `cuota`, `total` y `estado`,
   igual que en el contrato.

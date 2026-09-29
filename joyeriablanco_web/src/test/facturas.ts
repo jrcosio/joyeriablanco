@@ -11,9 +11,14 @@ export const PARAMETROS: ParametrosFacturacionSalida = {
   fecha_minima: '2026-09-02',
 }
 
-/** La API responde a los parámetros del modal de factura. */
+/** La API responde a los parámetros del modal de factura y al listado de detrás (vacío). */
 export function conFacturacion(parametros: ParametrosFacturacionSalida = PARAMETROS): void {
-  server.use(http.get('*/api/v1/facturas/parametros', () => HttpResponse.json(parametros)))
+  server.use(
+    http.get('*/api/v1/facturas/parametros', () => HttpResponse.json(parametros)),
+    http.get('*/api/v1/facturas', () =>
+      HttpResponse.json({ elementos: [], total: 0, pagina: 1, tamano: 25 }),
+    ),
+  )
 }
 
 /** Factura emitida de la captura: 1.290,00 € de base y 1.560,90 € de total. */

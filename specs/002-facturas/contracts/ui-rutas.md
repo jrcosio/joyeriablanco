@@ -72,7 +72,7 @@ que no aparecen aquí se aplican como en 001.
 | Elemento | Nivel / superficie | Tipografía | Notas |
 |---|---|---|---|
 | Tabla de facturas | Igual que clientes | Número en `title-md` con cifras tabulares; importes alineados a la derecha en `body-md` tabular | Marcas «Borrador», «Anulada» y «Rectificada» como chip de 1 px, radio 0 y `label-sm`: `warning` para borrador y `on-surface-variant` para anulada y rectificada. No hay columna de estado. Acciones fijas a la derecha (001, R-22) |
-| Columnas según el ancho | — | — | Por debajo de 768 px, tarjetas. Qué columnas se ocultan en 768–1535 px se mide al implementar, igual que en R-22 de 001. SC-008 exige que las acciones se vean en todos los anchos |
+| Columnas según el ancho | — | — | Por debajo de 768 px, tarjetas. Medido al implementar (R-12): NIF/CIF desde 1280 px; base imponible e IVA desde 1440 px. SC-008 exige que las acciones se vean en todos los anchos |
 | Modal de factura (`ModalDocumento`) | Nivel 2 · `surface-container-high`, borde `tertiary` @ 35 %, `shadow-nivel-2` | Título en Bodoni `headline-md`; secciones en `title-lg` | `max-w-5xl` centrado; pantalla completa por debajo de 768 px. Cuerpo desplazable y pie fijo con filete superior de 1 px `primary-container` @ 18 % |
 | Resumen del cliente | Nivel 1 · `surface-container` | Etiquetas `label-sm` en `on-surface-variant`; datos `body-md` | Filete de 1 px `primary-container` @ 18 % |
 | Tabla de líneas | Contenedor `surface-container-low` | Cabecera `label-md` en mayúsculas | Campos de DESIGN.md. Unidades y precio con `CampoDecimal`; el precio lleva el símbolo € fijo en `primary-container`. Importe en solo lectura, alineado a la derecha y tabular |

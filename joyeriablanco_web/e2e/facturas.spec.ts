@@ -8,7 +8,7 @@ interface FacturaCreada {
 }
 
 test.describe('Facturas', () => {
-  test('emitir una factura de dos líneas con un cliente dado de alta desde el modal (US2)', async ({
+  test('emitir una factura de dos líneas con un cliente dado de alta desde el modal y encontrarla en el listado (US2, US3)', async ({
     page,
   }) => {
     await iniciarSesion(page, 'empleado.demo')
@@ -68,7 +68,18 @@ test.describe('Facturas', () => {
     expect(creada.num_serie).toBe(numeroPrevisto)
     await expect(page.getByText(`Factura ${creada.num_serie} emitida`)).toBeVisible()
     await expect(modal).toHaveCount(0)
-    await expect(page).toHaveURL(/\/facturas$/)
+    await expect(page).toHaveURL(/\/facturas(\?|$)/)
+
+    // Listado (US3): la búsqueda por el NIF con separadores la encuentra.
+    const nif = dni(numero)
+    await page
+      .getByPlaceholder('Buscar número, cliente o NIF')
+      .fill(`${nif.slice(0, 2)}.${nif.slice(2, 5)}.${nif.slice(5, 8)}-${nif.slice(8)}`)
+    const tabla = page.getByRole('table', { name: 'Listado de facturas' })
+    await expect(tabla.getByRole('row')).toHaveCount(2)
+    await expect(tabla.getByText(creada.num_serie)).toBeVisible()
+    await expect(tabla.getByText(nombre)).toBeVisible()
+    await expect(page).toHaveURL(/q=/)
 
     // Detalle: datos del destinatario, importes del servidor y registro de alta con su huella.
     await page.goto(`/facturas/${creada.id}`)

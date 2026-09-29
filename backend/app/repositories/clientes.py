@@ -67,7 +67,8 @@ async def save(session: AsyncSession, cliente: Cliente) -> Cliente:
 # --------------------------------------------------------------------------- listado (US3)
 
 
-def _escapar_like(texto: str) -> str:
+def escape_like(texto: str) -> str:
+    """Escapa los comodines de LIKE (se usa con `escape="\\"`). También lo usa el de facturas."""
     return texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
@@ -85,14 +86,12 @@ def _filtros(
         condiciones.append(Cliente.tipo == tipo)
     termino = (q or "").strip()
     if termino:
-        patron = func.concat("%", func.inmutable_unaccent(func.lower(_escapar_like(termino))), "%")
+        patron = func.concat("%", func.inmutable_unaccent(func.lower(escape_like(termino))), "%")
         opciones: list[ColumnElement[bool]] = [Cliente.texto_busqueda.ilike(patron, escape="\\")]
         sin_separadores = normalize_identificacion(termino)
         if sin_separadores:
             opciones.append(
-                Cliente.identificacion_numero.like(
-                    f"%{_escapar_like(sin_separadores)}%", escape="\\"
-                )
+                Cliente.identificacion_numero.like(f"%{escape_like(sin_separadores)}%", escape="\\")
             )
         condiciones.append(or_(*opciones))
     return condiciones

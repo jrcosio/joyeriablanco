@@ -321,13 +321,13 @@ las acciones visibles en todos los anchos.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T051 [P] [US3] Test `backend/tests/integration/test_listado_facturas.py`:
+- [X] T051 [P] [US3] Test `backend/tests/integration/test_listado_facturas.py`:
   - **Contenido y filtros**: mezcla borradores y emitidas; por defecto, el año en curso; `anio=todos`; `mes`.
   - **Búsqueda**: `q` por «2026-0005», «maria lopez» sin tildes y NIF con separadores.
   - **Órdenes**: `recientes` (un borrador antes que las emitidas de su fecha), `antiguas`, `total_desc` y `total_asc`, con desempate estable. Recorrer todas las páginas no duplica ni omite nada.
   - **Totales de borradores**: se calculan con el IVA vigente.
   - **Casos límite**: una página posterior a la última devuelve lista vacía con el total real; parámetros no válidos → 422.
-- [ ] T052 [P] [US3] Test web `joyeriablanco_web/src/features/facturas/FacturasPage.test.tsx`:
+- [X] T052 [P] [US3] Test web `joyeriablanco_web/src/features/facturas/FacturasPage.test.tsx`:
   - **Estado en la URL**: con debounce de 300 ms y `replace`.
   - **Tabla**: columnas de FR-033, sin KPI ni columna de estado, marca «Borrador» en lugar del número y acciones con nombre accesible («Abrir borrador de…», «Ver factura…»).
   - **Estados vacíos**: «No hay facturas en {año}» con «Ver todos los años» y «Todavía no hay facturas». «Limpiar filtros» vuelve a los valores por defecto.
@@ -335,13 +335,13 @@ las acciones visibles en todos los anchos.
 
 ### Implementation for User Story 3
 
-- [ ] T053 [US3] Añadir `list_facturas(filtros)` a `backend/app/repositories/facturas.py` sobre `v_listado_facturas`: `_filtros` con `_escapar_like` e `inmutable_unaccent`, normalización de la identificación como en clientes, `_ORDENES` con desempate por `id`, y conteo más página (research R-12).
-- [ ] T054 [US3] Crear `FiltrosFacturas` y `list_facturas` en `backend/app/services/facturas.py`, `FacturaResumenSalida` en `backend/app/schemas/factura.py` y `GET /v1/facturas` en `backend/app/api/v1/facturas.py`, y quitarlo de `PENDIENTES_002`.
-- [ ] T055 [US3] Crear el listado en la web:
+- [X] T053 [US3] Añadir `list_facturas(filtros)` a `backend/app/repositories/facturas.py` sobre `v_listado_facturas`: `_filtros` con `_escapar_like` e `inmutable_unaccent`, normalización de la identificación como en clientes, `_ORDENES` con desempate por `id`, y conteo más página (research R-12).
+- [X] T054 [US3] Crear `FiltrosFacturas` y `list_facturas` en `backend/app/services/facturas.py`, `FacturaResumenSalida` en `backend/app/schemas/factura.py` y `GET /v1/facturas` en `backend/app/api/v1/facturas.py`, y quitarlo de `PENDIENTES_002`.
+- [X] T055 [US3] Crear el listado en la web:
   - Query `facturasListaQuery` en `joyeriablanco_web/src/api/queries/facturas.ts`, con `keepPreviousData` y 25 por página.
   - `joyeriablanco_web/src/features/facturas/FiltrosFacturas.tsx`, `TablaFacturas.tsx` (acciones fijas con `components/ui/tabla.ts`, tarjetas en móvil y marcas) y `FacturasPage.tsx`.
   - Esquema Zod de *search params* en `joyeriablanco_web/src/routes/_app/facturas.tsx`.
-- [ ] T056 [US3] Ampliar `joyeriablanco_web/e2e/acciones-visibles.spec.ts` con la tabla de facturas, midiendo una página completa a 768, 1024, 1280, 1440 y 1536 px (SC-008):
+- [X] T056 [US3] Ampliar `joyeriablanco_web/e2e/acciones-visibles.spec.ts` con la tabla de facturas, midiendo una página completa a 768, 1024, 1280, 1440 y 1536 px (SC-008):
   - Primero se mide qué columnas caben junto al menú y se ocultan las necesarias, como en 001 R-22.
   - Los umbrales medidos se anotan en research (R-12) y en la spec (FR-033). Si difieren de lo especificado, **se corrige primero la spec**.
   - E2E `joyeriablanco_web/e2e/facturas-listado.spec.ts` (SC-010): búsqueda por número, por cliente sin tildes y por NIF; filtros de año y mes, con «Ver todos los años»; orden; paginación; y estado en la URL al recargar.

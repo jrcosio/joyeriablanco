@@ -1,16 +1,45 @@
-"""Consulta de facturas emitidas: detalle con estado derivado, enlaces e historial (FR-026)."""
+"""Consulta de facturas: listado de borradores y emitidas (US3) y detalle de una emitida con
+estado derivado, enlaces e historial (FR-026)."""
 
 import uuid
 from dataclasses import dataclass
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NoEncontrado
+from app.core.tiempo import hoy
 from app.domain.tipos import EstadoFactura, TipoCorreccion
 from app.models.correccion_factura import CorreccionFactura
 from app.models.factura import Factura
 from app.models.registro_facturacion import RegistroFacturacion
 from app.repositories import correcciones, facturas, registros
+
+
+@dataclass(frozen=True, slots=True)
+class FiltrosFacturas:
+    q: str | None = None
+    # Por defecto, el año en curso en hora de Madrid (FR-035); «todos» quita el filtro.
+    anio: int | Literal["todos"] | None = None
+    mes: int | None = None
+    orden: str = "recientes"
+    pagina: int = 1
+    tamano: int = 25
+
+
+async def list_facturas(
+    db: AsyncSession, filtros: FiltrosFacturas
+) -> tuple[list[facturas.FilaListado], int]:
+    anio = hoy().year if filtros.anio is None else filtros.anio
+    return await facturas.list_facturas(
+        db,
+        q=filtros.q,
+        anio=None if anio == "todos" else anio,
+        mes=filtros.mes,
+        orden=filtros.orden,
+        pagina=filtros.pagina,
+        tamano=filtros.tamano,
+    )
 
 
 @dataclass(frozen=True, slots=True)
