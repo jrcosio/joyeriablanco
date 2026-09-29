@@ -12,6 +12,10 @@ info:
     decimal con punto (`"1290.00"`). Un número JSON en un campo de importe o cantidad se rechaza
     con 422. La web nunca envía totales. Los calcula y los devuelve el servidor (FR-014).
 
+    **Idempotencia** (FR-047, R-18): las operaciones que emiten o corrigen exigen la cabecera
+    `Idempotency-Key` (UUID). Si se repite una clave ya usada, se devuelve 200 con el resultado de la
+    primera petición y no se genera nada nuevo.
+
     **Catálogo de `type` de error nuevo** (`/problemas/...`):
 
     | `type` | Estado | Notas |
@@ -20,8 +24,9 @@ info:
     | `cliente-no-facturable` | 422 | Cliente inactivo o sin domicilio completo. `faltan: [...]` (FR-017) |
     | `fecha-expedicion` | 422 | Fecha futura o anterior a la última emitida de la serie (FR-018) |
     | `tipo-iva-no-admitido` | 422 | Tipo no admitido por F-3 §15.1 en la fecha (R-10) |
-    | `factura-ya-corregida` | 409 | La factura ya tiene una corrección (R-8) |
-    | `factura-no-modificable` | 409 | La factura está anulada o rectificada (FR-026) |
+    | `factura-no-modificable` | 409 | La factura no está vigente: anulada o rectificada, o corregida a la vez por otro administrador (FR-026, R-8) |
+    | `sin-cambios` | 422 | Rectificativa idéntica a la factura vigente (R-9) |
+    | `modalidad-bloqueada` | 409 | No se puede cambiar la modalidad porque ya hay registros (FR-050, R-19) |
     | `contador-no-ajustable` | 409 | El próximo número debe superar el último usado (FR-010) |
     | `cadena-inconsistente` | 409 | Ha fallado la comprobación previa de la cadena (FR-029, R-6) |
 
@@ -63,7 +68,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ConfiguracionFacturacionSalida" }
         "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
-        "409": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "409": { description: "`conflicto-version` o `modalidad-bloqueada`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
         "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
 
   /v1/configuracion/facturacion/contador:
@@ -121,7 +126,7 @@ paths:
     post:
       tags: [facturas]
       summary: Emitir una factura nueva sin borrador previo (FR-007, FR-021)
-      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
         content:
@@ -130,6 +135,11 @@ paths:
       responses:
         "201":
           description: Factura emitida, con su registro de alta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FacturaSalida" }
+        "200":
+          description: Repetición con una `Idempotency-Key` ya usada. Devuelve la misma factura sin emitir otra
           content:
             application/json:
               schema: { $ref: "#/components/schemas/FacturaSalida" }
@@ -154,7 +164,7 @@ paths:
     post:
       tags: [facturas]
       summary: Anular una factura que no debió emitirse, sin reemitirla (solo administradores, FR-025)
-      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
         content:
@@ -168,7 +178,7 @@ paths:
               schema: { $ref: "#/components/schemas/FacturaSalida" }
         "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
         "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
-        "409": { description: "`factura-ya-corregida`, `factura-no-modificable` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "409": { description: "`factura-no-modificable` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
         "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
 
   /v1/facturas/{facturaId}/modificacion:
@@ -183,7 +193,7 @@ paths:
           `causa`).
 
         Devuelve la factura NUEVA. La original queda anulada o rectificada.
-      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
         content:
@@ -195,10 +205,15 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/FacturaSalida" }
+        "200":
+          description: Repetición con una `Idempotency-Key` ya usada. Devuelve el mismo resultado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FacturaSalida" }
         "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
         "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
-        "409": { description: "`factura-ya-corregida`, `factura-no-modificable`, `emision-no-disponible` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
-        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+        "409": { description: "`factura-no-modificable`, `emision-no-disponible` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { description: "`validacion` o `sin-cambios`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
 
   /v1/borradores-factura:
     post:
@@ -261,7 +276,7 @@ paths:
     post:
       tags: [borradores]
       summary: Emitir el borrador con su contenido actual; lo sustituye por la factura emitida (R-9)
-      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
         content:
@@ -273,7 +288,12 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/FacturaSalida" }
-        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "200":
+          description: Repetición con una `Idempotency-Key` ya usada. Devuelve la factura ya emitida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FacturaSalida" }
+        "404": { description: "El borrador no existe o ya se emitió con otra clave", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
         "409": { description: "`conflicto-version`, `emision-no-disponible` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
         "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
 
@@ -288,6 +308,12 @@ components:
       name: borradorId
       in: path
       required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Clave única de la operación, generada por el cliente y reutilizada en los reintentos (FR-047, R-18)
       schema: { type: string, format: uuid }
 
   schemas:
@@ -354,9 +380,10 @@ components:
       allOf:
         - $ref: "#/components/schemas/ConfiguracionFacturacionEntrada"
         - type: object
-          required: [emision_posible, faltan, proximo_numero, actualizado_en]
+          required: [emision_posible, faltan, proximo_numero, modalidad_bloqueada, actualizado_en]
           properties:
             emision_posible: { type: boolean }
+            modalidad_bloqueada: { type: boolean, description: "true si ya hay registros de facturación (FR-050)" }
             faltan: { type: array, items: { type: string }, description: "Campos que impiden emitir (FR-004)" }
             proximo_numero: { type: string, description: "Número que recibirá la próxima factura FAC del año en curso", examples: ["FAC-2026-0006"] }
             tipos_iva_admitidos: { type: array, items: { $ref: "#/components/schemas/TipoIva" } }
@@ -517,7 +544,7 @@ components:
 
     Correccion:
       type: object
-      required: [tipo, motivo, motivo_texto, creada_en, creada_por]
+      required: [tipo, motivo, motivo_texto, creada_en, creada_por, en_vigor]
       properties:
         tipo: { $ref: "#/components/schemas/TipoCorreccion" }
         motivo: { $ref: "#/components/schemas/MotivoModificacion" }
@@ -525,6 +552,7 @@ components:
         creada_en: { type: string, format: date-time }
         creada_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
         factura_nueva: { oneOf: [{ $ref: "#/components/schemas/FacturaReferencia" }, { type: "null" }] }
+        en_vigor: { type: boolean, description: "false si es una rectificación cuya rectificativa se anuló después (FR-048)" }
     FacturaReferencia:
       type: object
       required: [id, num_serie]
@@ -543,7 +571,7 @@ components:
 
     FacturaSalida:
       type: object
-      required: [id, num_serie, tipo_factura, estado, fecha_expedicion, emisor, cliente, lineas, totales, descripcion_operacion, emitida_en, emitida_por, registros]
+      required: [id, num_serie, tipo_factura, estado, fecha_expedicion, emisor, cliente, lineas, totales, descripcion_operacion, emitida_en, emitida_por, registros, correcciones]
       properties:
         id: { type: string, format: uuid }
         num_serie: { type: string, examples: ["FAC-2026-0001"] }
@@ -568,7 +596,11 @@ components:
                 causa: { $ref: "#/components/schemas/CausaRectificacion" }
             - type: "null"
         sustituye_a: { oneOf: [{ $ref: "#/components/schemas/FacturaReferencia" }, { type: "null" }], description: "Factura anulada a la que reemplaza (reemisión)" }
-        correccion: { oneOf: [{ $ref: "#/components/schemas/Correccion" }, { type: "null" }], description: "Corrección que ha sufrido ESTA factura (si está anulada o rectificada)" }
+        vigente_actual: { oneOf: [{ $ref: "#/components/schemas/FacturaReferencia" }, { type: "null" }], description: "Si esta factura está anulada con reemisión o rectificada, la factura vigente que la sustituye" }
+        correcciones:
+          type: array
+          description: "Correcciones sufridas por ESTA factura, en orden cronológico. Solo la última puede estar en vigor (FR-026, FR-048)"
+          items: { $ref: "#/components/schemas/Correccion" }
         emitida_en: { type: string, format: date-time }
         emitida_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
         registros: { type: array, items: { $ref: "#/components/schemas/RegistroResumen" } }

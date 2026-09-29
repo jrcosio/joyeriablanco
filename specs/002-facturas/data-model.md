@@ -46,7 +46,7 @@ iniciales.
 |---|---|---|---|
 | iva_por_defecto | numeric(5,2) | NOT NULL DEFAULT 21.00 | Validado en el servicio contra `TIPOS_IVA_S1` y la fecha actual (R-10). La BD admite `CHECK (iva_por_defecto IN (0,2,4,5,7.5,10,21))` |
 | clave_regimen | char(2) | NOT NULL DEFAULT '01', CHECK IN L8A | FR-001. Lista L8A de F-1 |
-| modalidad | varchar(20) | NULL, CHECK IN (`verifactu`, `no_verifactu`) | Sin valor inicial (Clarifications). Si es NULL, no se puede emitir (FR-004) |
+| modalidad | varchar(20) | NULL, CHECK IN (`verifactu`, `no_verifactu`) | Sin valor inicial (Clarifications). Si es NULL, no se puede emitir (FR-004). No se puede cambiar si existe algún registro (FR-050, R-19) |
 | emisor_nombre | varchar(120) | NULL | `NombreRazonEmisor` |
 | emisor_nif | char(9) | NULL, CHECK `~ '^[0-9A-Z]{9}$'` | Validado con `domain/identificacion.py` (FR-002) |
 | emisor_direccion | varchar(200) | NULL | F-6, art. 6.1.e |
@@ -138,6 +138,7 @@ iniciales.
 | base_total, cuota_total, importe_total | numeric(12,2) | NOT NULL, CHECK ≥ 0; en FAC CHECK `importe_total > 0` | R-10 |
 | emitida_por_id | uuid | NOT NULL, FK usuarios | |
 | emitida_en | timestamptz | NOT NULL DEFAULT now() | |
+| clave_idempotencia | uuid | NULL, UNIQUE | `Idempotency-Key` de la emisión o de la modificación que la creó (R-18) |
 | texto_busqueda | text | GENERATED ALWAYS AS (`inmutable_unaccent(lower(num_serie ‖ ' ' ‖ dest_nombre ‖ ' ' ‖ dest_identificacion_numero))`) STORED | GIN trigram (R-12) |
 
 **Índices**:
@@ -185,21 +186,29 @@ tipo»).
 | Columna | Tipo | Restricciones | Notas |
 |---|---|---|---|
 | id | uuid | PK | |
-| factura_id | uuid | NOT NULL, **UNIQUE**, FK facturas | La corregida. Solo una corrección por factura (R-8) |
+| factura_id | uuid | NOT NULL, FK facturas | La corregida. Una factura puede acumular correcciones, pero solo tiene una en vigor (R-8). Índice único parcial `WHERE tipo LIKE 'anulacion%'` |
 | tipo | varchar(30) | NOT NULL, CHECK IN (`anulacion`, `anulacion_y_reemision`, `rectificacion_sustitucion`) | |
 | motivo | varchar(30) | NOT NULL, CHECK IN (`no_debio_emitirse`, `factura_entregada`) | Declaración de FR-024 y FR-025. `anulacion*` implica `no_debio_emitirse` (CHECK) |
 | motivo_texto | varchar(500) | NOT NULL, CHECK no vacío | |
 | factura_nueva_id | uuid | NULL, UNIQUE, FK facturas | Reemisión o rectificativa. NULL solo en `anulacion` (CHECK) |
 | registro_anulacion_id | uuid | NULL, FK registros_facturacion | En `anulacion*` (CHECK) |
 | creada_por_id | uuid | NOT NULL, FK usuarios | Administrador (FR-023) |
+| clave_idempotencia | uuid | NULL, UNIQUE | `Idempotency-Key` de la anulación o modificación (R-18) |
 | creada_en | timestamptz | NOT NULL DEFAULT now() | |
 
-**Estado derivado de una factura** (sin columnas mutables):
-- `anulada`: existe una corrección `anulacion*`.
-- `rectificada`: existe `rectificacion_sustitucion`.
-- `vigente`: no tiene ninguna corrección.
+**Estado derivado de una factura F** (R-8, sin columnas mutables):
+- `anulada`: existe una corrección `anulacion*` sobre F. Es definitivo.
+- `rectificada`: existe una corrección `rectificacion_sustitucion` sobre F cuya `factura_nueva` no
+  está `anulada`.
+- `vigente`: en cualquier otro caso. Por eso, al anular la rectificativa, la original **vuelve a
+  estar vigente** (FR-048).
 
-Solo una factura `vigente` se puede anular o modificar (FR-026).
+Solo una factura `vigente` se puede anular o modificar (FR-026). Lo garantiza el trigger `BEFORE
+INSERT` `validar_correccion`, que recalcula el estado y lanza `42501` si no es `vigente`. Esa
+garantía está en la BD, además de en el servicio.
+
+En una rectificativa (`REC`), `motivo = no_debio_emitirse` solo se admite con `tipo = anulacion`,
+es decir, sin reemisión (spec, casos límite).
 
 ## registros_facturacion 🔒
 
@@ -266,5 +275,7 @@ factura vigente ──Modificar «no debió emitirse» (admin)──> anulada + 
                                                └─> factura FAC nueva vigente + registro de alta
 factura vigente ──Modificar «ya entregada» (admin)──> rectificada
                                                └─> factura REC (R1/R4, S) vigente + registro de alta
+REC vigente ──Anular (admin)──> REC anulada + registro de anulación
+                           └─> la factura que rectificaba vuelve a estar vigente (FR-048), sin registro nuevo
 anulada / rectificada: solo consulta (FR-026)
 ```

@@ -104,6 +104,20 @@ Preguntas surgidas del research del plan, que se basa en las fuentes oficiales F
   - **Devolución total**: la rectificativa no lleva líneas y su total es 0 €.
   - **Límite**: una rectificativa nunca puede dar un total negativo (FR-012, casos límite).
 
+### Session 2026-09-29 (checklist)
+
+Estas preguntas salen de revisar las checklists de calidad de requisitos.
+
+- Q: ¿Se puede poner a una factura una fecha de expedición anterior al día en que se emite? → A: Sí,
+  hacia atrás, nunca antes de la última factura emitida de la serie en ese año ni en el futuro
+  (FR-018).
+  - Se advirtió al responsable de que F-8, art. 9, exige generar el registro «de forma simultánea o
+    inmediatamente anterior a la expedición». Se le propuso usar la fecha de la operación para una
+    venta de otro día.
+  - Mantuvo la fecha editable. Queda como pregunta abierta para la asesoría (research R-17, Q-9).
+- Q: ¿Se puede anular una factura rectificativa? → A: Sí. Al anularla, la factura que rectificaba
+  vuelve a estar vigente y se puede corregir de nuevo (FR-025, FR-048).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Configurar la facturación (Priority: P1)
@@ -289,7 +303,11 @@ cosas:
 6. **Given** una factura ya corregida o anulada, **When** se consulta, **Then** se ve con claridad
    su situación, con acceso directo a la factura vigente que la sustituye, si la hay. Además, no
    ofrece «Modificar» ni «Anular».
-7. **Given** un empleado, **When** consulta una factura emitida, **Then** no ve «Anular» ni
+7. **Given** `REC-2026-0001`, que rectifica `FAC-2026-0007` y no debió emitirse, **When** un
+   administrador la anula, **Then** se genera el registro de anulación de la rectificativa y
+   `FAC-2026-0007` vuelve a estar vigente. Su historial muestra la rectificación anulada, y se
+   puede corregir de nuevo.
+8. **Given** un empleado, **When** consulta una factura emitida, **Then** no ve «Anular» ni
    «Modificar», y el servidor rechaza cualquier intento suyo de anular o modificar.
 
 ---
@@ -357,10 +375,27 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **Fechas de la factura que sustituye**: la factura nueva tras una anulación y la rectificativa se
   expiden con la fecha de hoy (FR-018). Como fecha de la operación conservan la de la factura
   original (F-6, art. 6.1.i; F-9).
-- **Rectificar una rectificativa**: una rectificativa vigente se puede modificar o anular igual que
-  cualquier otra factura emitida.
-- **Sesión caducada con el modal abierto**: lo tecleado no se pierde sin aviso. Al volver a entrar
-  se informa de que hay que repetir la acción.
+- **Rectificar una rectificativa**: una rectificativa vigente se corrige con «Modificar» y la causa
+  correspondiente, que genera una rectificativa nueva de la rectificativa (F-9, ejemplos 4–6).
+- **Anular una rectificativa**: con «Anular» deja de tener efecto y la factura que rectificaba
+  vuelve a estar vigente, con su historial completo (FR-048). En una rectificativa no se ofrece
+  «Modificar → no debió emitirse»: el mismo resultado se consigue anulándola y modificando después
+  la original.
+- **Modificar sin cambios**:
+  - Se admite solo con el motivo «no debió emitirse o no llegó a entregarse». Es la forma de
+    corregir una factura cuyo único error es el número (FR-010): se anula y se reemite igual, con el
+    siguiente número.
+  - Una rectificativa sin ningún cambio se rechaza.
+- **Doble envío**: un doble clic o un reintento de red en «Emitir», «Modificar» o «Anular» nunca
+  genera dos facturas ni dos correcciones (FR-047).
+- **Borrador ya emitido**: si otro usuario emite el mismo borrador, el segundo intento no emite nada
+  y se informa de que el borrador ya se ha emitido.
+- **Borrador con fecha antigua**: si al emitir su fecha ya no es válida (FR-018), se indica el
+  motivo en el campo de la fecha para corregirla.
+- **Sesión caducada con el modal abierto**: igual que en 001 (contracts/ui-rutas.md, 401 durante el
+  uso). Por seguridad, lo tecleado **no se conserva**: se avisa de que la sesión ha caducado y, tras
+  volver a entrar, hay que repetir la acción. Ante un error de red o de servidor sí se conserva lo
+  escrito (FR-036).
 
 ## Requirements *(mandatory)*
 
@@ -374,9 +409,10 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
     son 0, 4, 10 y 21. Un tipo nuevo, si cambia la ley, exige actualizar esa lista en el sistema.
   - **Datos del emisor**: razón social o nombre y apellidos, NIF y domicilio completo (dirección,
     código postal, localidad y provincia), exigidos por F-6, art. 6.1.c, d y e.
-  - **Modalidad del sistema de facturación**: VERI\*FACTU o no VERI\*FACTU. Empieza sin valor,
-    porque la elección está pendiente de la asesoría (Clarifications). La elige el administrador y
-    DEBE fijarse antes de la feature 004.
+  - **Modalidad del sistema de facturación**: VERI\*FACTU o no VERI\*FACTU. Empieza sin valor
+    («Sin decidir»), porque la elección está pendiente de la asesoría (Clarifications). La elige el
+    administrador y DEBE fijarse antes de la feature 004. Una vez generado el primer registro, queda
+    bloqueada (FR-050).
   - **Clave de régimen del IVA**: vale 01, «operación de régimen general», al instalar. Solo admite
     los valores de la lista oficial L8A (F-1), y la asesoría la debe confirmar antes de producción.
   - **Próximo número de la serie ordinaria del año en curso**: solo informativo, salvo el ajuste
@@ -458,8 +494,11 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **FR-017**: Para emitir una factura completa, el destinatario DEBE tener su identificación
   fiscal y su domicilio: dirección, código postal y localidad (F-6, art. 6.1.c, d y e). Si falta
   algo, el sistema lo indica y ofrece abrir la ficha del cliente.
-- **FR-018**: La fecha de expedición NO DEBE ser posterior al día actual ni anterior a la de la
-  última factura emitida de la misma serie en ese año, en hora de España peninsular. La fecha de
+- **FR-018**: La fecha de expedición es editable (Clarifications 2026-09-29). NO DEBE ser posterior al
+  día actual ni anterior a la de la última factura emitida de la misma serie en ese año, en hora de
+  España peninsular. El límite inferior es una interpretación de la numeración correlativa (F-6,
+  art. 6.1.a) y la fecha anterior al día de emisión está pendiente de validar con la asesoría
+  (research R-17, Q-9). La fecha de
   la operación solo se indica si es distinta de la de expedición (F-6, art. 6.1.i). No se pide al
   crear una factura. La factura nueva tras una anulación y la rectificativa heredan como fecha de
   la operación la de la original, o su fecha de expedición si no tenía ninguna (F-9: «la fecha de
@@ -521,13 +560,17 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   para el caso 2.d sin factura nueva, por ejemplo una factura duplicada por error:
   - Exige declarar que la factura no debió emitirse e indicar un motivo.
   - Genera solo el registro de anulación.
-  - No se ofrece sobre una factura ya anulada ni sobre una rectificada.
+  - No se ofrece sobre una factura ya anulada ni sobre una rectificada. Sí se ofrece sobre una
+    rectificativa vigente (FR-048).
 - **FR-026**: La factura original y sus registros DEBEN conservarse intactos:
   - La original y su corrección quedan enlazadas en ambos sentidos.
   - El historial de la factura DEBE mostrar cada corrección con su tipo, fecha, autor, motivo y
     la factura o registro que la materializa.
   - Las facturas anuladas o rectificadas quedan en modo consulta, con una marca visible y acceso
     directo a la vigente que las sustituye, si la hay.
+  - Una factura puede acumular varias correcciones a lo largo del tiempo: por ejemplo, una
+    rectificación que después se anula (FR-048). En cada momento tiene como mucho una corrección
+    en vigor.
 - **FR-027**: Toda corrección DEBE generar sus registros de facturación, encadenados según FR-029:
   - **Anulación**: registro de anulación de la original y, si se reemite, registro de alta de la
     factura nueva.
@@ -614,10 +657,32 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **FR-040**: En móvil (menos de 768 px), el modal DEBE ocupar la pantalla completa y cada línea se
   presenta apilada, sin desplazamiento horizontal de la página.
 - **FR-046**: Junto al selector de cliente, el modal DEBE ofrecer «Nuevo cliente»:
-  - Abre por encima el formulario de alta de cliente de 001, con sus mismas validaciones.
+  - Abre por encima el formulario de alta de cliente de 001, con sus mismas validaciones. Un
+    duplicado de identificación se trata igual que en 001.
   - Al guardarlo, vuelve al modal con el cliente nuevo elegido.
   - Al cancelarlo, vuelve sin cambios.
   - En ambos casos se conserva lo ya escrito en la factura.
+  - Con las dos capas abiertas, Escape cierra solo la de encima, y el foco vuelve al botón «Nuevo
+    cliente».
+  - Si el cliente nuevo no tiene domicilio completo, se avisa en el resumen de que no se podrá
+    emitir hasta completarlo (FR-017).
+- **FR-049**: Detalle de uso del modal y del listado:
+  - **Listado en móvil**: cada factura es una tarjeta con el número (o «Borrador»), la fecha, el
+    cliente, el total, la marca de estado si la hay y su acción.
+  - **Acciones con nombre accesible**: «Abrir borrador de {cliente}» o «Ver factura {número}».
+  - **Líneas**:
+    - Se puede quitar cualquier línea, también la última. Sin líneas se muestra «Añade la primera
+      línea».
+    - Con 100 líneas se desactiva «Añadir línea».
+  - **Escritura de cifras**: unidades y precios admiten la coma decimal y los puntos de miles
+    («1.200,50»). Un formato no válido se indica en el propio campo.
+  - **Tras emitir**: el modal se cierra con el aviso «Factura {número} emitida».
+  - **Tras modificar**: el modal pasa a mostrar la factura nueva en consulta, con el aviso de lo
+    generado, por ejemplo «Se ha emitido REC-2026-0001. FAC-2026-0007 queda rectificada».
+  - **Tras anular**: el modal sigue en la factura, ya marcada como anulada.
+  - **Año sin facturas**: si el año del filtro no tiene facturas pero otros años sí, el estado vacío
+    dice «No hay facturas en {año}» y ofrece «Ver todos los años».
+  - **«Limpiar filtros»**: vuelve a los valores por defecto.
 
 #### Integración con el resto del sistema
 
@@ -636,6 +701,23 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   de coma flotante (constitución II).
 - **FR-044**: Los datos de ejemplo del entorno de desarrollo DEBEN incluir facturas ficticias,
   emitidas y en borrador, de varios meses. Su carga sigue prohibida en producción (001, FR-045).
+- **FR-047**: Emitir, modificar y anular DEBEN ser **idempotentes** frente a un doble envío. Si una
+  petición se repite con la misma clave de operación, devuelve el resultado de la primera y no
+  genera nada nuevo.
+- **FR-048**: Al anular una rectificativa vigente, la factura que rectificaba DEBE volver a estar
+  vigente:
+  - Se puede consultar, anular o modificar de nuevo, sin perder su historial, en el que la
+    rectificación figura como anulada.
+  - Solo se genera el registro de anulación de la rectificativa. La factura original no genera
+    ningún registro nuevo, porque su alta sigue siendo válida.
+- **FR-050**: Una vez generado el primer registro de facturación, la modalidad NO DEBE poder
+  cambiarse desde esta feature.
+  - Razón: el cambio con registros ya generados está sujeto a la permanencia y a la renuncia de
+    F-10, art. 17, que gestiona la remisión (feature 004).
+  - El administrador ve la modalidad bloqueada y el motivo.
+- **FR-051**: Los registros de actividad del servidor NO DEBEN contener datos personales de los
+  clientes ni importes, igual que en 001. Solo pueden registrar identificadores internos, números
+  de factura y el tipo de operación.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -697,6 +779,9 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   definidos.
 - **SC-010**: Las pruebas de extremo a extremo cubren las historias P1 y P2 y pasan en su totalidad
   antes de cerrar la feature.
+- **SC-011**: En pruebas de doble envío de «Emitir», «Modificar» y «Anular», tanto simultáneos como
+  repetidos, cada operación genera exactamente una factura o corrección y sus registros: 0
+  duplicados.
 
 ## Conformidad con el sistema de diseño y desviaciones del mockup
 

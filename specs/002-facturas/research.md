@@ -391,12 +391,24 @@ sesiones reales, siguiendo el patrón de
     ejecutan una función nueva, `impedir_modificacion_facturacion()`. La función lanza SQLSTATE
     `42501` con «Los documentos de facturación emitidos son inalterables».
   - Esos triggers bloquean también a `jb_owner`.
-- **Sin columnas de estado mutables**:
-  - «Anulada» y «rectificada» **se derivan** de `correcciones_factura`, que también es de solo
-    inserción.
-  - `UNIQUE (factura_id)` en `correcciones_factura` garantiza que una factura se corrige una sola
-    vez. Si dos administradores modifican a la vez la misma factura, uno recibe `409
-    factura-ya-corregida`.
+- **Sin columnas de estado mutables**: «anulada» y «rectificada» **se derivan** de
+  `correcciones_factura`, que también es de solo inserción. Como una rectificativa se puede anular y
+  la original vuelve a estar vigente (FR-048), una factura puede acumular varias correcciones.
+  - **Estado de una factura F**:
+    - `anulada` si existe una corrección `anulacion*` sobre F. Es definitivo: una anulación nunca se
+      revierte.
+    - `rectificada` si existe una corrección `rectificacion_sustitucion` sobre F cuya
+      `factura_nueva` no está anulada.
+    - `vigente` en cualquier otro caso.
+  - **Guarda en la BD**: el trigger `BEFORE INSERT` `validar_correccion` en `correcciones_factura`
+    recalcula el estado de F y rechaza la inserción (`42501`) si no es `vigente`. Además hay un
+    índice único parcial sobre `factura_id` para `anulacion*` y otro `UNIQUE (factura_nueva_id)`.
+  - **Concurrencia**: todas las correcciones van bajo el cerrojo de la cadena (R-6), así que dos
+    administradores sobre la misma factura se serializan. El segundo recibe `409
+    factura-no-modificable`.
+  - **Sin bloqueo de filas en tablas protegidas**: PostgreSQL exige privilegio `UPDATE` para
+    `SELECT … FOR UPDATE/SHARE`, y `jb_app` no lo tiene en esas tablas. La serialización la aporta
+    el cerrojo consultivo.
 - **Referencias**:
   - FK a `clientes ON DELETE RESTRICT`, que es la segunda barrera de FR-042.
   - FK a `usuarios`: nunca se borran, se entierran (001, R-21).
@@ -432,10 +444,18 @@ Exigiría `UPDATE` sobre un documento emitido.
   8. Auditoría.
 - **Emitir sin borrador previo** (`POST /v1/facturas`): el mismo flujo, sin los pasos 2 y 7.
 - **Corrección de una emitida** (`POST /v1/facturas/{id}/modificacion` y `/anulacion`): el mismo
-  cerrojo. Se bloquea la factura original con `SELECT … FOR SHARE` y se inserta primero la
-  corrección, cuya `UNIQUE` actúa de guarda. Después se generan los registros en el orden:
-  1. Anulación y alta nueva, si es reemisión.
-  2. Alta de la rectificativa, si es rectificación.
+  cerrojo de la cadena.
+  1. Se comprueba que la factura está `vigente` (R-8) y se inserta la corrección, que el trigger
+     `validar_correccion` vuelve a comprobar.
+  2. Se generan los registros en este orden:
+     - En una reemisión, la anulación y después el alta nueva.
+     - En una rectificación, el alta de la rectificativa.
+     - En una anulación de una rectificativa, solo su anulación. La original vuelve a estar
+       vigente por derivación, sin registro nuevo (FR-048).
+- **Modificación sin cambios** (spec, casos límite):
+  - Se compara el cliente y las líneas normalizadas con la factura vigente.
+  - Con `factura_entregada`, una modificación idéntica se rechaza con `422 sin-cambios`.
+  - Con `no_debio_emitirse` se admite: es la reemisión con número nuevo.
 
 **Razón**: el registro se genera «de forma simultánea» a la expedición (F-8, art. 9). Número,
 factura y registro se crean en la misma transacción.
@@ -609,13 +629,13 @@ modal por encima, como en la captura.
 | `/v1/borradores-factura/{id}` | `GET`, `PUT` (con `version`) y `DELETE` | Sesión |
 | `/v1/borradores-factura/{id}/emision` | `POST` | Sesión |
 
-**Problemas nuevos** (RFC 9457, catálogo de 001):
+**Problemas nuevos** (RFC 9457, catálogo de 001). Además, `sin-cambios` (422) y
+`modalidad-bloqueada` (409), de R-9 y R-19, y la cabecera `Idempotency-Key` (R-18):
 - `emision-no-disponible` (409): falta el emisor o la modalidad, o falta el productor en producción.
   Lleva la lista `faltan`.
 - `cliente-no-facturable` (422): cliente inactivo o sin domicilio. Lleva `faltan`.
 - `fecha-expedicion` (422).
 - `tipo-iva-no-admitido` (422).
-- `factura-ya-corregida` (409).
 - `factura-no-modificable` (409): factura anulada o rectificada.
 - `contador-no-ajustable` (409): el valor no supera el último usado.
 - `cadena-inconsistente` (409, R-6).
@@ -661,6 +681,46 @@ El `detalle` guarda los números de factura y los importes como texto. Hoy no se
 
 ---
 
+## R-18. Idempotencia de las operaciones fiscales (FR-047, SC-011)
+
+**Decisión**:
+- **Clave**: `POST /v1/facturas`, `POST /v1/borradores-factura/{id}/emision`, `POST
+  /v1/facturas/{id}/modificacion` y `POST /v1/facturas/{id}/anulacion` exigen la cabecera
+  `Idempotency-Key` (UUID). La web la genera una vez por modal y la reutiliza en los reintentos.
+- **Almacenamiento**: `facturas.clave_idempotencia` y `correcciones_factura.clave_idempotencia`
+  (`uuid UNIQUE NULL`).
+- **Consulta**: bajo el cerrojo de la cadena, antes de emitir o corregir, se busca la clave:
+  - Si ya existe, se devuelve **200** con el mismo recurso que devolvió la primera, sin generar
+    nada.
+  - Si no existe, se ejecuta la operación y responde 201 o 200, según el contrato.
+- **Emitir un borrador ya emitido por otra petición**: con la misma clave se devuelve la factura.
+  Con otra clave, `404` (el borrador ya no existe), y la web informa de «Este borrador ya se ha
+  emitido».
+
+**Razón**: un doble clic o un reintento tras un corte de red no debe expedir dos facturas. Deshacer
+una emisión duplicada exigiría una anulación ante Hacienda.
+
+**Alternativa descartada**: basarse solo en desactivar el botón en la web. No cubre los reintentos
+de red ni dos pestañas.
+
+---
+
+## R-19. Modalidad bloqueada con registros (FR-050)
+
+**Decisión**:
+- El `PUT` de configuración rechaza cambiar `modalidad` si existe algún registro (`409
+  modalidad-bloqueada`).
+- `ConfiguracionFacturacionSalida.modalidad_bloqueada` informa a la web.
+
+**Razón**:
+- F-10, art. 17, y F-8, art. 16.5, fijan la permanencia en VERI\*FACTU hasta el 31 de diciembre y
+  una renuncia que se comunica en la remisión.
+- Sin remisión (feature 004) no se puede aplicar correctamente, así que se bloquea hasta que la 004
+  implemente las transiciones legales.
+- Los datos de desarrollo se reinician, así que no afecta a las pruebas.
+
+---
+
 ## R-17. Preguntas abiertas
 
 Ninguna bloquea esta feature. Todas quedan anotadas para la 004 o para la asesoría.
@@ -675,3 +735,4 @@ Ninguna bloquea esta feature. Todas quedan anotadas para la 004 o para la asesor
 | Q-6 | Modalidad VERI\*FACTU o no VERI\*FACTU | Constitución, TODO | Configuración sin valor inicial. Se decide antes de la 004 |
 | Q-7 | Productor del sistema y declaración responsable | F-8, art. 13; constitución, TODO | Variables `SIF_*`, exigidas en producción (R-5) |
 | Q-8 | NIF español no censado (L7 `07`) y errores 1193/2001 | 001, R-20.4 | Se envía el NIF de la ficha. Se trata en la 004 |
+| Q-9 | Fecha de expedición anterior al día de emisión, cuando el registro se genera ese día, frente a la exigencia de F-8, art. 9, de generarlo «simultánea o inmediatamente anterior» | F-8, art. 9; F-3 solo prohíbe fechas futuras | El responsable mantiene la fecha editable hacia atrás (Clarifications 2026-09-29). La asesoría debe validarlo antes de producción |

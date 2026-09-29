@@ -58,8 +58,8 @@ obligatorios de la constitución VII se detallan en R-2, R-7 y R-10.
 
 **Performance Goals**:
 - SC-007: el 95 % de las búsquedas y los filtros, en menos de 1 s con 20.000 facturas.
-- La emisión, en menos de 1 s en condiciones normales. Serializa la cadena, pero con menos de 10
-  usuarios.
+- La emisión, con un p95 inferior a 1 s con 20.000 facturas. Serializa la cadena, lo que es
+  aceptable con menos de 10 usuarios. Se mide junto con SC-007.
 - SC-002: 200 emisiones concurrentes sin huecos.
 
 **Constraints**:
@@ -95,6 +95,14 @@ obligatorios de la constitución VII se detallan en R-2, R-7 y R-10.
 | **Precios sin IVA** | Las líneas llevan el precio unitario sin IVA. La cuota la calcula el servidor | ✅ |
 | **Sistema de diseño** | `ModalDocumento`, `CampoDecimal` y los totales usan los tokens de DESIGN.md: nivel 2, radio 0 y «Monetary Inputs» / «Totals Section» (contracts/ui-rutas.md). Las desviaciones del mockup están justificadas en la spec. No hay desviaciones de DESIGN.md | ✅ |
 | **Restricciones técnicas** | Mismo stack. WeasyPrint no se usa hasta la 003 | ✅ |
+
+**Re-check tras las checklists** (2026-09-29): sin violaciones nuevas.
+- **Fecha editable hacia atrás**: es una decisión del responsable, con el riesgo frente a F-8, art.
+  9, documentado como Q-9 para la asesoría (principio IV: lo no verificado queda como pregunta
+  abierta).
+- **Anular una rectificativa**: la original vuelve a estar vigente por derivación, sin ningún
+  `UPDATE` (principio III).
+- **Idempotencia**: evita emisiones duplicadas que después exigirían una anulación.
 
 **Re-check post-diseño**, tras data-model, contracts y quickstart: sin violaciones.
 - **Borradores mutables**: los permite expresamente el principio III (2.1.0).
@@ -182,16 +190,20 @@ es el único punto que genera registros.
    contra la BD.
 3. **Configuración de facturación** (US1): servicio, API, `/v1/facturas/parametros`, pestaña web y
    ajuste del contador.
-4. **Emisión** (US2): `services/emision.py` (cerrojos, contador, cálculo, copias, registro y
-   auditoría), `POST /v1/facturas`, el modal «Nueva factura», `ModalDocumento`, `CampoDecimal`,
+4. **Emisión** (US2): `services/emision.py` (cerrojos, contador, cálculo, copias, registro,
+   auditoría e idempotencia por `Idempotency-Key`, R-18), `POST /v1/facturas`, el modal «Nueva factura», `ModalDocumento`, `CampoDecimal`,
    `lib/dinero.ts` y el alta de cliente desde el modal. El test de concurrencia de 200 emisiones va
    aquí.
 5. **Listado** (US3): vista, repositorio, API, página, filtros y tabla con acciones fijas, además de
    la entrada del menú.
 6. **Borradores** (US4): CRUD, emisión desde borrador y concurrencia optimista.
 7. **Correcciones** (US5): anulación, reemisión y rectificativa R1/R4 por sustitución, incluida la
-   devolución total. Diálogos de motivo y anulación, historial, permisos de administrador e
-   implementación real de `ClienteDocumentosChecker`.
+   devolución total.
+   - Anulación de una rectificativa con reactivación de la original (FR-048, R-8), incluido el
+     trigger `validar_correccion`.
+   - Rechazo `sin-cambios`.
+   - Diálogos de motivo y de anulación, historial y permisos de administrador.
+   - Implementación real de `ClienteDocumentosChecker`.
 8. **Integridad** (US6): `services/integridad.py`, `joyeria verificar-cadena` y el test de
    alteración con `DISABLE TRIGGER`.
 9. **Cierre**:

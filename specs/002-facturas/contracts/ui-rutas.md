@@ -11,7 +11,7 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
 | `/facturas/borradores/$borradorId` | Sesión | Modal «Borrador» editable, con «Eliminar borrador», «Guardar borrador» y «Emitir factura» | `GET/PUT/DELETE /v1/borradores-factura/{id}`, `POST …/emision` |
 | `/facturas/$facturaId` | Sesión | Modal de consulta de una factura emitida: estado, enlaces e historial. «Anular» y «Modificar» solo para administradores y solo si está vigente | `GET /v1/facturas/{id}`, `POST …/anulacion` |
 | `/facturas/$facturaId/modificar` | Administrador | Modal «Modificar factura» con los datos precargados, cliente y líneas editables. Al guardar pide el motivo y, en su caso, la causa | `POST /v1/facturas/{id}/modificacion` |
-| `/configuracion/facturacion` | Administrador | Pestaña «Facturación»: IVA por defecto, clave de régimen, modalidad, datos del emisor y próximo número con ajuste al alza | `GET/PUT /v1/configuracion/facturacion`, `POST /v1/configuracion/facturacion/contador` |
+| `/configuracion/facturacion` | Administrador | Pestaña «Facturación». Contiene el IVA por defecto (solo los tipos admitidos), la clave de régimen (lista L8A) y la modalidad («Sin decidir», VERI\*FACTU o no VERI\*FACTU; bloqueada con explicación si ya hay registros, FR-050). Además, los datos del emisor y el próximo número con ajuste al alza | `GET/PUT /v1/configuracion/facturacion`, `POST /v1/configuracion/facturacion/contador` |
 
 ## Comportamientos
 
@@ -43,8 +43,18 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
   - El aviso de lo que se va a generar («Se anulará FAC-2026-0007 y se emitirá una factura
     nueva» o «Se emitirá la rectificativa REC-2026-000N»).
   - El aviso de IVA si el tipo vigente difiere del de la original.
+- **En una rectificativa vigente**, el diálogo de motivo solo ofrece «Hay que corregir una factura
+  ya entregada».
 - **Anular** (FR-025): diálogo con la casilla obligatoria «Declaro que esta factura no debió
-  emitirse» y el motivo.
+  emitirse» y el motivo. Advierte de que no se puede deshacer. Si la factura es una rectificativa,
+  avisa además de que «{número original} volverá a estar vigente» (FR-048).
+- **Clave de idempotencia** (R-18):
+  - El modal genera un UUID al abrirse en cada modo de acción (nueva, borrador, modificar o anular)
+    y lo envía como `Idempotency-Key`.
+  - Lo reutiliza si reintenta tras un error de red.
+  - Lo renueva solo cuando la operación ha terminado con éxito.
+  - Mientras hay una petición en curso, el botón está deshabilitado.
+- **Después de cada acción**: lo que muestra la interfaz está descrito en la spec, FR-049.
 - **Rol**: un empleado no ve «Anular», «Modificar» ni la pestaña Facturación. La API decide en
   cualquier caso (FR-023, FR-025).
 - **Historial** (FR-026): una sección plegable del modal de consulta con las correcciones y los
