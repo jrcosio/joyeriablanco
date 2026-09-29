@@ -360,6 +360,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/facturas/{factura_id}/anulacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Anular Factura
+         * @description Anulación sin reemisión (FR-025). Una repetición devuelve lo mismo (200 en ambos casos).
+         */
+        post: operations["anular_factura_api_v1_facturas__factura_id__anulacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facturas/{factura_id}/modificacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Modificar Factura
+         * @description Corrección trazable (FR-023, FR-024): devuelve la factura nueva (FAC o REC).
+         */
+        post: operations["modificar_factura_api_v1_facturas__factura_id__modificacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/borradores-factura": {
         parameters: {
             query?: never;
@@ -443,6 +483,16 @@ export interface components {
             numeros_sin_usar: number;
             /** Aplicado */
             aplicado: boolean;
+        };
+        /** AnulacionEntrada */
+        AnulacionEntrada: {
+            /**
+             * Declaracion No Debio Emitirse
+             * @constant
+             */
+            declaracion_no_debio_emitirse: true;
+            /** Motivo Texto */
+            motivo_texto: string;
         };
         /** BorradorEdicionEntrada */
         BorradorEdicionEntrada: {
@@ -1051,6 +1101,20 @@ export interface components {
          * @enum {string}
          */
         Modalidad: "verifactu" | "no_verifactu";
+        /** ModificacionEntrada */
+        ModificacionEntrada: {
+            motivo: components["schemas"]["MotivoModificacion"];
+            causa?: components["schemas"]["CausaRectificacion"] | null;
+            /** Motivo Texto */
+            motivo_texto: string;
+            /**
+             * Cliente Id
+             * Format: uuid
+             */
+            cliente_id: string;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+        };
         /**
          * MotivoModificacion
          * @description Motivo declarado al modificar o anular una factura emitida (FR-024, FR-025).
@@ -2193,6 +2257,91 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anular_factura_api_v1_facturas__factura_id__anulacion_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                factura_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnulacionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    modificar_factura_api_v1_facturas__factura_id__modificacion_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                factura_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModificacionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

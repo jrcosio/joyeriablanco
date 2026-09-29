@@ -1,6 +1,6 @@
 import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '../client'
-import type { FacturaEntrada } from '../tipos'
+import type { AnulacionEntrada, FacturaEntrada, ModificacionEntrada } from '../tipos'
 import { CLIENTES_KEY } from './clientes'
 
 export const FACTURAS_KEY = ['facturas'] as const
@@ -64,6 +64,36 @@ export function useEmitirFactura() {
     mutationFn: ({ body, clave }: { body: FacturaEntrada; clave: string }) =>
       unwrap(
         api.POST('/api/v1/facturas', { params: { header: { 'Idempotency-Key': clave } }, body }),
+      ),
+    onSuccess: invalidar,
+  })
+}
+
+/** Anula una factura sin reemitirla (FR-025). Solo administradores; idempotente por clave. */
+export function useAnularFactura() {
+  const invalidar = useInvalidarFacturas()
+  return useMutation({
+    mutationFn: ({ id, body, clave }: { id: string; body: AnulacionEntrada; clave: string }) =>
+      unwrap(
+        api.POST('/api/v1/facturas/{factura_id}/anulacion', {
+          params: { path: { factura_id: id }, header: { 'Idempotency-Key': clave } },
+          body,
+        }),
+      ),
+    onSuccess: invalidar,
+  })
+}
+
+/** Modifica una factura mediante corrección trazable (FR-024): devuelve la factura nueva. */
+export function useModificarFactura() {
+  const invalidar = useInvalidarFacturas()
+  return useMutation({
+    mutationFn: ({ id, body, clave }: { id: string; body: ModificacionEntrada; clave: string }) =>
+      unwrap(
+        api.POST('/api/v1/facturas/{factura_id}/modificacion', {
+          params: { path: { factura_id: id }, header: { 'Idempotency-Key': clave } },
+          body,
+        }),
       ),
     onSuccess: invalidar,
   })

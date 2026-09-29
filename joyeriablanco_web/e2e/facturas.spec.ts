@@ -26,6 +26,49 @@ async function nuevoClienteDesdeElModal(page: Page, modal: Locator, prefijo: str
   return { nombre, numero }
 }
 
+/** Emite por la API, con la sesión del navegador, una factura de dos líneas a un cliente nuevo. */
+async function emitirPorLaApi(page: Page): Promise<FacturaCreada & { cliente: string }> {
+  const sesion = (await (await page.request.get('/api/v1/sesion')).json()) as {
+    csrf_token: string
+  }
+  // Como el navegador: CSRF y origen de la página (la API rechaza otros orígenes).
+  const cabeceras = {
+    'X-CSRF-Token': sesion.csrf_token,
+    Origin: new URL(page.url()).origin,
+  }
+  const numero = unico()
+  const nombre = `Cliente Corrección ${String(numero)}`
+  const cliente = await page.request.post('/api/v1/clientes', {
+    headers: cabeceras,
+    data: {
+      tipo: 'particular',
+      nombre,
+      identificacion_tipo: 'NIF',
+      identificacion_numero: dni(numero),
+      direccion: 'Calle Recogidas, 12',
+      codigo_postal: '18005',
+      localidad: 'Granada',
+    },
+  })
+  expect(cliente.status()).toBe(201)
+  const { id } = (await cliente.json()) as { id: string }
+  const factura = await page.request.post('/api/v1/facturas', {
+    headers: { ...cabeceras, 'Idempotency-Key': crypto.randomUUID() },
+    data: {
+      fecha_expedicion: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(
+        new Date(),
+      ),
+      cliente_id: id,
+      lineas: [
+        { unidades: '1', descripcion: 'Anillo', precio_unitario: '1200.00' },
+        { unidades: '2', descripcion: 'Ajuste', precio_unitario: '45.00' },
+      ],
+    },
+  })
+  expect(factura.status()).toBe(201)
+  return { ...((await factura.json()) as FacturaCreada), cliente: nombre }
+}
+
 async function previsto(modal: Locator): Promise<string> {
   await expect(modal.getByText('Se asigna al emitir')).toBeVisible()
   const texto = (await modal.getByText(/^Previsto:/).textContent()) ?? ''
@@ -169,5 +212,86 @@ test.describe('Facturas', () => {
 
     await page.getByRole('link', { name: 'Nueva factura' }).click()
     expect(await previsto(page.getByRole('dialog', { name: 'Nueva factura' }))).toBe(antes)
+  })
+
+  test('correcciones del administrador: reemisión, rectificativa R4, anular la rectificativa y anular (US5)', async ({
+    page,
+  }) => {
+    await iniciarSesion(page, 'admin.demo')
+    const original = await emitirPorLaApi(page)
+
+    // 1. Reemisión: «no debió emitirse» anula la original y emite la siguiente FAC.
+    await page.goto(`/facturas/${original.id}`)
+    let modal = page.getByRole('dialog', { name: `Factura ${original.num_serie}` })
+    await modal.getByRole('link', { name: 'Modificar' }).click()
+    const modificar = page.getByRole('dialog', { name: `Modificar factura ${original.num_serie}` })
+    await modificar.getByRole('button', { name: 'Guardar' }).click()
+    let motivo = page.getByRole('alertdialog', { name: 'Motivo de la modificación' })
+    await motivo.locator('label', { hasText: /no debió emitirse/ }).click()
+    await motivo.getByRole('textbox', { name: /Explica el motivo/ }).fill('Número equivocado')
+    await motivo.getByRole('button', { name: 'Confirmar' }).click()
+    await expect(page.getByText(new RegExp(`${original.num_serie} queda anulada`))).toBeVisible()
+    modal = page.getByRole('dialog', { name: /^Factura FAC-/ })
+    await expect(modal.getByText(`Sustituye a ${original.num_serie}, anulada`)).toBeVisible()
+    const reemitida = ((await modal.getByRole('heading').first().textContent()) ?? '').replace(
+      'Factura ',
+      '',
+    )
+
+    // 2. Rectificativa R4 de la reemitida, con otro precio.
+    await modal.getByRole('link', { name: 'Modificar' }).click()
+    const segunda = page.getByRole('dialog', { name: `Modificar factura ${reemitida}` })
+    await segunda
+      .getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' })
+      .fill('1.100')
+    await segunda.getByRole('button', { name: 'Guardar' }).click()
+    motivo = page.getByRole('alertdialog', { name: 'Motivo de la modificación' })
+    await motivo.locator('label', { hasText: /ya entregada/ }).click()
+    await motivo.locator('label', { hasText: /Error en datos/ }).click()
+    await motivo.getByRole('textbox', { name: /Explica el motivo/ }).fill('Precio mal')
+    await motivo.getByRole('button', { name: 'Confirmar' }).click()
+    await expect(page.getByText(new RegExp(`${reemitida} queda rectificada`))).toBeVisible()
+    const rec = page.getByRole('dialog', { name: /^Factura REC-/ })
+    await expect(rec.getByText('Rectificativa R4')).toBeVisible()
+    await expect(rec.getByText(/Rectifica a/)).toBeVisible()
+
+    // 3. Anular la rectificativa: la reemitida vuelve a estar vigente (FR-048).
+    await rec.getByRole('button', { name: 'Anular' }).click()
+    let anular = page.getByRole('alertdialog', { name: /^¿Anular la factura REC-/ })
+    await expect(anular.getByText(`${reemitida} volverá a estar vigente.`)).toBeVisible()
+    await anular.locator('label', { hasText: 'Declaro que esta factura no debió emitirse' }).click()
+    await anular.getByRole('textbox', { name: /Motivo/ }).fill('Rectificación errónea')
+    await anular.getByRole('button', { name: 'Anular factura' }).click()
+    await expect(page.getByText(`${reemitida} vuelve a estar vigente`)).toBeVisible()
+    await expect(rec.getByText('Anulada', { exact: true })).toBeVisible()
+    await rec.getByRole('link', { name: reemitida }).first().click()
+    modal = page.getByRole('dialog', { name: `Factura ${reemitida}` })
+    await expect(modal.getByText('Rectificada', { exact: true })).toHaveCount(0)
+    await expect(modal.getByText('Sin efecto')).toBeVisible()
+
+    // 4. Anular la reemitida, ya vigente otra vez.
+    await modal.getByRole('button', { name: 'Anular' }).click()
+    anular = page.getByRole('alertdialog', { name: `¿Anular la factura ${reemitida}?` })
+    await anular.locator('label', { hasText: 'Declaro que esta factura no debió emitirse' }).click()
+    await anular.getByRole('textbox', { name: /Motivo/ }).fill('Venta cancelada')
+    await anular.getByRole('button', { name: 'Anular factura' }).click()
+    await expect(page.getByText(`Factura ${reemitida} anulada`)).toBeVisible()
+    await expect(modal.getByText('Anulada', { exact: true })).toBeVisible()
+    await expect(modal.getByRole('button', { name: 'Anular' })).toHaveCount(0)
+  })
+
+  test('un empleado consulta una factura sin acciones de corrección (US5, FR-023)', async ({
+    page,
+  }) => {
+    await iniciarSesion(page, 'empleado.demo')
+    const factura = await emitirPorLaApi(page)
+
+    await page.goto(`/facturas/${factura.id}`)
+    const modal = page.getByRole('dialog', { name: `Factura ${factura.num_serie}` })
+    await expect(modal.getByRole('button', { name: 'Cerrar', exact: true })).toBeVisible()
+    await expect(modal.getByRole('button', { name: 'Anular' })).toHaveCount(0)
+    await expect(modal.getByRole('link', { name: 'Modificar' })).toHaveCount(0)
+    await page.goto(`/facturas/${factura.id}/modificar`)
+    await expect(page).toHaveURL(/\/acceso-denegado/)
   })
 })

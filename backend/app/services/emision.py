@@ -30,8 +30,11 @@ from app.core.errors import (
     ClienteNoFacturable,
     DatosNoValidos,
     EmisionNoDisponible,
+    FacturaNoModificable,
     FechaExpedicionNoValida,
     IdempotenciaConflicto,
+    NoEncontrado,
+    SinCambios,
     TipoIvaNoAdmitido,
 )
 from app.core.http import Origen
@@ -51,14 +54,18 @@ from app.domain.numeracion import format_num_serie
 from app.domain.registro import CALIFICACION_SUJETA_NO_EXENTA, build_descripcion_operacion
 from app.domain.tipos import (
     CausaRectificacion,
+    EstadoFactura,
+    MotivoModificacion,
     OperacionIdempotente,
     Serie,
+    TipoCorreccion,
     TipoEvento,
     TipoFactura,
     TipoRectificativa,
 )
 from app.models.cliente import Cliente
 from app.models.configuracion_facturacion import ConfiguracionFacturacion
+from app.models.correccion_factura import CorreccionFactura
 from app.models.factura import DesgloseFactura, Factura, LineaFactura
 from app.models.usuario import Usuario
 from app.repositories import clientes as clientes_repo
@@ -366,3 +373,308 @@ async def emit_factura(
         },
     )
     return factura, True
+
+
+# --------------------------------------------------------------------- correcciones (US5)
+
+
+@dataclass(frozen=True, slots=True)
+class DatosModificacion:
+    motivo: MotivoModificacion
+    causa: CausaRectificacion | None
+    motivo_texto: str
+    cliente_id: uuid.UUID
+    lineas: tuple[DatosLinea, ...]
+
+
+async def find_previous_correccion(
+    db: AsyncSession,
+    clave: uuid.UUID,
+    operacion: OperacionIdempotente,
+    factura_id: uuid.UUID,
+) -> CorreccionFactura | None:
+    """Corrección ya hecha con esta clave sobre esta factura (R-18), o `None`.
+
+    La clave de una modificación queda también en la factura nueva; la de otra operación o de otra
+    factura es un conflicto.
+    """
+    previa = await correcciones.get_by_idempotency_key(db, clave)
+    if previa is not None:
+        if previa.operacion_idempotencia != operacion.value or previa.factura_id != factura_id:
+            raise IdempotenciaConflicto
+        return previa
+    if await facturas.get_by_idempotency_key(db, clave) is not None:
+        raise IdempotenciaConflicto
+    return None
+
+
+async def _vigente(db: AsyncSession, factura_id: uuid.UUID) -> Factura:
+    """La factura a corregir, que debe estar vigente (R-8). El trigger `validar_correccion` lo
+    vuelve a comprobar al insertar la corrección."""
+    factura = await facturas.get(db, factura_id)
+    if factura is None:
+        raise NoEncontrado("La factura no existe.")
+    if await facturas.estado(db, factura.id) is not EstadoFactura.VIGENTE:
+        raise FacturaNoModificable
+    return factura
+
+
+def fecha_operacion_heredada(original: Factura) -> date:
+    """La de la factura original: su fecha de operación o, si no la tenía, la de expedición
+    (F-9; FR-018)."""
+    return original.fecha_operacion or original.fecha_expedicion
+
+
+def _tipo_iva_de(factura: Factura) -> Decimal:
+    tipos = {linea.tipo_iva for linea in factura.lineas} or {d.tipo_iva for d in factura.desgloses}
+    if len(tipos) != 1:
+        msg = f"La factura {factura.num_serie} no tiene un único tipo de IVA"
+        raise ValueError(msg)
+    return tipos.pop()
+
+
+def _sin_cambios(
+    original: Factura, cliente: Cliente, lineas: tuple[DatosLinea, ...], tipo_iva: Decimal
+) -> bool:
+    """¿Sería la rectificativa idéntica a la vigente? Se comparan el destinatario tal como se
+    copiaría, las líneas normalizadas y el tipo de IVA que se aplicaría (R-9)."""
+    destinatario = _destinatario(cliente)
+    mismo_destinatario = original.cliente_id == cliente.id and all(
+        getattr(original, campo) == valor for campo, valor in destinatario.items()
+    )
+    actuales = [
+        (linea.unidades, linea.descripcion, linea.precio_unitario) for linea in original.lineas
+    ]
+    nuevas = [
+        (
+            linea.unidades.quantize(Decimal("0.01")),
+            linea.descripcion.strip(),
+            linea.precio_unitario.quantize(Decimal("0.01")),
+        )
+        for linea in lineas
+    ]
+    return mismo_destinatario and actuales == nuevas and _tipo_iva_de(original) == tipo_iva
+
+
+async def _registrar_emision(
+    db: AsyncSession,
+    factura: Factura,
+    *,
+    actor: Usuario,
+    origen: Origen,
+    detalle: dict[str, object],
+) -> None:
+    await record_event(
+        db,
+        TipoEvento.FACTURA_EMITIDA,
+        origen=origen,
+        actor=actor,
+        cliente_id=factura.cliente_id,
+        detalle={
+            "factura_id": factura.id,
+            "num_serie": factura.num_serie,
+            "fecha_expedicion": factura.fecha_expedicion,
+            "importe_total": factura.importe_total,
+            **detalle,
+        },
+    )
+
+
+async def anular_factura(
+    db: AsyncSession,
+    factura_id: uuid.UUID,
+    *,
+    motivo_texto: str,
+    actor: Usuario,
+    origen: Origen,
+    clave: uuid.UUID,
+) -> tuple[Factura, bool]:
+    """Anulación sin reemisión (FR-025): solo el registro de anulación y la corrección.
+
+    Si es una rectificativa, la factura que rectificaba vuelve a estar vigente por derivación, sin
+    registro nuevo (FR-048). Devuelve la factura anulada y si se ha anulado ahora.
+    """
+    await registros.lock_chain(db)
+    if previa := await find_previous_correccion(db, clave, OperacionIdempotente.ANULAR, factura_id):
+        anulada = await facturas.get(db, previa.factura_id)
+        if anulada is None:  # pragma: no cover — FK
+            raise NoEncontrado("La factura no existe.")
+        return anulada, False
+    await cadena.verify_tail(db, origen=origen, actor=actor)
+    factura = await _vigente(db, factura_id)
+    config = await configuracion_repo.get(db)
+    if config.modalidad is None:  # no ocurre: la modalidad se bloquea con el primer registro
+        raise EmisionNoDisponible(extra={"faltan": missing_for_emission(config)})
+    registro = await cadena.create_registro_anulacion(db, factura, modalidad=config.modalidad)
+    await correcciones.insert(
+        db,
+        CorreccionFactura(
+            factura_id=factura.id,
+            tipo=TipoCorreccion.ANULACION.value,
+            motivo=MotivoModificacion.NO_DEBIO_EMITIRSE.value,
+            motivo_texto=motivo_texto.strip(),
+            registro_anulacion_id=registro.id,
+            creada_por_id=actor.id,
+            clave_idempotencia=clave,
+            operacion_idempotencia=OperacionIdempotente.ANULAR.value,
+        ),
+    )
+    rectificada = (
+        await facturas.get(db, factura.factura_rectificada_id)
+        if factura.factura_rectificada_id
+        else None
+    )
+    await record_event(
+        db,
+        TipoEvento.FACTURA_ANULADA,
+        origen=origen,
+        actor=actor,
+        cliente_id=factura.cliente_id,
+        detalle={
+            "factura_id": factura.id,
+            "num_serie": factura.num_serie,
+            "motivo_texto": motivo_texto.strip(),
+            **({"reactivada": rectificada.num_serie} if rectificada else {}),
+        },
+    )
+    logger.info("Factura %s anulada", factura.num_serie)
+    return factura, True
+
+
+async def modify_factura(
+    db: AsyncSession,
+    factura_id: uuid.UUID,
+    datos: DatosModificacion,
+    *,
+    actor: Usuario,
+    origen: Origen,
+    clave: uuid.UUID,
+) -> tuple[Factura, bool]:
+    """«Modificar» una factura emitida mediante la corrección que corresponde (FR-024, R-4, R-9):
+
+    - `no_debio_emitirse`: registro de anulación de la original y factura FAC nueva con el
+      siguiente número (sin cambios también: es como se corrige un número erróneo).
+    - `factura_entregada`: rectificativa por sustitución REC, R1 o R4 según la causa.
+
+    La corrección se inserta la última, con sus referencias ya conocidas. Devuelve la factura nueva
+    y si se ha creado ahora.
+    """
+    operacion = OperacionIdempotente.MODIFICAR
+    await registros.lock_chain(db)
+    if previa := await find_previous_correccion(db, clave, operacion, factura_id):
+        nueva = await facturas.get(db, previa.factura_nueva_id) if previa.factura_nueva_id else None
+        if nueva is None:  # pragma: no cover — una modificación siempre crea factura
+            raise NoEncontrado("La factura no existe.")
+        return nueva, False
+    await cadena.verify_tail(db, origen=origen, actor=actor)
+    original = await _vigente(db, factura_id)
+    reemision = datos.motivo is MotivoModificacion.NO_DEBIO_EMITIRSE
+    if reemision and original.serie == Serie.RECTIFICATIVA.value:
+        raise DatosNoValidos(
+            errores=[
+                CampoError(
+                    "motivo",
+                    "Una rectificativa no se reemite: anúlala y modifica después la original.",
+                )
+            ]
+        )
+    if not reemision and datos.causa is None:
+        raise DatosNoValidos(errores=[CampoError("causa", "Indica la causa de la rectificación.")])
+    devolucion = datos.causa is CausaRectificacion.DEVOLUCION_O_PRECIO
+    if not datos.lineas and (reemision or not devolucion):
+        raise DatosNoValidos(
+            errores=[
+                CampoError(
+                    "lineas",
+                    "La factura debe tener al menos una línea (sin líneas solo cabe una "
+                    "devolución total).",
+                )
+            ]
+        )
+    config = emissible_config(await configuracion_repo.get(db))
+    cliente = await billable_cliente(db, datos.cliente_id)
+    if not reemision and _sin_cambios(original, cliente, datos.lineas, config.iva_por_defecto):
+        raise SinCambios
+
+    async def expedir(rectificacion: Rectificacion | None) -> Factura:
+        # La factura nueva se expide hoy y conserva la fecha de operación de la original (FR-018).
+        return await create_factura(
+            db,
+            config=config,
+            cliente=cliente,
+            fecha_expedicion=hoy(),
+            fecha_operacion=fecha_operacion_heredada(original),
+            lineas=datos.lineas,
+            actor=actor,
+            clave=clave,
+            operacion=operacion,
+            origen_id=original.id,
+            rectificacion=rectificacion,
+        )
+
+    motivo_texto = datos.motivo_texto.strip()
+    if reemision:
+        registro = await cadena.create_registro_anulacion(
+            db, original, modalidad=config.modalidad or ""
+        )
+        nueva = await expedir(None)
+        correccion = CorreccionFactura(
+            factura_id=original.id,
+            tipo=TipoCorreccion.ANULACION_Y_REEMISION.value,
+            motivo=datos.motivo.value,
+            motivo_texto=motivo_texto,
+            factura_nueva_id=nueva.id,
+            registro_anulacion_id=registro.id,
+            creada_por_id=actor.id,
+            clave_idempotencia=clave,
+            operacion_idempotencia=operacion.value,
+        )
+    else:
+        causa = datos.causa or CausaRectificacion.ERROR_DATOS
+        nueva = await expedir(Rectificacion(rectificada=original, causa=causa))
+        correccion = CorreccionFactura(
+            factura_id=original.id,
+            tipo=TipoCorreccion.RECTIFICACION_SUSTITUCION.value,
+            motivo=datos.motivo.value,
+            motivo_texto=motivo_texto,
+            factura_nueva_id=nueva.id,
+            creada_por_id=actor.id,
+            clave_idempotencia=clave,
+            operacion_idempotencia=operacion.value,
+        )
+    await correcciones.insert(db, correccion)
+
+    if reemision:
+        await record_event(
+            db,
+            TipoEvento.FACTURA_ANULADA,
+            origen=origen,
+            actor=actor,
+            cliente_id=original.cliente_id,
+            detalle={
+                "factura_id": original.id,
+                "num_serie": original.num_serie,
+                "motivo_texto": motivo_texto,
+                "sustituida_por": nueva.num_serie,
+            },
+        )
+        detalle_nueva: dict[str, object] = {"sustituye_a": original.num_serie}
+    else:
+        await record_event(
+            db,
+            TipoEvento.FACTURA_RECTIFICADA,
+            origen=origen,
+            actor=actor,
+            cliente_id=original.cliente_id,
+            detalle={
+                "factura_id": original.id,
+                "num_serie": original.num_serie,
+                "causa": datos.causa,
+                "motivo_texto": motivo_texto,
+                "rectificativa": nueva.num_serie,
+            },
+        )
+        detalle_nueva = {"rectifica_a": original.num_serie}
+    await _registrar_emision(db, nueva, actor=actor, origen=origen, detalle=detalle_nueva)
+    logger.info("Factura %s corregida con %s", original.num_serie, nueva.num_serie)
+    return nueva, True

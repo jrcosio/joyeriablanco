@@ -5,9 +5,6 @@ Cada feature es dueña de su contrato (research R-14 de 002):
 - El código de éxito (2xx) coincide. Los códigos de error de cada operación están documentados
   en el contrato, que es la referencia para los consumidores (FastAPI solo publica el de éxito
   y el 422).
-
-Mientras se implementa la feature 002, sus operaciones aún no hechas figuran en
-`PENDIENTES_002`: cada tarea de API las quita y T076 elimina la lista.
 """
 
 import re
@@ -21,11 +18,6 @@ from app.main import create_app
 SPECS = Path(__file__).resolve().parents[3] / "specs"
 CONTRATOS = sorted(SPECS.glob("*/contracts/openapi.yaml"))
 METODOS = {"get", "post", "put", "patch", "delete"}
-
-PENDIENTES_002: set[tuple[str, str]] = {
-    ("/api/v1/facturas/{}/anulacion", "post"),
-    ("/api/v1/facturas/{}/modificacion", "post"),
-}
 
 
 def _normalizar(ruta: str) -> str:
@@ -64,9 +56,7 @@ def test_la_api_implementa_exactamente_el_contrato() -> None:
 
     solo_en_api = set(reales) - set(esperadas)
     assert not solo_en_api, f"Operaciones sin contrato: {sorted(solo_en_api)}"
-    pendientes_hechas = PENDIENTES_002 & set(reales)
-    assert not pendientes_hechas, f"Ya implementadas: quitar de PENDIENTES_002 {pendientes_hechas}"
-    solo_en_contrato = set(esperadas) - set(reales) - PENDIENTES_002
+    solo_en_contrato = set(esperadas) - set(reales)
     assert not solo_en_contrato, f"Operaciones del contrato sin implementar: {solo_en_contrato}"
     for operacion, exitos in reales.items():
         assert exitos == esperadas[operacion], (

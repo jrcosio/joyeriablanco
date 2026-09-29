@@ -52,3 +52,31 @@ export function textoTipoIva(tipo: string): string {
     .replace('.', ',')
   return `${numero} %`
 }
+
+/** Motivos de «Modificar» (FR-024), con el texto que ve el administrador. */
+export const MOTIVOS_MODIFICACION = {
+  no_debio_emitirse: 'La factura no debió emitirse o no llegó a entregarse al cliente',
+  factura_entregada: 'Hay que corregir una factura ya entregada',
+} as const
+
+/** Causas de una rectificativa (FR-024; F-9): R1 o R4. */
+export const CAUSAS_RECTIFICACION = {
+  devolucion_o_precio:
+    'Devolución, descuento o cambio de precio posterior a la venta, o IVA mal aplicado',
+  error_datos: 'Error en datos o importes de la factura',
+} as const
+
+/** Tipo de cada corrección en el historial (FR-026). */
+export const TIPOS_CORRECCION = {
+  anulacion: 'Anulación',
+  anulacion_y_reemision: 'Anulación y reemisión',
+  rectificacion_sustitucion: 'Rectificación por sustitución',
+} as const
+
+/** Tipo de IVA de una factura emitida (todas sus líneas llevan el mismo, FR-013). */
+export function tipoIvaDe(factura: {
+  lineas: readonly { tipo_iva: string }[]
+  totales: { desglose: readonly { tipo_iva: string }[] }
+}): string | undefined {
+  return factura.lineas[0]?.tipo_iva ?? factura.totales.desglose[0]?.tipo_iva
+}

@@ -45,7 +45,8 @@ class FacturaEntrada(EntradaBase):
 
 
 class AnulacionEntrada(EntradaBase):
-    declaracion_no_debio_emitirse: bool
+    # Declaración obligatoria de que la factura no debió emitirse (FR-025): solo vale `true`.
+    declaracion_no_debio_emitirse: Literal[True]
     motivo_texto: MotivoTexto
 
 

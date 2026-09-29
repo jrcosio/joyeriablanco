@@ -1,15 +1,32 @@
 import { useQuery } from '@tanstack/react-query'
-import { facturaQuery } from '../../api/queries/facturas'
+import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
+import { ApiError } from '../../api/client'
+import { facturaQuery, useAnularFactura } from '../../api/queries/facturas'
 import type { FacturaSalida } from '../../api/tipos'
+import { useSesion } from '../../auth/session'
 import { Alerta } from '../../components/forms/Alerta'
 import { Button } from '../../components/ui/Button'
+import { Chip } from '../../components/ui/Chip'
 import { ModalDocumento } from '../../components/ui/ModalDocumento'
 import { Skeleton } from '../../components/ui/Skeleton'
+import { toast } from '../../components/ui/toast-store'
 import { desdeApi, formatearCantidad, formatearEuros } from '../../lib/dinero'
+import { CAUSAS_RECTIFICACION } from '../../lib/facturacion'
 import { fechaCorta } from '../../lib/fechas'
+import { useClaveOperacion } from '../../lib/idempotencia'
 import { nombreConEstado } from '../../lib/usuarios'
+import { AnularFacturaDialog } from './AnularFacturaDialog'
+import { EnlacesFactura, HistorialFactura } from './HistorialFactura'
 import { FichaDestinatario } from './ResumenCliente'
 import { TotalesFactura } from './TotalesFactura'
+
+// Enlace con el aspecto del botón secundario (DESIGN.md §Buttons): «Modificar» abre otra ruta.
+const claseBotonSecundario =
+  'inline-flex h-11 items-center justify-center gap-2 border border-primary-container bg-transparent ' +
+  'px-6 label-lg text-on-surface transition-colors duration-150 hover:bg-primary-container/8 ' +
+  'outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 ' +
+  'focus-visible:outline-tertiary'
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
@@ -65,23 +82,26 @@ function Lineas({ factura }: { factura: FacturaSalida }) {
   )
 }
 
-function Registros({ factura }: { factura: FacturaSalida }) {
-  return (
-    <ul className="flex flex-col gap-2 body-sm text-on-surface-variant">
-      {factura.registros.map((r) => (
-        <li key={r.secuencia} className="flex flex-wrap gap-x-4 gap-y-1">
-          <span className="text-on-surface">
-            Registro de {r.tipo === 'alta' ? 'alta' : 'anulación'} nº {r.secuencia}
-          </span>
-          <span>{r.fecha_hora_huso_gen}</span>
-          <span className="font-mono tabular-nums" title={r.huella}>
-            Huella {r.huella.slice(0, 16)}…
-          </span>
-          <span>Remisión: pendiente</span>
-        </li>
-      ))}
-    </ul>
-  )
+/** Marca del estado y del tipo (FR-026): anulada, rectificada o rectificativa R1/R4. */
+function Marcas({ factura }: { factura: FacturaSalida }) {
+  const marcas = [
+    factura.estado === 'anulada' ? (
+      <Chip key="a" tone="neutral">
+        Anulada
+      </Chip>
+    ) : null,
+    factura.estado === 'rectificada' ? (
+      <Chip key="r" tone="neutral">
+        Rectificada
+      </Chip>
+    ) : null,
+    factura.rectifica_a ? (
+      <Chip key="t" tone="warning">
+        Rectificativa {factura.tipo_factura}
+      </Chip>
+    ) : null,
+  ].filter(Boolean)
+  return marcas.length ? <div className="flex flex-wrap gap-2">{marcas}</div> : null
 }
 
 /** Detalle de una factura emitida en modo consulta (FR-026, FR-038). */
@@ -89,6 +109,10 @@ export function FacturaDetalle({ factura }: { factura: FacturaSalida }) {
   const desglose = factura.totales.desglose[0]
   return (
     <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <Marcas factura={factura} />
+        <EnlacesFactura factura={factura} />
+      </div>
       <Seccion titulo="Datos de emisión">
         <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div>
@@ -116,6 +140,30 @@ export function FacturaDetalle({ factura }: { factura: FacturaSalida }) {
         </dl>
         <FichaDestinatario datos={factura.cliente} />
       </Seccion>
+      {factura.rectifica_a ? (
+        <Seccion titulo="Rectificación">
+          <dl className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="md:col-span-3">
+              <dt className="label-sm text-on-surface-variant">Causa</dt>
+              <dd className="body-md text-on-surface">
+                {CAUSAS_RECTIFICACION[factura.rectifica_a.causa]}
+              </dd>
+            </div>
+            <div>
+              <dt className="label-sm text-on-surface-variant">Base rectificada</dt>
+              <dd className="body-md tabular-nums text-on-surface">
+                {formatearEuros(desdeApi(factura.rectifica_a.base_rectificada))}
+              </dd>
+            </div>
+            <div>
+              <dt className="label-sm text-on-surface-variant">Cuota rectificada</dt>
+              <dd className="body-md tabular-nums text-on-surface">
+                {formatearEuros(desdeApi(factura.rectifica_a.cuota_rectificada))}
+              </dd>
+            </div>
+          </dl>
+        </Seccion>
+      ) : null}
       <Seccion titulo="Detalle de la factura">
         <Lineas factura={factura} />
       </Seccion>
@@ -125,14 +173,15 @@ export function FacturaDetalle({ factura }: { factura: FacturaSalida }) {
         total={desdeApi(factura.totales.importe_total)}
         tipoIva={desglose?.tipo_iva ?? '0.00'}
       />
-      <Seccion titulo="Registro de facturación">
-        <Registros factura={factura} />
-      </Seccion>
+      <HistorialFactura factura={factura} />
     </div>
   )
 }
 
-/** Modal de consulta de una factura emitida (US2; en US5 se añaden anular, modificar e historial). */
+/**
+ * Modal de consulta de una factura emitida (FR-038): «Cerrar» y, si está vigente y quien la mira
+ * es administrador, «Anular» y «Modificar». Tras anular sigue en la factura, ya anulada (FR-049).
+ */
 export function FacturaConsultaModal({
   facturaId,
   onCerrar,
@@ -140,8 +189,42 @@ export function FacturaConsultaModal({
   facturaId: string
   onCerrar: () => void
 }) {
+  const { usuario } = useSesion()
   const consulta = useQuery(facturaQuery(facturaId))
   const factura = consulta.data
+  const anular = useAnularFactura()
+  const { clave, renovar } = useClaveOperacion()
+  const [anulando, setAnulando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const corregible = factura?.estado === 'vigente' && usuario.rol === 'administrador'
+
+  const confirmarAnulacion = async (motivoTexto: string) => {
+    if (!factura) return
+    setError(null)
+    try {
+      await anular.mutateAsync({
+        id: factura.id,
+        body: { declaracion_no_debio_emitirse: true, motivo_texto: motivoTexto },
+        clave,
+      })
+      renovar()
+      setAnulando(false)
+      const original = factura.rectifica_a?.factura.num_serie
+      toast(
+        original
+          ? `Factura ${factura.num_serie} anulada. ${original} vuelve a estar vigente`
+          : `Factura ${factura.num_serie} anulada`,
+      )
+    } catch (e) {
+      setAnulando(false)
+      setError(
+        e instanceof ApiError && e.tipo !== 'red'
+          ? e.message
+          : 'No se ha podido completar la anulación. Vuelve a intentarlo: no se anulará dos veces.',
+      )
+    }
+  }
+
   return (
     <ModalDocumento
       title={factura ? `Factura ${factura.num_serie}` : 'Factura'}
@@ -150,21 +233,58 @@ export function FacturaConsultaModal({
         if (!abierto) onCerrar()
       }}
       footer={
-        <Button variant="ghost" onPress={onCerrar}>
-          Cerrar
-        </Button>
+        <>
+          <Button variant="ghost" onPress={onCerrar} className="sm:mr-auto">
+            Cerrar
+          </Button>
+          {factura && corregible ? (
+            <>
+              <Button
+                variant="danger"
+                onPress={() => {
+                  setAnulando(true)
+                }}
+                isDisabled={anular.isPending}
+              >
+                Anular
+              </Button>
+              <Link
+                to="/facturas/$facturaId/modificar"
+                params={{ facturaId: factura.id }}
+                search
+                className={claseBotonSecundario}
+              >
+                Modificar
+              </Link>
+            </>
+          ) : null}
+        </>
       }
     >
       {consulta.isError ? (
         <Alerta mensaje={consulta.error.message} />
       ) : factura ? (
-        <FacturaDetalle factura={factura} />
+        <div className="flex flex-col gap-6">
+          <Alerta mensaje={error} />
+          <FacturaDetalle factura={factura} />
+        </div>
       ) : (
         <div className="flex flex-col gap-5" aria-busy="true" aria-label="Cargando">
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-40 w-full" />
         </div>
       )}
+      {factura ? (
+        <AnularFacturaDialog
+          key={String(anulando)}
+          isOpen={anulando}
+          onOpenChange={setAnulando}
+          numSerie={factura.num_serie}
+          reactivara={factura.rectifica_a?.factura.num_serie}
+          enviando={anular.isPending}
+          onConfirmar={(motivo) => void confirmarAnulacion(motivo)}
+        />
+      ) : null}
     </ModalDocumento>
   )
 }

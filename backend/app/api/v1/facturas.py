@@ -7,12 +7,13 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Header, Query, Response, status
 from pydantic import Field
 
-from app.api.deps import CurrentSession, DbDep, OrigenDep, get_current_session
+from app.api.deps import AdminSession, CurrentSession, DbDep, OrigenDep, get_current_session
 from app.domain.tipos import CausaRectificacion, MotivoModificacion, TipoCorreccion, TipoFactura
 from app.models.factura import Factura
 from app.schemas.comunes import Pagina
 from app.schemas.configuracion_facturacion import DatosEmisorSalida, ParametrosFacturacionSalida
 from app.schemas.factura import (
+    AnulacionEntrada,
     ClienteFacturaSalida,
     CorreccionSalida,
     DesgloseSalida,
@@ -22,6 +23,7 @@ from app.schemas.factura import (
     FacturaSalida,
     LineaEntrada,
     LineaSalida,
+    ModificacionEntrada,
     RectificaA,
     RegistroResumen,
     TotalesSalida,
@@ -250,3 +252,56 @@ async def emitir_factura(
 @router.get("/{factura_id}")
 async def obtener_factura(factura_id: uuid.UUID, db: DbDep) -> FacturaSalida:
     return factura_salida(await servicio.get_factura(db, factura_id))
+
+
+@router.post("/{factura_id}/anulacion")
+async def anular_factura(
+    factura_id: uuid.UUID,
+    datos: AnulacionEntrada,
+    clave: ClaveIdempotencia,
+    sesion: AdminSession,
+    db: DbDep,
+    origen: OrigenDep,
+) -> FacturaSalida:
+    """Anulación sin reemisión (FR-025). Una repetición devuelve lo mismo (200 en ambos casos)."""
+    factura, _ = await emision.anular_factura(
+        db,
+        factura_id,
+        motivo_texto=datos.motivo_texto,
+        actor=sesion.usuario,
+        origen=origen,
+        clave=clave,
+    )
+    return factura_salida(await servicio.get_factura(db, factura.id))
+
+
+@router.post(
+    "/{factura_id}/modificacion", status_code=status.HTTP_201_CREATED, responses=REPETICION
+)
+async def modificar_factura(
+    factura_id: uuid.UUID,
+    datos: ModificacionEntrada,
+    clave: ClaveIdempotencia,
+    sesion: AdminSession,
+    db: DbDep,
+    origen: OrigenDep,
+    response: Response,
+) -> FacturaSalida:
+    """Corrección trazable (FR-023, FR-024): devuelve la factura nueva (FAC o REC)."""
+    nueva, creada = await emision.modify_factura(
+        db,
+        factura_id,
+        emision.DatosModificacion(
+            motivo=datos.motivo,
+            causa=datos.causa,
+            motivo_texto=datos.motivo_texto,
+            cliente_id=datos.cliente_id,
+            lineas=datos_lineas(datos.lineas),
+        ),
+        actor=sesion.usuario,
+        origen=origen,
+        clave=clave,
+    )
+    if not creada:
+        response.status_code = status.HTTP_200_OK
+    return factura_salida(await servicio.get_factura(db, nueva.id))

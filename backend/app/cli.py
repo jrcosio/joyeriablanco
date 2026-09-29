@@ -115,6 +115,7 @@ def cargar_datos_ejemplo(
         return
     typer.echo(f"Clientes de ejemplo creados: {resumen.clientes_creados}")
     typer.echo(f"Facturas de ejemplo emitidas: {resumen.facturas_emitidas}")
+    typer.echo(f"Correcciones de ejemplo: {resumen.correcciones}")
     typer.echo(f"Borradores de ejemplo: {resumen.borradores_creados}")
     for nombre_usuario, temporal in resumen.contrasenas_temporales.items():
         _mostrar_temporal(nombre_usuario, temporal)

@@ -22,8 +22,17 @@ from app.core.errors import Duplicado, SinPermiso
 from app.core.http import Origen
 from app.core.security import hash_password
 from app.core.tiempo import ahora, hoy
-from app.domain.tipos import CLAVE_REGIMEN_GENERAL, Modalidad, Rol, TipoCliente, TipoIdentificacion
+from app.domain.tipos import (
+    CLAVE_REGIMEN_GENERAL,
+    CausaRectificacion,
+    Modalidad,
+    MotivoModificacion,
+    Rol,
+    TipoCliente,
+    TipoIdentificacion,
+)
 from app.models.cliente import Cliente
+from app.models.factura import Factura
 from app.models.usuario import Usuario
 from app.repositories import configuracion_facturacion as configuracion_repo
 from app.repositories import usuarios as usuarios_repo
@@ -118,6 +127,7 @@ ARTICULOS: Final = (
 class ResumenCarga:
     clientes_creados: int = 0
     facturas_emitidas: int = 0
+    correcciones: int = 0
     borradores_creados: int = 0
     ya_cargados: bool = False
     contrasenas_temporales: dict[str, str] = field(default_factory=dict)
@@ -273,17 +283,18 @@ async def _emitir_facturas(
     cantidad: int,
     emisores: list[Usuario],
     clientes: list[Cliente],
-) -> int:
+) -> list[Factura]:
     """Emite `cantidad` facturas de los últimos meses, en orden de fecha (FR-018)."""
     facturables = [c for c in clientes if c.activo and c.direccion and c.localidad]
     if not facturables or cantidad == 0:
-        return 0
+        return []
     hoy_madrid = hoy()
     fechas: list[date] = sorted(
         hoy_madrid - timedelta(days=rng.randrange(0, DIAS_FACTURAS)) for _ in range(cantidad)
     )
+    emitidas: list[Factura] = []
     for fecha in fechas:
-        await emision.emit_factura(
+        factura, _ = await emision.emit_factura(
             db,
             emision.DatosFactura(
                 fecha_expedicion=fecha,
@@ -294,7 +305,68 @@ async def _emitir_facturas(
             origen=ORIGEN,
             clave=uuid.UUID(int=rng.getrandbits(128), version=4),
         )
-    return len(fechas)
+        emitidas.append(factura)
+    return emitidas
+
+
+async def _corregir(
+    db: AsyncSession, rng: random.Random, *, facturas: list[Factura], admin: Usuario
+) -> int:
+    """Correcciones de ejemplo sobre facturas distintas (T069): una anulación, una reemisión, una
+    rectificativa R4, una devolución total R1 y una rectificativa anulada."""
+    if len(facturas) < 5:
+        return 0
+    elegidas = rng.sample(facturas, k=5)
+
+    def clave() -> uuid.UUID:
+        return uuid.UUID(int=rng.getrandbits(128), version=4)
+
+    async def modificar(
+        factura: Factura,
+        motivo: MotivoModificacion,
+        causa: CausaRectificacion | None,
+        lineas: tuple[emision.DatosLinea, ...],
+    ) -> Factura:
+        nueva, _ = await emision.modify_factura(
+            db,
+            factura.id,
+            emision.DatosModificacion(
+                motivo=motivo,
+                causa=causa,
+                motivo_texto=f"{MARCADOR} Corrección de ejemplo.",
+                cliente_id=factura.cliente_id,
+                lineas=lineas,
+            ),
+            actor=admin,
+            origen=ORIGEN,
+            clave=clave(),
+        )
+        return nueva
+
+    async def anular(factura: Factura) -> None:
+        await emision.anular_factura(
+            db,
+            factura.id,
+            motivo_texto=f"{MARCADOR} Emitida por error.",
+            actor=admin,
+            origen=ORIGEN,
+            clave=clave(),
+        )
+
+    anulada, reemitida, r4, devuelta, a_anular = elegidas
+    await anular(anulada)
+    await modificar(reemitida, MotivoModificacion.NO_DEBIO_EMITIRSE, None, _lineas(rng))
+    await modificar(
+        r4, MotivoModificacion.FACTURA_ENTREGADA, CausaRectificacion.ERROR_DATOS, _lineas(rng)
+    )
+    await modificar(
+        devuelta, MotivoModificacion.FACTURA_ENTREGADA, CausaRectificacion.DEVOLUCION_O_PRECIO, ()
+    )
+    rectificativa = await modificar(
+        a_anular, MotivoModificacion.FACTURA_ENTREGADA, CausaRectificacion.ERROR_DATOS, _lineas(rng)
+    )
+    await anular(rectificativa)
+    return 6
 
 
 async def _crear_borradores(
@@ -369,9 +441,9 @@ async def cargar(
     await db.flush()
 
     await _configurar_facturacion(db, admin)
-    resumen.facturas_emitidas = await _emitir_facturas(
-        db, rng, cantidad=facturas, emisores=demo, clientes=creados
-    )
+    emitidas = await _emitir_facturas(db, rng, cantidad=facturas, emisores=demo, clientes=creados)
+    resumen.facturas_emitidas = len(emitidas)
+    resumen.correcciones = await _corregir(db, rng, facturas=emitidas, admin=admin)
     resumen.borradores_creados = await _crear_borradores(
         db, rng, cantidad=borradores, autores=demo, clientes=creados
     )

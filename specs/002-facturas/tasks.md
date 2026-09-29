@@ -424,7 +424,7 @@ comprueba lo siguiente:
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T063 [P] [US5] Test `backend/tests/integration/test_correcciones.py`, sobre research R-4, R-8, R-9 y R-18:
+- [X] T063 [P] [US5] Test `backend/tests/integration/test_correcciones.py`, sobre research R-4, R-8, R-9 y R-18:
   - **Anular**:
     - Solo administrador; un empleado recibe 403, **tanto en `/anulacion` como en `/modificacion`** (SC-005).
     - Declaración obligatoria.
@@ -455,7 +455,7 @@ comprueba lo siguiente:
     - Dos modificaciones concurrentes de la misma factura → una 201 y otra 409.
     - Un `INSERT` directo en `correcciones_factura` sobre una factura no vigente lo rechaza el trigger `validar_correccion`.
   - **Detalle**: el detalle muestra `correcciones` con `en_vigor`.
-- [ ] T064 [P] [US5] Tests web:
+- [X] T064 [P] [US5] Tests web:
   - `joyeriablanco_web/src/features/facturas/MotivoModificacionDialog.test.tsx`:
     - El motivo y la causa, con lo que se va a generar.
     - En una REC solo se ofrece «ya entregada».
@@ -471,7 +471,7 @@ comprueba lo siguiente:
 
 ### Implementation for User Story 5
 
-- [ ] T065 [US5] Implementar en `backend/app/services/emision.py`, bajo el cerrojo de la cadena y con idempotencia:
+- [X] T065 [US5] Implementar en `backend/app/services/emision.py`, bajo el cerrojo de la cadena y con idempotencia:
   - `anular_factura(db, actor, factura_id, declaracion, motivo_texto, clave)`.
   - `modify_factura(db, actor, factura_id, datos, clave)`, que puede ser anulación más reemisión o rectificación por sustitución R1/R4, con devolución total.
   - Reglas de REC y de `sin-cambios`.
@@ -479,14 +479,14 @@ comprueba lo siguiente:
   - Registros mediante `services/cadena.py`.
   - Auditoría (`factura_anulada` y `factura_rectificada`).
   - Logs sin datos personales.
-- [ ] T066 [US5] Implementar `backend/app/repositories/correcciones.py` (insertar y listar por factura) y completar el historial en `repositories/facturas.get_detalle`. El estado sale siempre de `estado_factura` (research R-8, R-12). Test en `backend/tests/integration/test_estado_factura.py`: la función, la vista y el trigger coinciden en todos los casos de FR-048 (anulada, rectificada, rectificativa anulada que reactiva la original y rectificativa de una rectificativa).
-- [ ] T067 [US5] Añadir `AnulacionEntrada` y `ModificacionEntrada` en `backend/app/schemas/factura.py`, e implementar `POST /v1/facturas/{id}/anulacion` y `POST /v1/facturas/{id}/modificacion` con `AdminSession` e `Idempotency-Key`. Quitarlos de `PENDIENTES_002`.
-- [ ] T068 [US5] Web:
+- [X] T066 [US5] Implementar `backend/app/repositories/correcciones.py` (insertar y listar por factura) y completar el historial en `repositories/facturas.get_detalle`. El estado sale siempre de `estado_factura` (research R-8, R-12). Test en `backend/tests/integration/test_estado_factura.py`: la función, la vista y el trigger coinciden en todos los casos de FR-048 (anulada, rectificada, rectificativa anulada que reactiva la original y rectificativa de una rectificativa).
+- [X] T067 [US5] Añadir `AnulacionEntrada` y `ModificacionEntrada` en `backend/app/schemas/factura.py`, e implementar `POST /v1/facturas/{id}/anulacion` y `POST /v1/facturas/{id}/modificacion` con `AdminSession` e `Idempotency-Key`. Quitarlos de `PENDIENTES_002`.
+- [X] T068 [US5] Web:
   - En `joyeriablanco_web/src/features/facturas/`: `MotivoModificacionDialog.tsx`, `AnularFacturaDialog.tsx`, `HistorialFactura.tsx` y los modos consulta y modificar de `FacturaModal.tsx`, con el aviso de IVA distinto y el resultado tras cada acción (FR-049).
   - La ruta `joyeriablanco_web/src/routes/_app/facturas/$facturaId/modificar.tsx`, solo para administradores.
   - Las marcas «Anulada» y «Rectificada» en `TablaFacturas.tsx`.
-- [ ] T069 [US5] Añadir a `backend/app/services/datos_ejemplo.py`, mediante `emision.anular_factura` y `modify_factura`, unas cuantas correcciones: una anulación, una reemisión, una rectificativa R4, una devolución total R1 y una rectificativa anulada.
-- [ ] T070 [US5] E2E `joyeriablanco_web/e2e/facturas.spec.ts`, parte 3, como administrador:
+- [X] T069 [US5] Añadir a `backend/app/services/datos_ejemplo.py`, mediante `emision.anular_factura` y `modify_factura`, unas cuantas correcciones: una anulación, una reemisión, una rectificativa R4, una devolución total R1 y una rectificativa anulada.
+- [X] T070 [US5] E2E `joyeriablanco_web/e2e/facturas.spec.ts`, parte 3, como administrador:
   1. Reemisión.
   2. Rectificativa R4.
   3. Anulación de una rectificativa, con la original vigente de nuevo.

@@ -24,8 +24,9 @@ import { Route as AppConfiguracionIndexRouteImport } from './routes/_app/configu
 import { Route as AppConfiguracionAuditoriaRouteImport } from './routes/_app/configuracion/auditoria'
 import { Route as AppConfiguracionFacturacionRouteImport } from './routes/_app/configuracion/facturacion'
 import { Route as AppConfiguracionUsuariosRouteImport } from './routes/_app/configuracion/usuarios'
-import { Route as AppFacturasFacturaIdRouteImport } from './routes/_app/facturas/$facturaId'
 import { Route as AppFacturasNuevaRouteImport } from './routes/_app/facturas/nueva'
+import { Route as AppFacturasFacturaIdIndexRouteImport } from './routes/_app/facturas/$facturaId/index'
+import { Route as AppFacturasFacturaIdModificarRouteImport } from './routes/_app/facturas/$facturaId/modificar'
 import { Route as AppFacturasBorradoresBorradorIdRouteImport } from './routes/_app/facturas/borradores/$borradorId'
 
 const AppRoute = AppRouteImport.update({
@@ -105,16 +106,23 @@ const AppConfiguracionUsuariosRoute =
     path: '/usuarios',
     getParentRoute: () => AppConfiguracionRoute,
   } as any)
-const AppFacturasFacturaIdRoute = AppFacturasFacturaIdRouteImport.update({
-  id: '/$facturaId',
-  path: '/$facturaId',
-  getParentRoute: () => AppFacturasRoute,
-} as any)
 const AppFacturasNuevaRoute = AppFacturasNuevaRouteImport.update({
   id: '/nueva',
   path: '/nueva',
   getParentRoute: () => AppFacturasRoute,
 } as any)
+const AppFacturasFacturaIdIndexRoute =
+  AppFacturasFacturaIdIndexRouteImport.update({
+    id: '/$facturaId/',
+    path: '/$facturaId/',
+    getParentRoute: () => AppFacturasRoute,
+  } as any)
+const AppFacturasFacturaIdModificarRoute =
+  AppFacturasFacturaIdModificarRouteImport.update({
+    id: '/$facturaId/modificar',
+    path: '/$facturaId/modificar',
+    getParentRoute: () => AppFacturasRoute,
+  } as any)
 const AppFacturasBorradoresBorradorIdRoute =
   AppFacturasBorradoresBorradorIdRouteImport.update({
     id: '/borradores/$borradorId',
@@ -136,10 +144,11 @@ export interface FileRoutesByFullPath {
   '/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
   '/configuracion/facturacion': typeof AppConfiguracionFacturacionRoute
   '/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
-  '/facturas/$facturaId': typeof AppFacturasFacturaIdRoute
   '/facturas/nueva': typeof AppFacturasNuevaRoute
   '/configuracion/': typeof AppConfiguracionIndexRoute
+  '/facturas/$facturaId/modificar': typeof AppFacturasFacturaIdModificarRoute
   '/facturas/borradores/$borradorId': typeof AppFacturasBorradoresBorradorIdRoute
+  '/facturas/$facturaId/': typeof AppFacturasFacturaIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/acceso': typeof AccesoRoute
@@ -154,10 +163,11 @@ export interface FileRoutesByTo {
   '/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
   '/configuracion/facturacion': typeof AppConfiguracionFacturacionRoute
   '/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
-  '/facturas/$facturaId': typeof AppFacturasFacturaIdRoute
   '/facturas/nueva': typeof AppFacturasNuevaRoute
   '/configuracion': typeof AppConfiguracionIndexRoute
+  '/facturas/$facturaId/modificar': typeof AppFacturasFacturaIdModificarRoute
   '/facturas/borradores/$borradorId': typeof AppFacturasBorradoresBorradorIdRoute
+  '/facturas/$facturaId': typeof AppFacturasFacturaIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -175,10 +185,11 @@ export interface FileRoutesById {
   '/_app/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
   '/_app/configuracion/facturacion': typeof AppConfiguracionFacturacionRoute
   '/_app/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
-  '/_app/facturas/$facturaId': typeof AppFacturasFacturaIdRoute
   '/_app/facturas/nueva': typeof AppFacturasNuevaRoute
   '/_app/configuracion/': typeof AppConfiguracionIndexRoute
+  '/_app/facturas/$facturaId/modificar': typeof AppFacturasFacturaIdModificarRoute
   '/_app/facturas/borradores/$borradorId': typeof AppFacturasBorradoresBorradorIdRoute
+  '/_app/facturas/$facturaId/': typeof AppFacturasFacturaIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -196,10 +207,11 @@ export interface FileRouteTypes {
     | '/configuracion/auditoria'
     | '/configuracion/facturacion'
     | '/configuracion/usuarios'
-    | '/facturas/$facturaId'
     | '/facturas/nueva'
     | '/configuracion/'
+    | '/facturas/$facturaId/modificar'
     | '/facturas/borradores/$borradorId'
+    | '/facturas/$facturaId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/acceso'
@@ -214,10 +226,11 @@ export interface FileRouteTypes {
     | '/configuracion/auditoria'
     | '/configuracion/facturacion'
     | '/configuracion/usuarios'
-    | '/facturas/$facturaId'
     | '/facturas/nueva'
     | '/configuracion'
+    | '/facturas/$facturaId/modificar'
     | '/facturas/borradores/$borradorId'
+    | '/facturas/$facturaId'
   id:
     | '__root__'
     | '/_app'
@@ -234,10 +247,11 @@ export interface FileRouteTypes {
     | '/_app/configuracion/auditoria'
     | '/_app/configuracion/facturacion'
     | '/_app/configuracion/usuarios'
-    | '/_app/facturas/$facturaId'
     | '/_app/facturas/nueva'
     | '/_app/configuracion/'
+    | '/_app/facturas/$facturaId/modificar'
     | '/_app/facturas/borradores/$borradorId'
+    | '/_app/facturas/$facturaId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -353,18 +367,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConfiguracionUsuariosRouteImport
       parentRoute: typeof AppConfiguracionRoute
     }
-    '/_app/facturas/$facturaId': {
-      id: '/_app/facturas/$facturaId'
-      path: '/$facturaId'
-      fullPath: '/facturas/$facturaId'
-      preLoaderRoute: typeof AppFacturasFacturaIdRouteImport
-      parentRoute: typeof AppFacturasRoute
-    }
     '/_app/facturas/nueva': {
       id: '/_app/facturas/nueva'
       path: '/nueva'
       fullPath: '/facturas/nueva'
       preLoaderRoute: typeof AppFacturasNuevaRouteImport
+      parentRoute: typeof AppFacturasRoute
+    }
+    '/_app/facturas/$facturaId/': {
+      id: '/_app/facturas/$facturaId/'
+      path: '/$facturaId'
+      fullPath: '/facturas/$facturaId/'
+      preLoaderRoute: typeof AppFacturasFacturaIdIndexRouteImport
+      parentRoute: typeof AppFacturasRoute
+    }
+    '/_app/facturas/$facturaId/modificar': {
+      id: '/_app/facturas/$facturaId/modificar'
+      path: '/$facturaId/modificar'
+      fullPath: '/facturas/$facturaId/modificar'
+      preLoaderRoute: typeof AppFacturasFacturaIdModificarRouteImport
       parentRoute: typeof AppFacturasRoute
     }
     '/_app/facturas/borradores/$borradorId': {
@@ -409,15 +430,17 @@ const AppConfiguracionRouteWithChildren =
   AppConfiguracionRoute._addFileChildren(AppConfiguracionRouteChildren)
 
 interface AppFacturasRouteChildren {
-  AppFacturasFacturaIdRoute: typeof AppFacturasFacturaIdRoute
   AppFacturasNuevaRoute: typeof AppFacturasNuevaRoute
+  AppFacturasFacturaIdModificarRoute: typeof AppFacturasFacturaIdModificarRoute
   AppFacturasBorradoresBorradorIdRoute: typeof AppFacturasBorradoresBorradorIdRoute
+  AppFacturasFacturaIdIndexRoute: typeof AppFacturasFacturaIdIndexRoute
 }
 
 const AppFacturasRouteChildren: AppFacturasRouteChildren = {
-  AppFacturasFacturaIdRoute: AppFacturasFacturaIdRoute,
   AppFacturasNuevaRoute: AppFacturasNuevaRoute,
+  AppFacturasFacturaIdModificarRoute: AppFacturasFacturaIdModificarRoute,
   AppFacturasBorradoresBorradorIdRoute: AppFacturasBorradoresBorradorIdRoute,
+  AppFacturasFacturaIdIndexRoute: AppFacturasFacturaIdIndexRoute,
 }
 
 const AppFacturasRouteWithChildren = AppFacturasRoute._addFileChildren(

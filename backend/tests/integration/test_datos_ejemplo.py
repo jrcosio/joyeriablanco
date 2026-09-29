@@ -1,5 +1,6 @@
 """Datos de ejemplo para desarrollo y E2E (US7; FR-045)."""
 
+from collections import Counter
 from datetime import timedelta
 from itertools import pairwise
 
@@ -49,7 +50,8 @@ async def test_carga_clientes_y_usuarios_validos(db: AsyncSession) -> None:
 
 
 async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSession) -> None:
-    """R-16: las facturas pasan por `emit_factura`, así que la cadena queda íntegra."""
+    """R-16: las facturas y sus correcciones pasan por los servicios, así que la cadena queda
+    íntegra y cada estado sale de las correcciones."""
     resumen = await datos_ejemplo.cargar(db, clientes=40, facturas=50)
 
     assert resumen.facturas_emitidas == 50
@@ -58,22 +60,34 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
     assert estado.config.modalidad == "verifactu"
     assert estado.config.emisor_nombre == "Joyería Blanco (demo)"
 
-    facturas = list(
-        (await db.execute(select(Factura).order_by(Factura.anio, Factura.numero))).scalars()
+    todas = list(
+        (
+            await db.execute(select(Factura).order_by(Factura.serie, Factura.anio, Factura.numero))
+        ).scalars()
     )
-    assert len(facturas) == 50
+    ordinarias = [f for f in todas if f.serie == "FAC"]
+    assert len(ordinarias) == 51  # las 50 y la que sustituye a la reemitida
+    assert len([f for f in todas if f.serie == "REC"]) == 3
     hoy_madrid = hoy()
-    for previa, siguiente in pairwise(facturas):
+    for previa, siguiente in pairwise(ordinarias):
         if previa.anio == siguiente.anio:
             assert siguiente.numero == previa.numero + 1
             assert siguiente.fecha_expedicion >= previa.fecha_expedicion
-    for factura in facturas:
+    for factura in ordinarias:
         assert hoy_madrid - timedelta(days=182) < factura.fecha_expedicion <= hoy_madrid
         assert factura.importe_total > 0
         assert factura.dest_direccion is not None
 
+    # T069: anulación, reemisión, R4, devolución total R1 y rectificativa anulada.
+    assert resumen.correcciones == 6
+    estados = Counter([str(await db.scalar(select(func.estado_factura(f.id)))) for f in todas])
+    assert estados["anulada"] == 3  # la anulada, la reemitida y la rectificativa anulada
+    assert estados["rectificada"] == 2
+    assert {f.tipo_factura for f in todas if f.serie == "REC"} == {"R1", "R4"}
+
     cola = await registros.list_in_order(db)
-    assert [r.secuencia for r in cola] == list(range(1, 51))
+    # 50 altas + anulación + (anulación + alta) + 3 altas REC + anulación de la REC.
+    assert [r.secuencia for r in cola] == list(range(1, 58))
     for anterior, actual in pairwise(cola):
         assert actual.huella_anterior == anterior.huella
     for registro in cola:

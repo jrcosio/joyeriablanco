@@ -1,10 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { TriangleAlert, UserPlus } from 'lucide-react'
+import { TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
-import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
-import { Form } from 'react-aria-components'
+import { useForm } from 'react-hook-form'
 import { ApiError } from '../../api/client'
 import {
   borradorQuery,
@@ -19,16 +18,14 @@ import type { BorradorSalida, FacturaSalida, ParametrosFacturacionSalida } from 
 import { useSesion } from '../../auth/session'
 import { Alerta } from '../../components/forms/Alerta'
 import { Button } from '../../components/ui/Button'
-import { CampoFecha } from '../../components/ui/CampoFecha'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Dialog } from '../../components/ui/Dialog'
 import { ModalDocumento } from '../../components/ui/ModalDocumento'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { toast } from '../../components/ui/toast-store'
-import { calcularTotales, desdeApi } from '../../lib/dinero'
 import { textoFalta, textoTipoIva } from '../../lib/facturacion'
 import { useClaveOperacion } from '../../lib/idempotencia'
-import { ClienteAltaPanel } from '../clientes/ClienteAltaPanel'
+import { CamposFactura } from './CamposFactura'
 import { ConfirmarEmisionDialog } from './ConfirmarEmisionDialog'
 import {
   aCuerpo,
@@ -37,40 +34,13 @@ import {
   erroresParaEmitir,
   esquema,
   etiquetaCliente,
-  lineasCalculo,
   valoresDelBorrador,
   valoresIniciales,
   type ValoresFactura,
 } from './factura-valores'
-import { LineasFactura } from './LineasFactura'
-import { ResumenCliente } from './ResumenCliente'
-import { SelectorCliente } from './SelectorCliente'
-import { TotalesFactura } from './TotalesFactura'
 
 const YA_NO_EXISTE =
   'Este borrador ya se ha emitido o se ha eliminado. Ciérralo y búscalo en el listado.'
-
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-4">
-      <h3 className="title-lg text-on-surface">{titulo}</h3>
-      {children}
-    </section>
-  )
-}
-
-/** Totales previstos en el navegador (R-11). Tras guardar mandan los del servidor. */
-function Previsualizacion({
-  form,
-  tipoIva,
-}: {
-  form: UseFormReturn<ValoresFactura>
-  tipoIva: string
-}) {
-  const lineas = useWatch({ control: form.control, name: 'lineas' })
-  const totales = calcularTotales(lineasCalculo(lineas), desdeApi(tipoIva))
-  return <TotalesFactura {...totales} tipoIva={tipoIva} />
-}
 
 function AvisoNoEmitible({ faltan }: { faltan: readonly string[] }) {
   const { usuario } = useSesion()
@@ -136,7 +106,6 @@ function FormularioFactura({
   const [descartando, setDescartando] = useState(false)
   const [eliminando, setEliminando] = useState(false)
   const [conflicto, setConflicto] = useState(false)
-  const [altaCliente, setAltaCliente] = useState(false)
   const [nombreCliente, setNombreCliente] = useState<string | undefined>(
     borrador?.cliente ? etiquetaCliente(borrador.cliente) : undefined,
   )
@@ -144,10 +113,9 @@ function FormularioFactura({
     resolver: zodResolver(esquema),
     defaultValues: borrador ? valoresDelBorrador(borrador) : valoresIniciales(parametros.hoy),
   })
-  const { control, formState, setError: marcar } = form
+  const { formState, setError: marcar } = form
   // Se lee al renderizar para que react-hook-form lo mantenga al día (su `formState` es un proxy).
   const sucio = formState.isDirty
-  const clienteId = useWatch({ control, name: 'cliente_id' })
   const ocupado =
     emitirNueva.isPending ||
     emitirBorrador.isPending ||
@@ -305,100 +273,24 @@ function FormularioFactura({
         </>
       }
     >
-      <Form
-        className="flex flex-col gap-8"
-        validationBehavior="aria"
-        onSubmit={(e) => {
-          e.preventDefault()
-          void pedirEmision()
-        }}
-      >
-        {tipoIvaPrevisto && tipoIvaPrevisto !== parametros.iva_por_defecto ? (
-          <AvisoCambioIva previsto={tipoIvaPrevisto} vigente={parametros.iva_por_defecto} />
-        ) : null}
-        <Seccion titulo="Datos de emisión">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_1fr_2fr]">
-            <div className="flex flex-col gap-1.5">
-              <span className="label-md text-on-surface-variant">Nº de factura</span>
-              <span className="flex h-11 items-center border border-on-surface/12 bg-surface-container px-3 body-md text-on-surface-variant">
-                Se asigna al emitir
-              </span>
-              <span className="body-sm text-on-surface-variant">
-                Previsto: <span className="tabular-nums">{parametros.proximo_numero}</span>
-              </span>
-            </div>
-            <Controller
-              control={control}
-              name="fecha_expedicion"
-              render={({ field, fieldState }) => (
-                <CampoFecha
-                  label="Fecha"
-                  isRequired
-                  value={field.value}
-                  onChange={(v) => {
-                    field.onChange(v ?? '')
-                  }}
-                  onBlur={field.onBlur}
-                  max={parametros.hoy}
-                  {...(parametros.fecha_minima ? { min: parametros.fecha_minima } : {})}
-                  error={fieldState.error?.message}
-                />
-              )}
-            />
-            <div className="flex flex-col gap-2">
-              <Controller
-                control={control}
-                name="cliente_id"
-                render={({ field, fieldState }) => (
-                  <SelectorCliente
-                    key={nombreCliente ?? 'selector'}
-                    value={field.value}
-                    nombreInicial={nombreCliente}
-                    onChange={(id) => {
-                      field.onChange(id)
-                    }}
-                    error={fieldState.error?.message}
-                  />
-                )}
-              />
-              <div>
-                <Button
-                  variant="ghost"
-                  className="h-9 px-0"
-                  onPress={() => {
-                    setAltaCliente(true)
-                  }}
-                >
-                  <UserPlus aria-hidden="true" className="size-4" />
-                  Nuevo cliente
-                </Button>
-              </div>
-            </div>
-          </div>
-          {clienteId ? <ResumenCliente clienteId={clienteId} /> : null}
-        </Seccion>
-
-        <Seccion titulo="Detalle de la factura">
-          <LineasFactura
-            control={control}
-            error={formState.errors.lineas?.root?.message ?? formState.errors.lineas?.message}
-          />
-        </Seccion>
-
-        <Previsualizacion form={form} tipoIva={parametros.iva_por_defecto} />
-        <Alerta mensaje={error} />
-      </Form>
-
-      <ClienteAltaPanel
-        isOpen={altaCliente}
-        onCerrar={() => {
-          setAltaCliente(false)
-        }}
-        onCreado={(cliente) => {
-          setAltaCliente(false)
-          setNombreCliente(etiquetaCliente(cliente))
-          form.setValue('cliente_id', cliente.id, { shouldDirty: true, shouldValidate: true })
-        }}
+      <CamposFactura
+        form={form}
+        parametros={parametros}
+        fechas={{ editable: true }}
+        numeroAyuda={
+          <>
+            Previsto: <span className="tabular-nums">{parametros.proximo_numero}</span>
+          </>
+        }
+        nombreCliente={nombreCliente}
+        onNombreCliente={setNombreCliente}
+        onSubmit={() => void pedirEmision()}
+        antes={
+          tipoIvaPrevisto && tipoIvaPrevisto !== parametros.iva_por_defecto ? (
+            <AvisoCambioIva previsto={tipoIvaPrevisto} vigente={parametros.iva_por_defecto} />
+          ) : null
+        }
+        despues={<Alerta mensaje={error} />}
       />
       <ConfirmarEmisionDialog
         isOpen={confirmando}
@@ -473,7 +365,8 @@ function FormularioFactura({
   )
 }
 
-function Cargando({
+/** Modal de factura mientras cargan sus datos, o con el error si no se pudieron cargar. */
+export function CargandoModal({
   titulo,
   error,
   onCerrar,
@@ -525,7 +418,7 @@ export function NuevaFacturaModal({
   const parametros = useQuery(parametrosFacturacionQuery)
   if (!parametros.data) {
     return (
-      <Cargando
+      <CargandoModal
         titulo="Nueva factura"
         error={parametros.isError ? SIN_PARAMETROS : null}
         onCerrar={onCerrar}
@@ -564,7 +457,7 @@ export function BorradorModal({
       : parametros.isError
         ? SIN_PARAMETROS
         : null
-    return <Cargando titulo="Borrador" error={error} onCerrar={onCerrar} />
+    return <CargandoModal titulo="Borrador" error={error} onCerrar={onCerrar} />
   }
   return (
     <FormularioFactura

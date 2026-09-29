@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FacturaConsultaModal } from '../../../features/facturas/FacturaConsulta'
+import { FacturaConsultaModal } from '../../../../features/facturas/FacturaConsulta'
 
-export const Route = createFileRoute('/_app/facturas/$facturaId')({
+export const Route = createFileRoute('/_app/facturas/$facturaId/')({
   component: ConsultaFactura,
 })
 
