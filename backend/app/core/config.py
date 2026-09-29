@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     limite_origen_ventana_minutos: int = Field(default=10, ge=1)
     contrasena_temporal_horas: int = Field(default=72, ge=1)
 
+    # --- Sistema informático de facturación (bloque SistemaInformatico, research R-5) ---
+    # Los valores por defecto son FICTICIOS y solo valen fuera de producción. En producción se
+    # exigen el productor y su NIF (TODO(DECLARACION_RESPONSABLE) de la constitución).
+    sif_productor_nombre: str = Field(default="Productor de pruebas (ficticio)", max_length=120)
+    sif_productor_nif: str = "00000000T"
+    sif_nombre_sistema: str = Field(default="Joyería Blanco Gestión", min_length=1, max_length=30)
+    sif_id_sistema: str = Field(default="JB", pattern=r"^[A-Z0-9]{2}$")
+    sif_numero_instalacion: str = Field(default="1", min_length=1, max_length=100)
+
     # --- Varios ---
     zona_horaria: str = "Europe/Madrid"
     openapi_destino: Path = _REPO_DIR / "joyeriablanco_web" / "src" / "api" / "openapi.json"
@@ -70,7 +79,24 @@ class Settings(BaseSettings):
             if not self.origen_permitido.startswith("https://"):
                 msg = "En producción ORIGEN_PERMITIDO debe usar https://"
                 raise ValueError(msg)
+            self._exigir_productor()
         return self
+
+    def _exigir_productor(self) -> None:
+        """El productor queda en cada registro inalterable: sin él no se arranca (research R-5)."""
+        from app.domain.identificacion import normalize_identificacion, validate_nif
+
+        valores_ficticios = Settings.model_fields
+        if (
+            not self.sif_productor_nombre.strip()
+            or self.sif_productor_nombre == valores_ficticios["sif_productor_nombre"].default
+        ):
+            msg = "En producción hay que configurar SIF_PRODUCTOR_NOMBRE"
+            raise ValueError(msg)
+        nif = normalize_identificacion(self.sif_productor_nif)
+        if nif == valores_ficticios["sif_productor_nif"].default or validate_nif(nif) is not None:
+            msg = "En producción SIF_PRODUCTOR_NIF debe ser un NIF válido del productor"
+            raise ValueError(msg)
 
     # --- Derivados ---
     def _url(self, usuario: str, clave: SecretStr) -> URL:

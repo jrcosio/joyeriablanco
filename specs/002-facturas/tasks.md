@@ -41,18 +41,18 @@ fallar. Los que exige la constitución VII están marcados con ⚖️:
 **Purpose**: configuración del sistema informático, enumeraciones de dominio y test de contrato
 preparado para la unión de contratos.
 
-- [ ] T001 Añadir a `backend/app/core/config.py` los campos `SIF_*` de research R-5, con los valores ficticios de desarrollo marcados como tales:
+- [X] T001 Añadir a `backend/app/core/config.py` los campos `SIF_*` de research R-5, con los valores ficticios de desarrollo marcados como tales:
   - `sif_productor_nombre`, `sif_productor_nif`, `sif_nombre_sistema="Joyería Blanco Gestión"`, `sif_id_sistema="JB"` y `sif_numero_instalacion="1"`.
   - En `_exigir_seguridad_en_produccion`: si `entorno is PRODUCCION`, exigir productor nombre y NIF (validado con `app/domain/identificacion.py`). Validar siempre `sif_id_sistema` (`^[A-Z0-9]{2}$` sin Ñ) y las longitudes de F-1, hoja 5.
   - Añadir `__version__` en `backend/app/__init__.py`, que es la `Version` del registro.
   - Documentar las variables en `.env.example`.
   - Test `backend/tests/unit/test_config_sif.py`: en producción, sin productor o con un NIF no válido, `Settings` falla. Por tanto, `faltan` nunca informa del productor (research R-5).
-- [ ] T002 Generalizar `backend/tests/integration/test_contrato_openapi.py` (research R-14):
+- [X] T002 Generalizar `backend/tests/integration/test_contrato_openapi.py` (research R-14):
   - Leer la **unión** de `specs/*/contracts/openapi.yaml`, ordenados, y conservar el prefijo de `servers`.
   - Mantener estricto que toda operación de la API esté en algún contrato.
   - Para el sentido contrario, crear la lista `PENDIENTES_002` con las 14 operaciones de 002. Cada tarea de API la irá vaciando y T076 la eliminará.
   - Comprobar también los códigos de éxito, incluido el 200 de repetición idempotente (R-18).
-- [ ] T003 Ampliar `backend/app/domain/tipos.py`:
+- [X] T003 Ampliar `backend/app/domain/tipos.py`:
   - Enumeraciones nuevas `Serie` (FAC, REC), `TipoFactura` (F1, R1, R4), `TipoRectificativa` (S), `CausaRectificacion`, `MotivoModificacion`, `TipoCorreccion`, `TipoRegistro` (alta, anulacion), `Modalidad`, `EstadoRemision` (pendiente) y `EstadoFactura`.
   - Los tipos nuevos de `TipoEvento` de research R-15.
 
