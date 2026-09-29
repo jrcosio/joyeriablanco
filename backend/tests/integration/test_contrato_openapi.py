@@ -25,11 +25,6 @@ METODOS = {"get", "post", "put", "patch", "delete"}
 PENDIENTES_002: set[tuple[str, str]] = {
     ("/api/v1/facturas/{}/anulacion", "post"),
     ("/api/v1/facturas/{}/modificacion", "post"),
-    ("/api/v1/borradores-factura", "post"),
-    ("/api/v1/borradores-factura/{}", "get"),
-    ("/api/v1/borradores-factura/{}", "put"),
-    ("/api/v1/borradores-factura/{}", "delete"),
-    ("/api/v1/borradores-factura/{}/emision", "post"),
 }
 
 

@@ -1,10 +1,35 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { iniciarSesion } from './helpers/acceso'
 import { dni, unico } from './helpers/entorno'
 
 interface FacturaCreada {
   id: string
   num_serie: string
+}
+
+/** Da de alta desde el modal un cliente facturable con nombre único y lo deja elegido. */
+async function nuevoClienteDesdeElModal(page: Page, modal: Locator, prefijo: string) {
+  const numero = unico()
+  const nombre = `${prefijo} ${String(numero)}`
+  await modal.getByRole('button', { name: 'Nuevo cliente' }).click()
+  const alta = page.getByRole('dialog', { name: 'Nuevo cliente' })
+  await alta.getByLabel(/Nombre o razón social/).fill(nombre)
+  await alta.getByLabel(/Número de identificación/).fill(dni(numero))
+  await alta.getByLabel('Dirección').fill('Calle Recogidas, 12')
+  await alta.getByLabel('Código postal').fill('18005')
+  await alta.getByLabel('Localidad').fill('Granada')
+  await alta.getByRole('button', { name: 'Crear cliente' }).click()
+  await expect(alta).toHaveCount(0)
+  await expect(modal.getByRole('combobox', { name: /Cliente/ })).toHaveValue(
+    `${nombre} · ${dni(numero)}`,
+  )
+  return { nombre, numero }
+}
+
+async function previsto(modal: Locator): Promise<string> {
+  await expect(modal.getByText('Se asigna al emitir')).toBeVisible()
+  const texto = (await modal.getByText(/^Previsto:/).textContent()) ?? ''
+  return /FAC-\d{4}-\d{4,}/.exec(texto)?.[0] ?? ''
 }
 
 test.describe('Facturas', () => {
@@ -16,9 +41,7 @@ test.describe('Facturas', () => {
     await page.getByRole('link', { name: 'Nueva factura' }).click()
 
     const modal = page.getByRole('dialog', { name: 'Nueva factura' })
-    await expect(modal.getByText('Se asigna al emitir')).toBeVisible()
-    const previsto = (await modal.getByText(/^Previsto:/).textContent()) ?? ''
-    const [numeroPrevisto = ''] = /FAC-\d{4}-\d{4,}/.exec(previsto) ?? []
+    const numeroPrevisto = await previsto(modal)
     expect(numeroPrevisto).not.toBe('')
 
     // Primera línea antes de elegir cliente: debe seguir ahí al volver del alta.
@@ -27,22 +50,8 @@ test.describe('Facturas', () => {
       .getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' })
       .fill('1.200')
 
-    // «Nuevo cliente» desde el modal (FR-046).
-    const numero = unico()
-    const nombre = `Cliente Factura ${numero}`
-    await modal.getByRole('button', { name: 'Nuevo cliente' }).click()
-    const alta = page.getByRole('dialog', { name: 'Nuevo cliente' })
-    await alta.getByLabel(/Nombre o razón social/).fill(nombre)
-    await alta.getByLabel(/Número de identificación/).fill(dni(numero))
-    await alta.getByLabel('Dirección').fill('Calle Recogidas, 12')
-    await alta.getByLabel('Código postal').fill('18005')
-    await alta.getByLabel('Localidad').fill('Granada')
-    await alta.getByRole('button', { name: 'Crear cliente' }).click()
-    await expect(alta).toHaveCount(0)
-
-    await expect(modal.getByRole('combobox', { name: /Cliente/ })).toHaveValue(
-      `${nombre} · ${dni(numero)}`,
-    )
+    // «Nuevo cliente» desde el modal (FR-046): vuelve con el cliente elegido.
+    const { nombre, numero } = await nuevoClienteDesdeElModal(page, modal, 'Cliente Factura')
     await expect(modal.getByText('Calle Recogidas, 12')).toBeVisible()
     await expect(modal.getByRole('textbox', { name: 'Descripción de la línea 1' })).toHaveValue(
       'Anillo',
@@ -90,5 +99,75 @@ test.describe('Facturas', () => {
     await expect(detalle.getByText('1.560,90 €')).toBeVisible()
     await expect(detalle.getByText(/Registro de alta nº \d+/)).toBeVisible()
     await expect(detalle.getByText(/Huella [0-9A-F]{16}…/)).toBeVisible()
+  })
+
+  test('borrador: guardar, reabrirlo desde el listado, editarlo y emitirlo (US4)', async ({
+    page,
+  }) => {
+    await iniciarSesion(page, 'empleado.demo')
+    await page.goto('/facturas/nueva')
+    const nueva = page.getByRole('dialog', { name: 'Nueva factura' })
+    await expect(nueva.getByText('Se asigna al emitir')).toBeVisible()
+    const { nombre } = await nuevoClienteDesdeElModal(page, nueva, 'Cliente Borrador')
+    await nueva.getByRole('textbox', { name: 'Descripción de la línea 1' }).fill('Collar')
+    await nueva.getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' }).fill('300')
+
+    await nueva.getByRole('button', { name: 'Guardar borrador' }).click()
+    await expect(page.getByText('Borrador guardado')).toBeVisible()
+    const borrador = page.getByRole('dialog', { name: 'Borrador' })
+    await expect(borrador.getByRole('button', { name: 'Eliminar borrador' })).toBeVisible()
+    await expect(page).toHaveURL(/\/facturas\/borradores\//)
+    await borrador.getByRole('button', { name: 'Cancelar' }).click()
+    await expect(borrador).toHaveCount(0)
+
+    // Se reabre desde el listado, donde aparece marcado como borrador.
+    await page.getByPlaceholder('Buscar número, cliente o NIF').fill(nombre)
+    const tabla = page.getByRole('table', { name: 'Listado de facturas' })
+    await expect(tabla.getByRole('row')).toHaveCount(2)
+    await expect(tabla.getByText('Borrador', { exact: true })).toBeVisible()
+    await tabla.getByRole('link', { name: `Abrir borrador de ${nombre}` }).click()
+    await expect(
+      borrador.getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' }),
+    ).toHaveValue('300,00')
+
+    // Se edita, se guarda y se emite.
+    await borrador
+      .getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' })
+      .fill('1.200')
+    await borrador.getByRole('button', { name: 'Guardar borrador' }).click()
+    await expect(page.getByText('Borrador guardado')).toBeVisible()
+    await expect(borrador.getByText('1.452,00 €')).toBeVisible()
+    const numero = await previsto(borrador)
+    await borrador.getByRole('button', { name: 'Emitir factura' }).click()
+    await page
+      .getByRole('alertdialog', { name: '¿Emitir la factura?' })
+      .getByRole('button', { name: 'Emitir factura' })
+      .click()
+    await expect(page.getByText(`Factura ${numero} emitida`)).toBeVisible()
+    await expect(borrador).toHaveCount(0)
+
+    // En el listado ya no está el borrador sino la factura.
+    await expect(tabla.getByText(numero)).toBeVisible()
+    await expect(tabla.getByText('Borrador', { exact: true })).toHaveCount(0)
+  })
+
+  test('eliminar un borrador no consume número (US4, FR-019)', async ({ page }) => {
+    await iniciarSesion(page, 'empleado.demo')
+    await page.goto('/facturas/nueva')
+    const nueva = page.getByRole('dialog', { name: 'Nueva factura' })
+    const antes = await previsto(nueva)
+    await nueva.getByRole('textbox', { name: 'Descripción de la línea 1' }).fill('Para borrar')
+    await nueva.getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' }).fill('10')
+    await nueva.getByRole('button', { name: 'Guardar borrador' }).click()
+
+    const borrador = page.getByRole('dialog', { name: 'Borrador' })
+    await borrador.getByRole('button', { name: 'Eliminar borrador' }).click()
+    const confirmar = page.getByRole('alertdialog', { name: '¿Eliminar el borrador?' })
+    await confirmar.getByRole('button', { name: 'Eliminar borrador' }).click()
+    await expect(page.getByText('Borrador eliminado')).toBeVisible()
+    await expect(borrador).toHaveCount(0)
+
+    await page.getByRole('link', { name: 'Nueva factura' }).click()
+    expect(await previsto(page.getByRole('dialog', { name: 'Nueva factura' }))).toBe(antes)
   })
 })

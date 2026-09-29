@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Eye } from 'lucide-react'
+import { Eye, Pencil } from 'lucide-react'
 import type { FacturaResumenSalida } from '../../api/tipos'
 import { Chip } from '../../components/ui/Chip'
 import { Skeleton } from '../../components/ui/Skeleton'
@@ -24,12 +24,21 @@ function Numero({ fila }: { fila: FacturaResumenSalida }) {
   )
 }
 
-/**
- * Acción de la fila. La de los borradores («Abrir borrador de…») llega con su modal (US4): hasta
- * entonces no se puede crear ninguno.
- */
+/** Acción de la fila con nombre accesible (FR-049): abrir el borrador o ver la factura. */
 function Accion({ fila }: { fila: FacturaResumenSalida }) {
-  if (fila.tipo_documento === 'borrador' || !fila.num_serie) return null
+  if (fila.tipo_documento === 'borrador' || !fila.num_serie) {
+    return (
+      <Link
+        to="/facturas/borradores/$borradorId"
+        params={{ borradorId: fila.id }}
+        search
+        aria-label={`Abrir borrador de ${fila.cliente_nombre ?? 'sin cliente'}`}
+        className={claseAccion}
+      >
+        <Pencil aria-hidden="true" className="size-4" />
+      </Link>
+    )
+  }
   return (
     <Link
       to="/facturas/$facturaId"
@@ -45,8 +54,9 @@ function Accion({ fila }: { fila: FacturaResumenSalida }) {
 
 const euros = (importe: string) => formatearEuros(desdeApi(importe))
 
-const celda = 'px-6 py-4 body-md text-on-surface align-middle'
-const cabeceraBase = 'px-6 py-4 label-md text-on-surface-variant'
+// Relleno de 16 px hasta 1280 px: con el menú lateral fijo, a 1024 px la tabla no cabría con 24.
+const celda = 'px-4 py-4 body-md text-on-surface align-middle xl:px-6'
+const cabeceraBase = 'px-4 py-4 label-md text-on-surface-variant xl:px-6'
 const cabecera = `${cabeceraBase} text-left`
 const cabeceraImporte = `${cabeceraBase} text-right`
 const importe = 'text-right tabular-nums whitespace-nowrap'
@@ -54,8 +64,8 @@ const importe = 'text-right tabular-nums whitespace-nowrap'
 /**
  * Tabla en tableta y escritorio y tarjetas en móvil (FR-033, FR-049). Anchos medidos con los datos
  * de ejemplo, como en 001 R-22: a 768 y 1024 px (este con el menú lateral fijo) solo caben número,
- * fecha, cliente y total; el NIF cabe desde 1280 px, y la base y el IVA desde 1440 px. La acción,
- * fija a la derecha, se ve siempre (SC-008).
+ * fecha, cliente y total, con relleno de 16 px; el NIF cabe desde 1280 px, y la base y el IVA
+ * desde 1440 px. La acción, fija a la derecha, se ve siempre (SC-008).
  */
 export function TablaFacturas({
   filas,

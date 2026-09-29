@@ -360,7 +360,7 @@ versión, se borra otro sin que se consuma número y se emite uno de forma idemp
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T057 [P] [US4] Test `backend/tests/integration/test_borradores.py`:
+- [X] T057 [P] [US4] Test `backend/tests/integration/test_borradores.py`:
   - **CRUD**:
     - `POST` de un borrador incompleto → 201.
     - `GET` con `totales_previstos` y `tipo_iva_previsto` guardados al guardar, calculados con `domain/importes.py`.
@@ -374,7 +374,7 @@ versión, se borra otro sin que se consuma número y se emite uno de forma idemp
     - Cliente desactivado → 422 `cliente-no-facturable`.
     - Fecha antigua → 422 `fecha-expedicion`.
   - **Borrado de cliente**: un cliente con borrador → 409 `cliente-con-documentos`.
-- [ ] T058 [P] [US4] Test web del modo borrador en `joyeriablanco_web/src/features/facturas/FacturaModal.borrador.test.tsx`:
+- [X] T058 [P] [US4] Test web del modo borrador en `joyeriablanco_web/src/features/facturas/FacturaModal.borrador.test.tsx`:
   - Botones «Eliminar borrador», «Guardar borrador» y «Emitir factura».
   - Diálogo de conflicto de versión.
   - Mensaje «Este borrador ya se ha emitido» ante un 404.
@@ -382,21 +382,21 @@ versión, se borra otro sin que se consuma número y se emite uno de forma idemp
 
 ### Implementation for User Story 4
 
-- [ ] T059 [US4] Implementar el backend de borradores:
+- [X] T059 [US4] Implementar el backend de borradores:
   - `backend/app/repositories/borradores.py`.
   - `backend/app/services/borradores.py`: `create_borrador`, `get_borrador`, `update_borrador` con versión, `delete_borrador` y `emit_borrador`.
     - Al crear y editar se calculan y guardan `tipo_iva_previsto` y los totales previstos con `domain/importes.py`, y se deja su evento de auditoría.
     - `emit_borrador` llama a `emision.emit_factura(..., borrador=…)`, con `FOR UPDATE` sobre el borrador, que es mutable, y la comprobación de versión.
   - `backend/app/schemas/borrador.py`.
   - `backend/app/api/v1/borradores.py`, con las 5 operaciones, quitándolas de `PENDIENTES_002`.
-- [ ] T060 [US4] Crear la web de borradores:
+- [X] T060 [US4] Crear la web de borradores:
   - Queries en `joyeriablanco_web/src/api/queries/borradores.ts`.
   - Modo borrador en `FacturaModal.tsx`.
   - Ruta `joyeriablanco_web/src/routes/_app/facturas/borradores/$borradorId.tsx`.
   - Acción de fila «Abrir borrador» en `TablaFacturas.tsx`.
   - «Guardar borrador» en el modo nueva.
-- [ ] T061 [US4] Añadir 5 borradores a `backend/app/services/datos_ejemplo.py`, uno de ellos sin cliente.
-- [ ] T062 [US4] E2E `joyeriablanco_web/e2e/facturas.spec.ts`, parte 2:
+- [X] T061 [US4] Añadir 5 borradores a `backend/app/services/datos_ejemplo.py`, uno de ellos sin cliente.
+- [X] T062 [US4] E2E `joyeriablanco_web/e2e/facturas.spec.ts`, parte 2:
   1. Guardar borrador, reabrirlo desde el listado, editar y emitir.
   2. Eliminar otro borrador y comprobar que el siguiente número no cambia.
 

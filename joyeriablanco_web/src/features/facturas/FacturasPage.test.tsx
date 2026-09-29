@@ -81,6 +81,29 @@ describe('Listado de facturas (US3)', () => {
     expect(within(filas[4] as HTMLElement).getByText('Sin cliente')).toBeInTheDocument()
   })
 
+  it('cada borrador tiene su acción «Abrir borrador de…» (FR-049)', async () => {
+    conSesion(crearSesion())
+    conListado([
+      fila({ id: 'b1', tipo_documento: 'borrador', num_serie: null, estado: 'borrador' }),
+      fila({
+        id: 'b2',
+        tipo_documento: 'borrador',
+        num_serie: null,
+        estado: 'borrador',
+        cliente_nombre: null,
+      }),
+    ])
+    renderApp('/facturas')
+
+    const tabla = await screen.findByRole('table', { name: 'Listado de facturas' })
+    const abrir = await within(tabla).findAllByRole('link', { name: /^Abrir borrador de / })
+    expect(abrir.map((a) => a.getAttribute('aria-label'))).toEqual([
+      'Abrir borrador de María López García',
+      'Abrir borrador de sin cliente',
+    ])
+    expect(abrir[0]?.getAttribute('href')).toMatch(/^\/facturas\/borradores\/b1/)
+  })
+
   it('cada factura tiene su acción «Ver factura…» que conserva los filtros', async () => {
     conSesion(crearSesion())
     const facturas = [

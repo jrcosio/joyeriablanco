@@ -10,5 +10,19 @@ function NuevaFactura() {
   const cerrar = () => {
     void navigate({ to: '/facturas', search: true })
   }
-  return <NuevaFacturaModal onCerrar={cerrar} onEmitida={cerrar} />
+  return (
+    <NuevaFacturaModal
+      onCerrar={cerrar}
+      onEmitida={cerrar}
+      onBorradorCreado={(borrador) => {
+        // FR-049: tras «Guardar borrador» el modal pasa al modo borrador de ese borrador.
+        void navigate({
+          to: '/facturas/borradores/$borradorId',
+          params: { borradorId: borrador.id },
+          search: true,
+          replace: true,
+        })
+      }}
+    />
+  )
 }

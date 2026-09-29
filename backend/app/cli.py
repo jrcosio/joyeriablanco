@@ -92,6 +92,7 @@ def cargar_datos_ejemplo(
     facturas: Annotated[
         int, typer.Option(min=0, help="Número de facturas emitidas de los últimos 6 meses")
     ] = 50,
+    borradores: Annotated[int, typer.Option(min=0, help="Número de borradores de factura")] = 5,
     contrasena_demo: Annotated[
         str | None,
         typer.Option(help="Contraseña conocida para los usuarios de ejemplo (solo desarrollo/E2E)"),
@@ -102,7 +103,11 @@ def cargar_datos_ejemplo(
 
     resumen = _ejecutar(
         lambda db: datos_ejemplo.cargar(
-            db, clientes=clientes, facturas=facturas, contrasena_demo=contrasena_demo
+            db,
+            clientes=clientes,
+            facturas=facturas,
+            borradores=borradores,
+            contrasena_demo=contrasena_demo,
         )
     )
     if resumen.ya_cargados:
@@ -110,6 +115,7 @@ def cargar_datos_ejemplo(
         return
     typer.echo(f"Clientes de ejemplo creados: {resumen.clientes_creados}")
     typer.echo(f"Facturas de ejemplo emitidas: {resumen.facturas_emitidas}")
+    typer.echo(f"Borradores de ejemplo: {resumen.borradores_creados}")
     for nombre_usuario, temporal in resumen.contrasenas_temporales.items():
         _mostrar_temporal(nombre_usuario, temporal)
 

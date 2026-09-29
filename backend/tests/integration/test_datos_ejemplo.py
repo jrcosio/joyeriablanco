@@ -14,6 +14,7 @@ from app.core.tiempo import hoy
 from app.domain.identificacion import validate_identificacion
 from app.domain.tipos import Rol, TipoIdentificacion
 from app.models import Cliente, Factura, Usuario
+from app.models.borrador_factura import BorradorFactura
 from app.repositories import registros
 from app.services import cadena, datos_ejemplo
 from app.services.configuracion_facturacion import get_config
@@ -77,6 +78,13 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
         assert actual.huella_anterior == anterior.huella
     for registro in cola:
         assert cadena.recompute_huella(registro) == registro.huella
+
+    # Cinco borradores de hoy, el primero sin cliente, con sus totales previstos (T061).
+    assert resumen.borradores_creados == 5
+    borradores = list((await db.execute(select(BorradorFactura))).unique().scalars())
+    assert len(borradores) == 5
+    assert sum(b.cliente_id is None for b in borradores) >= 1
+    assert all(b.lineas and b.total_previsto > 0 for b in borradores)
 
 
 async def test_es_idempotente(db: AsyncSession) -> None:

@@ -358,6 +358,11 @@ async def emit_factura(
             "num_serie": factura.num_serie,
             "fecha_expedicion": factura.fecha_expedicion,
             "importe_total": factura.importe_total,
+            **(
+                {"borrador_id": origen_id}
+                if operacion is OperacionIdempotente.EMITIR_BORRADOR
+                else {}
+            ),
         },
     )
     return factura, True

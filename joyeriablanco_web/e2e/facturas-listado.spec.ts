@@ -12,6 +12,26 @@ function tabla(page: Page): Locator {
   return page.getByRole('table', { name: 'Listado de facturas' })
 }
 
+/** Celdas de la primera fila que es una factura emitida (los borradores de hoy van arriba). */
+async function primeraFactura(page: Page) {
+  const numeros = await columna(page, COLUMNA.numero)
+  const indice = numeros.findIndex((n) => n.startsWith('FAC-'))
+  expect(indice).toBeGreaterThanOrEqual(0)
+  const celda = async (n: number) => (await columna(page, n))[indice] ?? ''
+  return {
+    numero: numeros[indice] ?? '',
+    cliente: await celda(COLUMNA.cliente),
+    nif: await celda(COLUMNA.nif),
+  }
+}
+
+/** Destinos de las acciones de la página: identifican cada fila, sea borrador o factura. */
+async function destinos(page: Page): Promise<string[]> {
+  const enlaces = tabla(page).getByRole('link', { name: /^(Ver factura|Abrir borrador de) / })
+  await expect(enlaces.first()).toBeVisible()
+  return Promise.all((await enlaces.all()).map(async (e) => (await e.getAttribute('href')) ?? ''))
+}
+
 async function columna(page: Page, n: number): Promise<string[]> {
   const celdas = tabla(page).locator(`tbody tr td:nth-child(${String(n)})`)
   await expect(celdas.first()).toBeVisible()
@@ -51,15 +71,15 @@ test.describe('Listado de facturas (US3)', () => {
   test('búsqueda por número, por cliente sin tildes ni mayúsculas y por NIF con separadores', async ({
     page,
   }) => {
-    const [numero = ''] = await columna(page, COLUMNA.numero)
-    const [cliente = ''] = await columna(page, COLUMNA.cliente)
-    const [nif = ''] = await columna(page, COLUMNA.nif)
+    const { numero, cliente, nif } = await primeraFactura(page)
 
     // Parte del número, sin la serie.
     const parte = numero.replace(/^FAC-/, '')
     await buscar(page, parte)
     await expect(page).toHaveURL(new RegExp(`q=${parte}`))
-    expect(await columna(page, COLUMNA.numero)).toEqual([numero])
+    expect((await columna(page, COLUMNA.numero)).filter((n) => n.startsWith('FAC-'))).toEqual([
+      numero,
+    ])
 
     // Cliente en minúsculas y sin tildes.
     await buscar(page, sinTildes(cliente).toLowerCase())
@@ -107,22 +127,20 @@ test.describe('Listado de facturas (US3)', () => {
         return totales.every((t, i) => i === 0 || t <= (totales[i - 1] ?? t))
       })
       .toBe(true)
-    const primeraPagina = await columna(page, COLUMNA.numero)
+    const primeraPagina = await destinos(page)
     expect(primeraPagina).toHaveLength(25)
 
     await page.getByRole('button', { name: 'Página siguiente' }).click()
     await expect(page).toHaveURL(/pagina=2/)
-    await expect
-      .poll(async () => (await columna(page, COLUMNA.numero))[0])
-      .not.toBe(primeraPagina[0])
-    const segundaPagina = await columna(page, COLUMNA.numero)
-    expect(segundaPagina.some((n) => primeraPagina.includes(n))).toBe(false)
+    await expect.poll(async () => (await destinos(page))[0]).not.toBe(primeraPagina[0])
+    const segundaPagina = await destinos(page)
+    expect(segundaPagina.some((d) => primeraPagina.includes(d))).toBe(false)
     const [primerTotal = ''] = await columna(page, COLUMNA.total)
 
     await page.reload()
     await expect(page.getByRole('button', { name: /Ordenar/ })).toContainText('Total mayor')
     await expect(page.getByRole('button', { name: /Año/ })).toContainText('Todos los años')
-    expect(await columna(page, COLUMNA.numero)).toEqual(segundaPagina)
+    expect(await destinos(page)).toEqual(segundaPagina)
     expect((await columna(page, COLUMNA.total))[0]).toBe(primerTotal)
   })
 })

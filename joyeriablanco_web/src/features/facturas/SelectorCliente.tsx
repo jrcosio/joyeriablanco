@@ -24,10 +24,7 @@ import {
   campoError,
   campoEtiqueta,
 } from '../../components/ui/field'
-
-function etiqueta(cliente: Pick<ClienteResumenSalida, 'nombre' | 'identificacion_numero'>): string {
-  return `${cliente.nombre} · ${cliente.identificacion_numero}`
-}
+import { etiquetaCliente } from './factura-valores'
 
 /**
  * Selector de cliente con búsqueda en el servidor (nombre o identificación, sin tildes). Solo
@@ -81,7 +78,7 @@ export function SelectorCliente({
       onInputChange={setTexto}
       onChange={(clave: Key | null) => {
         const elegido = opciones.find((o) => o.id === clave)
-        if (elegido) setTexto(etiqueta(elegido))
+        if (elegido) setTexto(etiquetaCliente(elegido))
         onChange(clave === null ? null : String(clave))
       }}
       allowsEmptyCollection
@@ -129,7 +126,7 @@ export function SelectorCliente({
           {(cliente) => (
             <ListBoxItem
               id={cliente.id}
-              textValue={etiqueta(cliente)}
+              textValue={etiquetaCliente(cliente)}
               className="cursor-pointer px-3 py-2 body-md text-on-surface outline-none data-[focused]:bg-surface-container-high data-[selected]:text-primary"
             >
               <span>{cliente.nombre}</span>

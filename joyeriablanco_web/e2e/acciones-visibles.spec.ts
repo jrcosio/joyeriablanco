@@ -13,6 +13,9 @@ const ANCHOS_CLIENTES = [...ANCHOS, 1536] as const
 /** Anchos de SC-008 de 002 para la tabla de facturas (más 360 px, con tarjetas). */
 const ANCHOS_FACTURAS = [360, 768, 1024, 1280, 1440, 1536] as const
 
+/** Acciones de fila del listado de facturas: borradores y emitidas (002, FR-049). */
+const ACCION_FACTURA = /^(Ver factura|Abrir borrador de) /
+
 /** Columnas de la tabla de facturas según el ancho, medidas como en 001 R-22 (002, T056). */
 function columnasFacturas(ancho: number) {
   return {
@@ -191,7 +194,7 @@ test.describe('Acciones siempre visibles (SC-014, FR-031, FR-059)', () => {
   }
 
   for (const ancho of ANCHOS_FACTURAS) {
-    test(`facturas a ${ancho}px: «Ver factura» en cada fila de una página completa (002, SC-008)`, async ({
+    test(`facturas a ${ancho}px: la acción de cada fila de una página completa (002, SC-008)`, async ({
       page,
     }) => {
       await page.setViewportSize({ width: ancho, height: 900 })
@@ -201,7 +204,7 @@ test.describe('Acciones siempre visibles (SC-014, FR-031, FR-059)', () => {
 
       if (ancho < 768) {
         const lista = page.getByRole('list', { name: 'Listado de facturas' })
-        const ver = lista.getByRole('link', { name: /^Ver factura / })
+        const ver = lista.getByRole('link', { name: ACCION_FACTURA })
         await expect(ver).toHaveCount(25)
         await esperarVisibles(page, ver, 25, false)
         await sinDesplazamientoHorizontal(page)
@@ -209,7 +212,7 @@ test.describe('Acciones siempre visibles (SC-014, FR-031, FR-059)', () => {
       }
 
       const tabla = page.getByRole('table', { name: 'Listado de facturas' })
-      const ver = tabla.getByRole('link', { name: /^Ver factura / })
+      const ver = tabla.getByRole('link', { name: ACCION_FACTURA })
       await expect(ver).toHaveCount(25)
       await esperarVisibles(page, ver, 25, true)
       await sinDesplazamientoHorizontal(page)

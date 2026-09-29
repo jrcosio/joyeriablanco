@@ -32,6 +32,7 @@ from app.schemas.configuracion_facturacion import (
     ConfiguracionFacturacionEntrada,
     DatosEmisorEntrada,
 )
+from app.services import borradores as borradores_srv
 from app.services import clientes as clientes_srv
 from app.services import configuracion_facturacion, emision, usuarios
 
@@ -117,6 +118,7 @@ ARTICULOS: Final = (
 class ResumenCarga:
     clientes_creados: int = 0
     facturas_emitidas: int = 0
+    borradores_creados: int = 0
     ya_cargados: bool = False
     contrasenas_temporales: dict[str, str] = field(default_factory=dict)
 
@@ -295,11 +297,37 @@ async def _emitir_facturas(
     return len(fechas)
 
 
+async def _crear_borradores(
+    db: AsyncSession,
+    rng: random.Random,
+    *,
+    cantidad: int,
+    autores: list[Usuario],
+    clientes: list[Cliente],
+) -> int:
+    """Borradores de hoy, el primero sin cliente (T061): se guardan con el servicio, que calcula
+    sus totales previstos y los audita."""
+    activos = [c for c in clientes if c.activo]
+    for indice in range(cantidad):
+        await borradores_srv.create_borrador(
+            db,
+            borradores_srv.DatosBorrador(
+                fecha_expedicion=hoy(),
+                cliente_id=None if indice == 0 or not activos else rng.choice(activos).id,
+                lineas=_lineas(rng),
+            ),
+            actor=rng.choice(autores),
+            origen=ORIGEN,
+        )
+    return cantidad
+
+
 async def cargar(
     db: AsyncSession,
     *,
     clientes: int = 40,
     facturas: int = 50,
+    borradores: int = 5,
     contrasena_demo: str | None = None,
     semilla: int = 2026,
 ) -> ResumenCarga:
@@ -343,5 +371,8 @@ async def cargar(
     await _configurar_facturacion(db, admin)
     resumen.facturas_emitidas = await _emitir_facturas(
         db, rng, cantidad=facturas, emisores=demo, clientes=creados
+    )
+    resumen.borradores_creados = await _crear_borradores(
+        db, rng, cantidad=borradores, autores=demo, clientes=creados
     )
     return resumen

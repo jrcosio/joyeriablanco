@@ -360,6 +360,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/borradores-factura": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crear Borrador */
+        post: operations["crear_borrador_api_v1_borradores_factura_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/borradores-factura/{borrador_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Borrador */
+        get: operations["obtener_borrador_api_v1_borradores_factura__borrador_id__get"];
+        /** Guardar Borrador */
+        put: operations["guardar_borrador_api_v1_borradores_factura__borrador_id__put"];
+        post?: never;
+        /** Borrar Borrador */
+        delete: operations["borrar_borrador_api_v1_borradores_factura__borrador_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/borradores-factura/{borrador_id}/emision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Emitir Borrador */
+        post: operations["emitir_borrador_api_v1_borradores_factura__borrador_id__emision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -390,6 +443,72 @@ export interface components {
             numeros_sin_usar: number;
             /** Aplicado */
             aplicado: boolean;
+        };
+        /** BorradorEdicionEntrada */
+        BorradorEdicionEntrada: {
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            /** Cliente Id */
+            cliente_id?: string | null;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /** Version */
+            version: number;
+        };
+        /**
+         * BorradorEntrada
+         * @description Un borrador puede guardarse incompleto: sin cliente o sin líneas (FR-011).
+         */
+        BorradorEntrada: {
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            /** Cliente Id */
+            cliente_id?: string | null;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+        };
+        /** BorradorSalida */
+        BorradorSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            cliente: components["schemas"]["ClienteFacturaSalida"] | null;
+            /** Lineas */
+            lineas: components["schemas"]["LineaBorradorSalida"][];
+            totales_previstos: components["schemas"]["TotalesSalida"];
+            /**
+             * Tipo Iva Previsto
+             * @description IVA vigente cuando se guardó (aviso de cambio de IVA)
+             * @example 21.00
+             */
+            tipo_iva_previsto: string;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
+            creado_por: components["schemas"]["UsuarioReferencia"];
+            /**
+             * Actualizado En
+             * Format: date-time
+             */
+            actualizado_en: string;
+            actualizado_por: components["schemas"]["UsuarioReferencia"];
         };
         /** CambioContrasenaEntrada */
         CambioContrasenaEntrada: {
@@ -860,6 +979,28 @@ export interface components {
             activos: number;
             /** Nuevos Este Anio */
             nuevos_este_anio: number;
+        };
+        /** LineaBorradorSalida */
+        LineaBorradorSalida: {
+            /** Orden */
+            orden: number;
+            /**
+             * Unidades
+             * @example 2.00
+             */
+            unidades: string;
+            /** Descripcion */
+            descripcion: string;
+            /**
+             * Precio Unitario
+             * @example 1290.00
+             */
+            precio_unitario: string;
+            /**
+             * Importe
+             * @example 1290.00
+             */
+            importe: string;
         };
         /** LineaEntrada */
         LineaEntrada: {
@@ -2052,6 +2193,181 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_borrador_api_v1_borradores_factura_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BorradorEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_borrador_api_v1_borradores_factura__borrador_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    guardar_borrador_api_v1_borradores_factura__borrador_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BorradorEdicionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_borrador_api_v1_borradores_factura__borrador_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    emitir_borrador_api_v1_borradores_factura__borrador_id__emision_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BorradorEdicionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

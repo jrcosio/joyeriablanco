@@ -57,7 +57,7 @@ export function ModalDocumento({
                     <div className="body-md text-on-surface-variant">{subtitle}</div>
                   ) : null}
                 </div>
-                <Button variant="icon" aria-label="Cerrar" onPress={close}>
+                <Button variant="icon" aria-label="Cerrar ventana" onPress={close}>
                   <X aria-hidden="true" className="size-4" />
                 </Button>
               </header>

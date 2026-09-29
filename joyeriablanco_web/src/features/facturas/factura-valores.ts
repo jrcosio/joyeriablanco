@@ -6,8 +6,14 @@
  * NUNCA envía importes calculados (FR-014): solo unidades, descripción y precio unitario.
  */
 import { z } from 'zod'
-import type { FacturaEntrada } from '../../api/tipos'
-import { aApi, parsearEntrada, type LineaCalculo } from '../../lib/dinero'
+import type { BorradorEntrada, BorradorSalida, FacturaEntrada } from '../../api/tipos'
+import {
+  aApi,
+  desdeApi,
+  formatearCantidad,
+  parsearEntrada,
+  type LineaCalculo,
+} from '../../lib/dinero'
 
 export const MAX_LINEAS = 100
 
@@ -31,6 +37,24 @@ export const lineaVacia = (): ValorLinea => ({
 
 export function valoresIniciales(hoy: string): ValoresFactura {
   return { fecha_expedicion: hoy, cliente_id: null, lineas: [lineaVacia()] }
+}
+
+/** Valores del formulario a partir de un borrador guardado, con las cifras en formato español. */
+export function valoresDelBorrador(borrador: BorradorSalida): ValoresFactura {
+  return {
+    fecha_expedicion: borrador.fecha_expedicion,
+    cliente_id: borrador.cliente?.id ?? null,
+    lineas: borrador.lineas.map((l) => ({
+      unidades: formatearCantidad(desdeApi(l.unidades)),
+      descripcion: l.descripcion,
+      precio_unitario: formatearCantidad(desdeApi(l.precio_unitario)),
+    })),
+  }
+}
+
+/** Texto del selector para el cliente ya elegido de un borrador. */
+export function etiquetaCliente(cliente: { nombre: string; identificacion_numero: string }) {
+  return `${cliente.nombre} · ${cliente.identificacion_numero}`
 }
 
 const linea = z.object({
@@ -72,6 +96,15 @@ export function lineasCuerpo(lineas: readonly ValorLinea[]): FacturaEntrada['lin
     descripcion: l.descripcion.trim(),
     precio_unitario: aApi(parsearEntrada(l.precio_unitario) ?? 0n),
   }))
+}
+
+/** Cuerpo de un borrador: puede ir sin cliente o sin líneas (FR-011). Nunca lleva totales. */
+export function aCuerpoBorrador(valores: ValoresFactura): BorradorEntrada {
+  return {
+    fecha_expedicion: valores.fecha_expedicion,
+    cliente_id: valores.cliente_id,
+    lineas: lineasCuerpo(valores.lineas),
+  }
 }
 
 export function aCuerpo(valores: ValoresFactura): FacturaEntrada {
