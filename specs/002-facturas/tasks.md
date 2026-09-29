@@ -65,7 +65,7 @@ piezas web compartidas. Todas las historias dependen de esta fase.
 
 ### Tests ⚠️ (escribir primero, deben fallar)
 
-- [ ] T004 [P] ⚖️ Test `backend/tests/unit/domain/test_importes.py` (research R-10, SC-003). Tabla de casos calculados a mano:
+- [X] T004 [P] ⚖️ Test `backend/tests/unit/domain/test_importes.py` (research R-10, SC-003). Tabla de casos calculados a mano:
   - **Medio céntimo exacto**, que distingue el redondeo alejado de cero del redondeo al par: línea `0.5 × 0.25 = 0.125 → 0.13`; cuota de una base de `0.50` al 21 % `= 0.105 → 0.11`.
   - **Captura**: 1 × 1200 + 2 × 45 → base 1290.00, cuota 270.90, total 1560.90.
   - **Suma**: la suma de las líneas redondeadas es igual a la base.
@@ -76,23 +76,23 @@ piezas web compartidas. Todas las historias dependen de esta fase.
     - Admite 5 el 15/08/2024 y 7,5 el 15/11/2024.
     - La fecha evaluada es la de la operación y, si no hay, la de expedición (F-3 §15.1, research R-10).
   - **Tipos**: ninguna función acepta ni devuelve `float`.
-- [ ] T005 [P] ⚖️ Test `backend/tests/unit/domain/test_huella.py` (research R-2):
+- [X] T005 [P] ⚖️ Test `backend/tests/unit/domain/test_huella.py` (research R-2):
   - Los tres vectores oficiales de F-2, con la cadena exacta y la huella en mayúsculas.
   - Espacios iniciales y finales recortados, campo vacío como `nombre=` y sin `&` final.
   - Importes siempre con dos decimales (`123.10`).
   - Cadena de N registros que mezcla altas y anulaciones, con cada huella anterior igual a la del previo.
   - Alterar un solo campo cambia la huella.
-- [ ] T006 [P] Test `backend/tests/unit/domain/test_numeracion.py`:
+- [X] T006 [P] Test `backend/tests/unit/domain/test_numeracion.py`:
   - Formato `FAC-2026-0001`, `REC-2026-0001` y `FAC-2026-10000`.
   - Año tomado de la fecha de expedición.
   - Parseo inverso y validación de F-3 §3.1.3.1: ASCII 32–126 sin `" ' < > =` y longitud ≤ 60.
-- [ ] T007 [P] Test `backend/tests/unit/domain/test_registro.py` (research R-3, R-4, R-4b). Contenido `dict` según F-1, con los valores en texto:
+- [X] T007 [P] Test `backend/tests/unit/domain/test_registro.py` (research R-3, R-4, R-4b). Contenido `dict` según F-1, con los valores en texto:
   - **Alta F1**: `IDVersion 1.0`, `IDFactura`, `NombreRazonEmisor`, `TipoFactura`, `DescripcionOperacion`, `Destinatarios` (con NIF y con `IDOtro` para los tipos 02–06), `Desglose` (`ClaveRegimen 01`, `CalificacionOperacion S1`, `TipoImpositivo 21.00`), `CuotaTotal`, `ImporteTotal`, `Encadenamiento` (`PrimerRegistro S` o `RegistroAnterior`), `SistemaInformatico` completo, `FechaHoraHusoGenRegistro`, `TipoHuella 01` y `Huella`. Sin `Impuesto` ni los opcionales excluidos.
   - **Rectificativa R4-S y R1-S**: `TipoRectificativa S`, `FacturasRectificadas` e `ImporteRectificacion` con la base y la cuota de la original, `FechaOperacion` heredada, y desglose y totales corregidos.
   - **Devolución total R1**: un único `DetalleDesglose` a 0.
   - **Anulación**: `IDFactura` de la anulada, sin importes ni `SinRegistroPrevio`.
   - **`descripcion_operacion`** (FR-045): unión con «; », recorte a 500 terminando en «…» y texto «Devolución total de la factura X».
-- [ ] T008 [P] Test `backend/tests/unit/schemas/test_importes.py` (research R-10):
+- [X] T008 [P] Test `backend/tests/unit/schemas/test_importes.py` (research R-10):
   - `Importe` y `Cantidad` aceptan `"45"`, `"1200.5"` y `"1200.50"`.
   - Rechazan números JSON (`45`, `45.5`), negativos, más de dos decimales y formatos con coma.
   - La salida serializa como cadena con dos decimales.
@@ -109,17 +109,17 @@ piezas web compartidas. Todas las historias dependen de esta fase.
 
 ### Backend: implementación
 
-- [ ] T011 [P] Implementar `backend/app/domain/importes.py`, puro y con `Decimal` (research R-10). Los nombres van en inglés, salvo los términos de dominio (constitución VIII):
+- [X] T011 [P] Implementar `backend/app/domain/importes.py`, puro y con `Decimal` (research R-10). Los nombres van en inglés, salvo los términos de dominio (constitución VIII):
   - `round_amount`, `line_amount`, `compute_totals(lineas, tipo_iva) -> Totales` (desglose por tipo, `base_total`, `cuota_total`, `importe_total`) y los límites.
   - `TIPOS_IVA_S1` con sus ventanas de fechas, la cita de F-3 §15.1 y `is_rate_allowed(tipo_iva, fecha)`. `fecha` es la de la operación o, si no hay, la de expedición.
-- [ ] T012 [P] Implementar `backend/app/domain/huella.py` (research R-2): `format_amount`, `format_date` (dd-mm-yyyy), `format_timestamp` (Europe/Madrid, ISO 8601 con desfase), `build_alta_string`, `build_anulacion_string` y `compute_huella` (SHA-256, hexadecimal en mayúsculas).
-- [ ] T013 [P] Implementar `backend/app/domain/numeracion.py` (research R-7): `format_num_serie(serie, anio, numero)`, `year_of(fecha)` y `validate_num_serie`.
-- [ ] T014 Implementar `backend/app/domain/registro.py` (research R-3, R-4, R-4b): `build_contenido_alta(...)`, `build_contenido_anulacion(...)` y `build_descripcion_operacion(lineas, rectifica=None)`. Construye el contenido F-1 como `dict[str, object]` con valores en texto, a partir de dataclasses de entrada y del bloque `SistemaInformatico` de `Settings`.
-- [ ] T015 [P] Crear `backend/app/schemas/importes.py` con `Importe` y `Cantidad` para la entrada (`Annotated[Decimal, BeforeValidator(solo_texto), WithJsonSchema(...)]`) e `ImporteSalida` (research R-10).
-- [ ] T016 [P] Añadir a `backend/app/core/errors.py` los problemas de research R-14 y del contrato, con su `type`, estado y campos extra (`faltan`):
+- [X] T012 [P] Implementar `backend/app/domain/huella.py` (research R-2): `format_amount`, `format_date` (dd-mm-yyyy), `format_timestamp` (Europe/Madrid, ISO 8601 con desfase), `build_alta_string`, `build_anulacion_string` y `compute_huella` (SHA-256, hexadecimal en mayúsculas).
+- [X] T013 [P] Implementar `backend/app/domain/numeracion.py` (research R-7): `format_num_serie(serie, anio, numero)`, `year_of(fecha)` y `validate_num_serie`.
+- [X] T014 Implementar `backend/app/domain/registro.py` (research R-3, R-4, R-4b): `build_contenido_alta(...)`, `build_contenido_anulacion(...)` y `build_descripcion_operacion(lineas, rectifica=None)`. Construye el contenido F-1 como `dict[str, object]` con valores en texto, a partir de dataclasses de entrada y del bloque `SistemaInformatico` de `Settings`.
+- [X] T015 [P] Crear `backend/app/schemas/importes.py` con `Importe` y `Cantidad` para la entrada (`Annotated[Decimal, BeforeValidator(solo_texto), WithJsonSchema(...)]`) e `ImporteSalida` (research R-10).
+- [X] T016 [P] Añadir a `backend/app/core/errors.py` los problemas de research R-14 y del contrato, con su `type`, estado y campos extra (`faltan`):
   - `EmisionNoDisponible`, `ClienteNoFacturable`, `FechaExpedicionNoValida`, `TipoIvaNoAdmitido` y `FacturaNoModificable`.
   - `ContadorNoAjustable`, `CadenaInconsistente`, `SinCambios` y `ModalidadBloqueada`.
-- [ ] T017 [P] Actualizar `backend/app/services/auditoria.py`: `to_json` serializa `Decimal` con `format(valor, "f")`, nunca como `float` (FR-043), con su test en `backend/tests/unit/test_auditoria_json.py`.
+- [X] T017 [P] Actualizar `backend/app/services/auditoria.py`: `to_json` serializa `Decimal` con `format(valor, "f")`, nunca como `float` (FR-043), con su test en `backend/tests/unit/test_auditoria_json.py`.
 - [ ] T018 Crear los modelos según data-model.md y registrarlos en `backend/app/models/__init__.py`: `configuracion_facturacion.py`, `contador_factura.py`, `borrador_factura.py` (con `LineaBorrador` y `version_id_col`), `factura.py` (con `LineaFactura`, `DesgloseFactura` y `texto_busqueda` generada), `correccion_factura.py` y `registro_facturacion.py`, todos en `backend/app/models/`.
 - [ ] T019 Crear la migración `backend/alembic/versions/0005_facturacion.py`, escrita a mano (data-model.md, research R-6 a R-8, R-12 y R-15):
   - **Tablas**: todas, con sus `CHECK`, `UNIQUE` (también `clave_idempotencia`, `operacion_idempotencia` y `origen_idempotencia`), FK `RESTRICT` e índices, incluido el GIN trigram de `texto_busqueda`. Los borradores llevan `tipo_iva_previsto` y totales previstos. Fila inicial de `configuracion_facturacion`.
