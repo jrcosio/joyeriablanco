@@ -183,7 +183,8 @@ function FormularioModificacion({
           </Button>
           <Button
             onPress={() => {
-              setDescartando(false)
+              // Se cierra el modal entero sin cerrar antes la confirmación: así el foco vuelve a
+              // quien abrió el modal y no a un campo que va a desaparecer (FR-039).
               onCerrar()
             }}
           >

@@ -1,7 +1,10 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { parametrosFacturacionQuery } from '../../../api/queries/configuracionFacturacion'
 import { NuevaFacturaModal } from '../../../features/facturas/FacturaModal'
+import { precargar } from '../../../lib/precarga'
 
 export const Route = createFileRoute('/_app/facturas/nueva')({
+  loader: ({ context }) => precargar(context.queryClient.query(parametrosFacturacionQuery)),
   component: NuevaFactura,
 })
 

@@ -17,10 +17,16 @@ interface Peticion {
   clave: string | null
 }
 
-/** El detalle devuelve `lecturas` por orden (la última se repite) y se registran las acciones. */
-function conFactura(lecturas: FacturaSalida[], otras: Record<string, FacturaSalida> = {}) {
+/**
+ * El detalle devuelve `antes`, y `despues` una vez anulada; `otras` son más facturas por id. Se
+ * registran las acciones.
+ */
+function conFactura(
+  [antes, despues = antes]: [FacturaSalida, FacturaSalida?],
+  otras: Record<string, FacturaSalida> = {},
+) {
   const peticiones: Peticion[] = []
-  let leidas = 0
+  let anulada = false
   const maria = crearCliente()
   server.use(
     http.get('*/api/v1/clientes', () =>
@@ -31,9 +37,7 @@ function conFactura(lecturas: FacturaSalida[], otras: Record<string, FacturaSali
       const id = String(params.id)
       if (id === 'parametros') return undefined // lo atiende `conFacturacion`
       if (id in otras) return HttpResponse.json(otras[id])
-      const factura = lecturas[Math.min(leidas, lecturas.length - 1)]
-      leidas += 1
-      return HttpResponse.json(factura)
+      return HttpResponse.json(anulada ? despues : antes)
     }),
     http.post('*/api/v1/facturas/:id/anulacion', async ({ request, params }) => {
       peticiones.push({
@@ -41,7 +45,8 @@ function conFactura(lecturas: FacturaSalida[], otras: Record<string, FacturaSali
         cuerpo: await request.json(),
         clave: request.headers.get('Idempotency-Key'),
       })
-      return HttpResponse.json(lecturas.at(-1))
+      anulada = true
+      return HttpResponse.json(despues)
     }),
     http.post('*/api/v1/facturas/:id/modificacion', async ({ request, params }) => {
       peticiones.push({
@@ -173,7 +178,7 @@ describe('Consulta de una factura emitida (US5)', () => {
       {
         ruta: `anulacion:${ID}`,
         cuerpo: { declaracion_no_debio_emitirse: true, motivo_texto: 'Duplicada' },
-        clave: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown as string,
+        clave: expect.stringMatching(/^[0-9a-f-]{36}$/),
       },
     ])
     expect(await within(modal).findByText('Anulada')).toBeInTheDocument()
@@ -225,7 +230,7 @@ describe('Modificar una factura emitida (US5)', () => {
             { unidades: '2.00', descripcion: 'Ajuste', precio_unitario: '45.00' },
           ],
         },
-        clave: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown as string,
+        clave: expect.stringMatching(/^[0-9a-f-]{36}$/),
       },
     ])
     await waitFor(() => {

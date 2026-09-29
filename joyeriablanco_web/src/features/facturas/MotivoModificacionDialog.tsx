@@ -118,7 +118,7 @@ export function MotivoModificacionDialog({
         {motivo ? (
           <p
             role="status"
-            className="border-l-2 border-primary-container pl-4 body-md text-on-surface"
+            className="border-l border-primary-container pl-4 body-md text-on-surface"
           >
             {motivo === 'no_debio_emitirse'
               ? `Se anulará ${numSerie} y se emitirá una factura nueva con el siguiente número (previsto ${proximoNumero}).`

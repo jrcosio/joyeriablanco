@@ -20,7 +20,7 @@ export function TotalesFactura({
   titulo?: string
 }) {
   return (
-    <dl className="ml-auto flex w-full max-w-sm flex-col gap-2 border-l-2 border-primary-container bg-surface-container px-5 py-4">
+    <dl className="ml-auto flex w-full max-w-sm flex-col gap-2 border border-primary-container bg-surface-container px-5 py-4">
       <div className="flex justify-between gap-6 body-md">
         <dt className="text-on-surface-variant">Base imponible</dt>
         <dd className="tabular-nums text-on-surface">{formatearEuros(base)}</dd>

@@ -51,7 +51,7 @@ export function AnularFacturaDialog({
         {reactivara ? (
           <p
             role="status"
-            className="border-l-2 border-primary-container pl-4 body-md text-on-surface"
+            className="border-l border-primary-container pl-4 body-md text-on-surface"
           >
             {reactivara} volverá a estar vigente.
           </p>

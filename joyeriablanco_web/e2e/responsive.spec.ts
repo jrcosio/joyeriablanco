@@ -48,5 +48,25 @@ for (const ancho of ANCHOS) {
     await page.goto('/configuracion/usuarios')
     await expect(page.getByRole('table', { name: 'Usuarios del sistema' })).toBeVisible()
     await sinDesplazamientoHorizontal(page)
+
+    // Facturas (002, SC-008): listado y modal sin desplazamiento; modal a pantalla completa en
+    // móvil y centrado desde 768 px.
+    await page.goto('/facturas?anio=todos')
+    await expect(
+      page.getByRole(ancho < 768 ? 'list' : 'table', { name: 'Listado de facturas' }),
+    ).toBeVisible()
+    await sinDesplazamientoHorizontal(page)
+    await page.goto('/facturas/nueva')
+    const modal = page.getByRole('dialog', { name: 'Nueva factura' })
+    await expect(modal.getByText('Se asigna al emitir')).toBeVisible()
+    await sinDesplazamientoHorizontal(page)
+    const caja = await modal.boundingBox()
+    expect(caja).not.toBeNull()
+    if (ancho < 768) {
+      expect(caja?.width).toBe(ancho)
+      expect(caja?.x).toBe(0)
+    } else {
+      expect(caja?.width ?? 0).toBeLessThan(ancho)
+    }
   })
 }

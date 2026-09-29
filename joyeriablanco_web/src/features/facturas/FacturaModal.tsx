@@ -353,7 +353,8 @@ function FormularioFactura({
           </Button>
           <Button
             onPress={() => {
-              setDescartando(false)
+              // Se cierra el modal entero sin cerrar antes la confirmación: así el foco vuelve a
+              // quien abrió el modal y no a un campo que va a desaparecer (FR-039).
               onCerrar()
             }}
           >
@@ -446,10 +447,10 @@ export function BorradorModal({
   onEmitida: (factura: FacturaSalida) => void
 }) {
   const parametros = useQuery(parametrosFacturacionQuery)
-  const borrador = useQuery({ ...borradorQuery(borradorId), refetchOnMount: 'always' })
-  // El formulario se monta con los datos pedidos al abrir, nunca con los de una caché antigua; los
-  // refrescos posteriores no lo tocan (conserva lo escrito, y el conflicto se avisa, FR-020).
-  if (!parametros.data || !borrador.data || !borrador.isFetchedAfterMount) {
+  // La ruta lo pide al abrir (nunca se edita sobre una copia antigua); los refrescos posteriores
+  // no tocan el formulario: conserva lo escrito y el conflicto se avisa al guardar (FR-020).
+  const borrador = useQuery(borradorQuery(borradorId))
+  if (!parametros.data || !borrador.data) {
     const error = borrador.isError
       ? borrador.error instanceof ApiError && borrador.error.tipo === 'no-encontrado'
         ? YA_NO_EXISTE

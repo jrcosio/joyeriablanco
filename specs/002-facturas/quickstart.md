@@ -19,7 +19,8 @@ oficiales en [research.md](research.md).
 ```bash
 docker compose up -d --build
 docker compose exec api alembic upgrade head          # aplica 0005_facturacion
-docker compose exec api joyeria cargar-datos-ejemplo  # añade la configuración de facturación demo, unas 50 facturas con algunas correcciones y 5 borradores
+docker compose exec api joyeria cargar-datos-ejemplo  # configuración de facturación demo, unas 50 facturas con algunas correcciones y 5 borradores
+                                                      # (sobre una BD con los datos de 001, añade solo la facturación)
 cd joyeriablanco_web && npm ci && npm run dev          # http://localhost:5173
 ```
 
@@ -77,13 +78,58 @@ npx playwright test          # incluye facturas.spec.ts, acciones-visibles y tec
 
 ### Rendimiento (SC-007)
 
+Las 20.000 facturas se generan con los servicios, así que quedan encadenadas como las reales:
+
 ```bash
-docker compose --profile e2e up -d api-e2e
-docker compose exec api-e2e python scripts/medir_busqueda_facturas.py --facturas 20000
-#   → p95 de 100 búsquedas y cambios de filtro < 1 s
+docker compose --profile e2e up -d --build api-e2e
+docker compose --profile e2e exec -T api-e2e joyeria reiniciar-bd-e2e
+docker compose --profile e2e exec -T api-e2e joyeria cargar-datos-ejemplo \
+    --clientes 500 --facturas 20000 --contrasena-demo '<contraseña>'
+cd backend && uv run python scripts/medir_busqueda_facturas.py --contrasena '<contraseña>'
+docker compose --profile e2e exec -T api-e2e joyeria verificar-cadena
 ```
 
-El resultado de la medición se anota aquí al cerrar la feature.
+Medición del 2026-09-29, en el equipo de desarrollo con la pila de E2E en Docker:
+
+| Medida | Resultado | Objetivo |
+|---|---|---|
+| Generación de 20.000 facturas, con correcciones y borradores, por los servicios | 1 min 31 s | — |
+| Búsquedas y cambios de filtro (100 variadas, sobre 20.009 documentos) | mediana 26 ms, p95 50 ms, máximo 66 ms | p95 < 1000 ms |
+| Emisión de una factura (100 por la API) | mediana 7 ms, p95 9 ms, máximo 27 ms | p95 < 1000 ms (plan) |
+| `verificar-cadena` sobre 20.107 registros | íntegra, 12,6 s | — |
+
+## Resultado de la validación (2026-09-29)
+
+Las 17 validaciones de §2 se cubren con pruebas automáticas que pasan en verde; algunas se
+repitieron además a mano sobre la pila de desarrollo.
+
+| # | Cómo se ha validado |
+|---|---|
+| 1 | `FacturacionPage.test.tsx` y `test_configuracion_facturacion.py` (BD sin configurar: aviso con lo que falta) |
+| 2 | E2E `configuracion-facturacion.spec.ts` (acceso denegado) y `test_configuracion_facturacion.py` (403) |
+| 3 | `FacturaModal.test.tsx` (1.290,00 / 270,90 / 1.560,90) y E2E `facturas.spec.ts` |
+| 4 | E2E `facturas.spec.ts`: aviso, listado y detalle con el registro de alta y su huella |
+| 5 | `ClienteAltaPanel.test.tsx` y E2E `facturas.spec.ts` |
+| 6 | E2E `facturas.spec.ts` (guardar, reabrir, editar y emitir; eliminar sin consumir número) y `test_borradores.py` |
+| 7 | `test_borradores.py` y `test_emision.py` (`cliente-no-facturable`); aviso con enlace en `ResumenCliente` |
+| 8 | E2E `facturas.spec.ts` (reemisión) y `test_correcciones.py` |
+| 9 | E2E `facturas.spec.ts` (REC R4) y `test_correcciones.py` (contenido del registro según R-4) |
+| 10 | `test_correcciones.py` (R1 sin líneas, total 0 y desglose a cero) |
+| 11 | E2E `facturas.spec.ts` y `test_correcciones.py` |
+| 12 | E2E `facturas.spec.ts` (empleado sin acciones) y `test_correcciones.py` (403 en ambas rutas) |
+| 13 | E2E `configuracion-facturacion.spec.ts` y `test_configuracion_facturacion.py` |
+| 14 | `test_configuracion_facturacion.py` (`contador-no-ajustable`) |
+| 15 | `test_emision.py` y `test_borradores.py` (`cliente-con-documentos`, con factura o con borrador) |
+| 16 | A mano en desarrollo: tras la migración 0005 y los datos de ejemplo, «Cadena íntegra (57 registros).», código 0. Automatizado en `test_verificar_cadena.py` |
+| 17 | E2E `acciones-visibles.spec.ts` (360 a 1536 px, página completa) y `responsive.spec.ts` (modal a pantalla completa en móvil) |
+
+**Inalterabilidad (SC-005)**, a mano en desarrollo: el `UPDATE` como `jb_app` da «permission
+denied for table facturas» y el `DELETE` como `jb_owner`, «Los documentos de facturación emitidos
+son inalterables». Después, `verificar-cadena` sigue dando la cadena por íntegra.
+
+**SC-001** (emitir una factura de tres líneas en menos de 2 minutos): el recorrido automático de
+`facturas.spec.ts`, que además da de alta al cliente desde el modal, tarda unos 3,5 s. El
+cronometraje con una persona de la tienda queda pendiente del responsable.
 
 ## 4. Producción
 

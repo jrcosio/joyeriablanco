@@ -77,7 +77,8 @@ uv run pytest -k clientes         # un subconjunto
 uv run ruff check . && uv run ruff format --check . && uv run mypy .   # calidad (obligatoria)
 uv run alembic revision -m "descripcion"   # nueva migración (escrita a mano y revisada)
 uv run joyeria --help             # CLI: crear-admin, restablecer-admin, purgar-sesiones,
-                                  # cargar-datos-ejemplo, reiniciar-bd-e2e, exportar-openapi
+                                  # cargar-datos-ejemplo, verificar-cadena, reiniciar-bd-e2e,
+                                  # exportar-openapi
 
 # Web (dentro de joyeriablanco_web/)
 npm ci

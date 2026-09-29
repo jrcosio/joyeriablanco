@@ -15,6 +15,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Final
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -35,6 +36,7 @@ from app.models.cliente import Cliente
 from app.models.factura import Factura
 from app.models.usuario import Usuario
 from app.repositories import configuracion_facturacion as configuracion_repo
+from app.repositories import registros as registros_repo
 from app.repositories import usuarios as usuarios_repo
 from app.schemas.cliente import ClienteEntrada
 from app.schemas.configuracion_facturacion import (
@@ -407,15 +409,27 @@ async def cargar(
         msg = "La carga de datos de ejemplo no está permitida en producción."
         raise SinPermiso(msg)
     resumen = ResumenCarga()
+    rng = random.Random(semilla)  # noqa: S311 — datos ficticios, no criptográficos
     if await usuarios_repo.get_by_nombre_usuario(db, "admin.demo") is not None:
-        resumen.ya_cargados = True
+        # Datos de 001 ya cargados: se añade solo la facturación, si aún no hay ninguna.
+        if await registros_repo.exists_any(db):
+            resumen.ya_cargados = True
+            return resumen
+        await _cargar_facturacion(
+            db,
+            rng,
+            resumen,
+            demo=await _usuarios_demo(db),
+            clientes=await _clientes_de_ejemplo(db),
+            facturas=facturas,
+            borradores=borradores,
+        )
         return resumen
 
     from faker import Faker
 
     fake = Faker("es_ES")
     fake.seed_instance(semilla)
-    rng = random.Random(semilla)  # noqa: S311 — datos ficticios, no criptográficos
     demo = await _crear_usuarios(db, contrasena_demo, resumen)
     admin = demo[0]
 
@@ -440,11 +454,50 @@ async def cargar(
             await db.flush()
     await db.flush()
 
+    await _cargar_facturacion(
+        db, rng, resumen, demo=demo, clientes=creados, facturas=facturas, borradores=borradores
+    )
+    return resumen
+
+
+async def _cargar_facturacion(
+    db: AsyncSession,
+    rng: random.Random,
+    resumen: ResumenCarga,
+    *,
+    demo: list[Usuario],
+    clientes: list[Cliente],
+    facturas: int,
+    borradores: int,
+) -> None:
+    """Configuración demo, facturas con correcciones y borradores (002, R-16)."""
+    admin = demo[0]
     await _configurar_facturacion(db, admin)
-    emitidas = await _emitir_facturas(db, rng, cantidad=facturas, emisores=demo, clientes=creados)
+    emitidas = await _emitir_facturas(db, rng, cantidad=facturas, emisores=demo, clientes=clientes)
     resumen.facturas_emitidas = len(emitidas)
     resumen.correcciones = await _corregir(db, rng, facturas=emitidas, admin=admin)
     resumen.borradores_creados = await _crear_borradores(
-        db, rng, cantidad=borradores, autores=demo, clientes=creados
+        db, rng, cantidad=borradores, autores=demo, clientes=clientes
     )
-    return resumen
+
+
+async def _usuarios_demo(db: AsyncSession) -> list[Usuario]:
+    """Los usuarios de ejemplo que sigan activos, con el administrador primero."""
+    demo: list[Usuario] = []
+    for nombre_usuario, _, _ in USUARIOS_DEMO:
+        usuario = await usuarios_repo.get_by_nombre_usuario(db, nombre_usuario)
+        if usuario is not None and usuario.activo:
+            demo.append(usuario)
+    if not demo or demo[0].nombre_usuario != "admin.demo":
+        msg = "El administrador de ejemplo (admin.demo) no está activo."
+        raise SinPermiso(msg)
+    return demo
+
+
+async def _clientes_de_ejemplo(db: AsyncSession) -> list[Cliente]:
+    resultado = await db.execute(
+        select(Cliente)
+        .where(Cliente.observaciones.startswith(MARCADOR))
+        .order_by(Cliente.creado_en, Cliente.id)
+    )
+    return list(resultado.unique().scalars())

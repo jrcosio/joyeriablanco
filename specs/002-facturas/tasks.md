@@ -527,17 +527,17 @@ altera un registro saltándose los triggers, señala ese registro.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T073 [P] Test `backend/tests/integration/test_logs_facturacion.py` con `caplog` (FR-051). Tras emitir, modificar y anular, los logs no contienen el nombre ni la identificación del cliente, ni importes. Solo IDs, número y operación.
-- [ ] T074 [P] Crear `backend/scripts/medir_busqueda_facturas.py`, que genera 20.000 facturas en la BD e2e mediante los servicios y mide el p95 de 100 búsquedas y cambios de filtro (< 1 s, SC-007) y el p95 de la emisión (< 1 s, plan). Anotar el resultado en `specs/002-facturas/quickstart.md`.
-- [ ] T075 [P] E2E de teclado y adaptación:
+- [X] T073 [P] Test `backend/tests/integration/test_logs_facturacion.py` con `caplog` (FR-051). Tras emitir, modificar y anular, los logs no contienen el nombre ni la identificación del cliente, ni importes. Solo IDs, número y operación.
+- [X] T074 [P] Crear `backend/scripts/medir_busqueda_facturas.py`, que genera 20.000 facturas en la BD e2e mediante los servicios y mide el p95 de 100 búsquedas y cambios de filtro (< 1 s, SC-007) y el p95 de la emisión (< 1 s, plan). Anotar el resultado en `specs/002-facturas/quickstart.md`.
+- [X] T075 [P] E2E de teclado y adaptación:
   - Ampliar `joyeriablanco_web/e2e/teclado.spec.ts`: modal de factura solo con teclado, con dos capas, Escape y foco devuelto.
   - Ampliar `joyeriablanco_web/e2e/responsive.spec.ts`: listado y modal a 360, 768 y 1440 px sin desplazamiento horizontal, y modal a pantalla completa en móvil (SC-008).
-- [ ] T076 Cerrar el contrato: eliminar `PENDIENTES_002` de `backend/tests/integration/test_contrato_openapi.py`, que debía estar vacía, y comprobar que la API coincide exactamente con la unión de los contratos.
-- [ ] T077 Actualizar la documentación:
+- [X] T076 Cerrar el contrato: eliminar `PENDIENTES_002` de `backend/tests/integration/test_contrato_openapi.py`, que debía estar vacía, y comprobar que la API coincide exactamente con la unión de los contratos.
+- [X] T077 Actualizar la documentación:
   - `README.md`: tabla de módulos, con Facturas y registro Verifactu ✅ y PDF/QR y remisión 🔜, y el comando `verificar-cadena`.
   - `CLAUDE.md`: comandos (`verificar-cadena`).
   - `specs/002-facturas/quickstart.md`: validado de principio a fin, con el resultado de las 17 validaciones manuales y el cronometraje de SC-001 (emitir una factura de tres líneas en menos de 2 minutos).
-- [ ] T078 Pasar las puertas de calidad completas:
+- [X] T078 Pasar las puertas de calidad completas:
   - Backend: `uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest`.
   - Web: `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens` y `npx playwright test`.
   - Revisión de conformidad con DESIGN.md (SC-009).

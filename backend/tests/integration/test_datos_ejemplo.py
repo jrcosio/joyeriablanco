@@ -104,6 +104,22 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
     assert all(b.lineas and b.total_previsto > 0 for b in borradores)
 
 
+async def test_sobre_datos_de_001_anade_solo_la_facturacion(db: AsyncSession) -> None:
+    """Una BD de desarrollo con los datos de 001 recibe la facturación de ejemplo una vez."""
+    primera = await datos_ejemplo.cargar(db, clientes=40, facturas=0, borradores=0)
+    assert primera.facturas_emitidas == 0
+
+    segunda = await datos_ejemplo.cargar(db, clientes=40, facturas=20, borradores=2)
+
+    assert segunda.ya_cargados is False
+    assert segunda.clientes_creados == 0
+    assert segunda.facturas_emitidas == 20
+    assert segunda.borradores_creados == 2
+    assert (await integridad.verify_chain(db)).integra
+    tercera = await datos_ejemplo.cargar(db, clientes=40, facturas=20)
+    assert tercera.ya_cargados is True
+
+
 async def test_es_idempotente(db: AsyncSession) -> None:
     await datos_ejemplo.cargar(db, clientes=10)
     segunda = await datos_ejemplo.cargar(db, clientes=10)

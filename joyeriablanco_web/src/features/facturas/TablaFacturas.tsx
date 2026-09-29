@@ -14,10 +14,18 @@ const claseAccion =
 
 /** Número de la factura, o la marca «Borrador», con la marca de anulada o rectificada (FR-033). */
 function Numero({ fila }: { fila: FacturaResumenSalida }) {
-  if (fila.tipo_documento === 'borrador') return <Chip tone="warning">Borrador</Chip>
+  if (fila.tipo_documento === 'borrador') {
+    return (
+      <Chip tone="warning" className="self-start">
+        Borrador
+      </Chip>
+    )
+  }
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <span className="title-md tabular-nums text-on-surface">{fila.num_serie}</span>
+      <span className="title-md whitespace-nowrap tabular-nums text-on-surface">
+        {fila.num_serie}
+      </span>
       {fila.estado === 'anulada' ? <Chip tone="neutral">Anulada</Chip> : null}
       {fila.estado === 'rectificada' ? <Chip tone="neutral">Rectificada</Chip> : null}
     </span>
