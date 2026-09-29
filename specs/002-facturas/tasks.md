@@ -237,7 +237,7 @@ la misma transacción, y la operación es idempotente.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T035 [P] [US2] Test `backend/tests/integration/test_emision.py`:
+- [X] T035 [P] [US2] Test `backend/tests/integration/test_emision.py`:
   - **Caso normal**: `POST /v1/facturas` → 201 con `FAC-2026-0001`, las líneas con `tipo_iva` e importe, el desglose, los totales (1290.00 / 270.90 / 1560.90) y las copias del emisor y del destinatario. El registro de alta es primer registro, su huella se recalcula igual y su `contenido` tiene las claves de R-3. Evento `factura_emitida`. Un empleado también puede emitir.
   - **Rechazos**:
     - Configuración incompleta → 409 `emision-no-disponible` con `faltan`.
@@ -254,7 +254,7 @@ la misma transacción, y la operación es idempotente.
   - **Registro**: guarda la `modalidad` de la configuración y `estado_remision = pendiente` (FR-030).
   - **Idempotencia**: repetir la misma `Idempotency-Key` → 200 con la misma factura, sin segundo registro ni número. La misma clave en otra operación u otro documento → 409 `idempotencia-conflicto` (research R-18).
   - **Cadena y borrado**: `cadena-inconsistente` → 409 y no se emite. Borrar un cliente con factura → 409 `cliente-con-documentos` (FR-042).
-- [ ] T036 [P] [US2] ⚖️ Test `backend/tests/integration/test_numeracion_concurrencia.py`, con el patrón de `test_usuarios.py::test_regla_del_ultimo_administrador_bajo_concurrencia` (sesiones reales con `AsyncSession(engine_app)`, `asyncio.gather` y limpieza con `engine_owner`), para SC-002 y research R-7:
+- [X] T036 [P] [US2] ⚖️ Test `backend/tests/integration/test_numeracion_concurrencia.py`, con el patrón de `test_usuarios.py::test_regla_del_ultimo_administrador_bajo_concurrencia` (sesiones reales con `AsyncSession(engine_app)`, `asyncio.gather` y limpieza con `engine_owner`), para SC-002 y research R-7:
   - **200 emisiones** repartidas en 10 sesiones: números 1..200 sin huecos ni duplicados; 200 registros con `secuencia` 1..200; cada huella anterior es la del registro previo.
   - **Fallo forzado**: una emisión que falla a propósito tras asignar número no lo consume.
   - **Ajuste del contador a la vez que las emisiones**: ningún duplicado y el contador nunca baja.
@@ -277,19 +277,19 @@ la misma transacción, y la operación es idempotente.
 
 ### Implementation for User Story 2
 
-- [ ] T039 [US2] Implementar `backend/app/repositories/facturas.py`:
+- [X] T039 [US2] Implementar `backend/app/repositories/facturas.py`:
   - `insert_emitida` (factura, líneas y desglose), `get_detalle` (con `estado_factura`), `get_by_idempotency_key` y `last_fecha_in_serie(serie, anio)`.
   - `has_documentos(cliente_id)`, que cuenta borradores y facturas.
-- [ ] T040 [US2] Implementar `emit_factura(db, actor, datos, clave, *, borrador=None)` en `backend/app/services/emision.py` (research R-6, R-7, R-9, R-18):
+- [X] T040 [US2] Implementar `emit_factura(db, actor, datos, clave, *, borrador=None)` en `backend/app/services/emision.py` (research R-6, R-7, R-9, R-18):
   1. Cerrojo de la cadena y búsqueda de la clave de idempotencia, con su operación y origen.
   2. Validaciones de configuración, cliente activo con domicilio (FR-017), fecha con todos los límites de FR-018, líneas, total > 0 y tipo de IVA (`is_rate_allowed`).
   3. `compute_totals`, contador, copias, descripción (FR-045) e inserción.
   4. `cadena.create_registro_alta` y auditoría.
   5. Logs sin datos personales ni importes (FR-051).
-- [ ] T041 [US2] Implementar `backend/app/services/facturas.py` → `get_factura(db, id)`: estado derivado, `rectifica_a`, `sustituye_a`, `vigente_actual`, `correcciones` con `en_vigor`, `registros` y autores con «(eliminado)» (001, FR-061).
-- [ ] T042 [P] [US2] Crear `backend/app/schemas/factura.py` según el contrato: `LineaEntrada`, `FacturaEntrada` (`extra="forbid"`), `LineaSalida`, `Desglose`, `Totales`, `ClienteFacturaSalida`, `FacturaSalida`, `FacturaReferencia`, `RegistroResumen` y `Correccion`.
-- [ ] T043 [US2] En `backend/app/api/v1/facturas.py`, implementar `POST /v1/facturas` (cabecera `Idempotency-Key` obligatoria; 201, o 200 si es repetición) y `GET /v1/facturas/{id}`, y quitarlos de `PENDIENTES_002`.
-- [ ] T044 [US2] Sustituir `SinDocumentos` por la implementación real en `backend/app/services/documentos.py`, usando `repositories/facturas.has_documentos`, y conectarla en `get_documentos_checker` (FR-042).
+- [X] T041 [US2] Implementar `backend/app/services/facturas.py` → `get_factura(db, id)`: estado derivado, `rectifica_a`, `sustituye_a`, `vigente_actual`, `correcciones` con `en_vigor`, `registros` y autores con «(eliminado)» (001, FR-061).
+- [X] T042 [P] [US2] Crear `backend/app/schemas/factura.py` según el contrato: `LineaEntrada`, `FacturaEntrada` (`extra="forbid"`), `LineaSalida`, `Desglose`, `Totales`, `ClienteFacturaSalida`, `FacturaSalida`, `FacturaReferencia`, `RegistroResumen` y `Correccion`.
+- [X] T043 [US2] En `backend/app/api/v1/facturas.py`, implementar `POST /v1/facturas` (cabecera `Idempotency-Key` obligatoria; 201, o 200 si es repetición) y `GET /v1/facturas/{id}`, y quitarlos de `PENDIENTES_002`.
+- [X] T044 [US2] Sustituir `SinDocumentos` por la implementación real en `backend/app/services/documentos.py`, usando `repositories/facturas.has_documentos`, y conectarla en `get_documentos_checker` (FR-042).
 - [ ] T045 [US2] Regenerar los tipos y crear `joyeriablanco_web/src/api/queries/facturas.ts` (emitir con `Idempotency-Key`, detalle e invalidación de `['facturas']`) y sus alias en `joyeriablanco_web/src/api/tipos.ts`.
 - [ ] T046 [US2] Extraer `joyeriablanco_web/src/features/clientes/ClienteAltaPanel.tsx` de `ClientePanel.tsx`, controlado por props (`isOpen`, `onCreado` y `onCerrar`) y con el mismo `ClienteForm`. `ClientePanel` pasa a usarlo (FR-046).
 - [ ] T047 [US2] Crear en `joyeriablanco_web/src/features/facturas/`, en modo nueva:

@@ -111,6 +111,13 @@ async def lock_and_verify(
     session: AsyncSession, *, origen: Origen | None, actor: Usuario | None
 ) -> None:
     await repo.lock_chain(session)
+    await verify_tail(session, origen=origen, actor=actor)
+
+
+async def verify_tail(
+    session: AsyncSession, *, origen: Origen | None, actor: Usuario | None
+) -> None:
+    """Comprobación previa de F-10, art. 7.i. Exige tener ya el cerrojo de la cadena."""
     ultimo = await repo.get_last(session)
     if ultimo is None:
         return
