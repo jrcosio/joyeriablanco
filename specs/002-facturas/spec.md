@@ -23,7 +23,7 @@ izquierda."
   - [`assets/mockup-facturas.png`](assets/mockup-facturas.png) (listado).
   - [`assets/mockup-nueva-factura.png`](assets/mockup-nueva-factura.png) (modal «Nueva factura»).
 - Sistema de diseño normativo: [`docs/DESIGN.md`](../../docs/DESIGN.md).
-- Constitución 2.1.0: principios II, III, IV, VI y VII.
+- Constitución 2.2.0: principios II, III, IV, VI y VII y restricción "Numeración".
 - Feature previa: [`specs/001-cimientos-clientes`](../001-cimientos-clientes/spec.md).
 
 ## Clarifications
@@ -300,7 +300,7 @@ cosas:
 5. **Given** una factura duplicada por error, **When** se pulsa «Anular», se declara que no debió
    emitirse y se indica el motivo, **Then** se genera su registro de anulación sin emitir otra
    factura, y su número no vuelve a usarse.
-6. **Given** una factura ya corregida o anulada, **When** se consulta, **Then** se ve con claridad
+6. **Given** una factura rectificada o anulada, **When** se consulta, **Then** se ve con claridad
    su situación, con acceso directo a la factura vigente que la sustituye, si la hay. Además, no
    ofrece «Modificar» ni «Anular».
 7. **Given** `REC-2026-0001`, que rectifica `FAC-2026-0007` y no debió emitirse, **When** un
@@ -449,7 +449,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
     (FR-024).
   - **El contador de la serie ordinaria del año en curso**: un administrador puede ajustar al alza
     el próximo número en cualquier momento. Las condiciones son:
-    - El valor debe ser mayor que el último número usado, incluidos los anulados.
+    - El valor debe ser mayor que el que ya correspondería (último número usado + 1, incluidos
+      los anulados). Así el ajuste siempre salta al menos un número.
     - El motivo es obligatorio y queda en la auditoría.
     - Antes de guardar, se avisa de cuántos números quedarán sin usar.
     - El ajuste es seguro frente a emisiones simultáneas: nunca provoca un duplicado.
@@ -478,8 +479,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   - La base imponible y la cuota de cada tipo de IVA.
   - La base total, la cuota total y el total de la factura.
 
-  La web solo previsualiza. Nunca envía importes calculados, y si los enviara el servidor los
-  ignoraría (constitución VI).
+  La web solo previsualiza y nunca envía importes calculados. Si una petición los incluyera, el
+  servidor la rechazaría con un error de validación (constitución VI).
 - **FR-015**: Una única política de redondeo para todo el sistema:
   - El importe de cada línea se redondea al céntimo.
   - La base de cada tipo es la suma de los importes de sus líneas.
@@ -494,11 +495,19 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **FR-017**: Para emitir una factura completa, el destinatario DEBE tener su identificación
   fiscal y su domicilio: dirección, código postal y localidad (F-6, art. 6.1.c, d y e). Si falta
   algo, el sistema lo indica y ofrece abrir la ficha del cliente.
-- **FR-018**: La fecha de expedición es editable (Clarifications 2026-09-29). NO DEBE ser posterior al
-  día actual ni anterior a la de la última factura emitida de la misma serie en ese año, en hora de
-  España peninsular. El límite inferior es una interpretación de la numeración correlativa (F-6,
-  art. 6.1.a) y la fecha anterior al día de emisión está pendiente de validar con la asesoría
-  (research R-17, Q-9). La fecha de
+- **FR-018**: La fecha de expedición de una factura nueva o de un borrador es editable
+  (Clarifications 2026-09-29), en hora de España peninsular. Límites:
+  - **Superior**: NO DEBE ser posterior al día actual (F-3 §3.1.3.1).
+  - **Inferior**:
+    - NO DEBE ser anterior a la de la última factura emitida de la misma serie en ese año. Es una
+      interpretación de la numeración correlativa (F-6, art. 6.1.a).
+    - Debe ser del año en curso o del anterior. Así se cubre el cierre de año sin abrir series de
+      años pasados.
+    - Nunca anterior al 28/10/2024 (F-3 §3.1.3.1).
+  - **Pendiente**: que la fecha pueda ser anterior al día de emisión está por validar con la
+    asesoría (research R-17, Q-9).
+  - **Correcciones**: la factura nueva tras una anulación y la rectificativa se expiden siempre con
+    la fecha de hoy, sin editarla. La fecha de
   la operación solo se indica si es distinta de la de expedición (F-6, art. 6.1.i). No se pide al
   crear una factura. La factura nueva tras una anulación y la rectificativa heredan como fecha de
   la operación la de la original, o su fecha de expedición si no tenía ninguna (F-9: «la fecha de
@@ -600,9 +609,14 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **FR-030**: Cada registro DEBE guardar la modalidad del sistema de facturación con la que se
   generó (constitución IV) y un estado de remisión. En esta feature, el estado de remisión queda
   como «pendiente» porque la remisión llega con la feature 004.
-- **FR-031**: El sistema DEBE ofrecer una comprobación de la integridad de la cadena. Recalcula
-  todas las huellas en orden e informa de si la cadena está íntegra o de cuál es el primer registro
-  discrepante. En esta feature se lanza desde la consola de administración del servidor.
+- **FR-031**: El sistema DEBE ofrecer una comprobación de la integridad de la cadena y de los
+  documentos. En orden de la cadena:
+  - Recalcula cada huella y su enlace con el registro anterior.
+  - Coteja el contenido guardado de cada registro con el que resulta de su factura.
+  - Coteja los totales y el desglose de cada factura con los que resultan de sus líneas.
+
+  Informa de si todo está íntegro o de cuál es el primer registro o factura discrepante. En esta
+  feature se lanza desde la consola de administración del servidor.
 
 #### Listado y búsqueda
 
@@ -613,7 +627,7 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   - Las acciones de todas las filas siempre visibles.
 - **FR-033**: Columnas: número, fecha de expedición, cliente, identificación fiscal, base
   imponible, IVA (cuota), total y acciones. Los importes van en euros con formato español. Un
-  borrador muestra «Borrador» en lugar del número. Una factura anulada o sustituida muestra una
+  borrador muestra «Borrador» en lugar del número. Una factura anulada o rectificada muestra una
   marca discreta junto a su número. NO hay columna de estado ni indicadores.
 - **FR-034**: La búsqueda DEBE encontrar coincidencias parciales en el número, el nombre del
   cliente y su identificación, sin distinguir mayúsculas ni tildes, con las mismas normas de
@@ -677,6 +691,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   - **Escritura de cifras**: unidades y precios admiten la coma decimal y los puntos de miles
     («1.200,50»). Un formato no válido se indica en el propio campo.
   - **Tras emitir**: el modal se cierra con el aviso «Factura {número} emitida».
+  - **Tras «Guardar borrador» en una factura nueva**: el modal pasa al modo borrador de ese
+    borrador, con el aviso «Borrador guardado».
   - **Tras modificar**: el modal pasa a mostrar la factura nueva en consulta, con el aviso de lo
     generado, por ejemplo «Se ha emitido REC-2026-0001. FAC-2026-0007 queda rectificada».
   - **Tras anular**: el modal sigue en la factura, ya marcada como anulada.
@@ -703,7 +719,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   emitidas y en borrador, de varios meses. Su carga sigue prohibida en producción (001, FR-045).
 - **FR-047**: Emitir, modificar y anular DEBEN ser **idempotentes** frente a un doble envío. Si una
   petición se repite con la misma clave de operación, devuelve el resultado de la primera y no
-  genera nada nuevo.
+  genera nada nuevo. Una clave ya usada en otra operación o sobre otro documento se rechaza
+  (research R-18).
 - **FR-048**: Al anular una rectificativa vigente, la factura que rectificaba DEBE volver a estar
   vigente:
   - Se puede consultar, anular o modificar de nuevo, sin perder su historial, en el que la
@@ -730,7 +747,7 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   - Número y serie, fecha de expedición, copia de los datos del emisor y del destinatario, líneas
     con su tipo de IVA, desglose por tipo, totales, autor y fecha de emisión.
   - Si es rectificativa, la referencia a la factura que rectifica.
-  - Si es el caso, la marca de anulada o sustituida.
+  - Si es el caso, su estado derivado: anulada o rectificada.
 - **Línea de factura**: unidades, descripción, precio unitario sin IVA, tipo de IVA e importe.
 - **Serie y contador**: uno por serie (`FAC` ordinaria y `REC` rectificativa) y año natural.
   - Guarda el último número asignado y serializa las asignaciones simultáneas.
@@ -793,7 +810,7 @@ mandan `docs/DESIGN.md` y esta spec. Diferencias deliberadas:
 | Menú lateral a la derecha | Menú a la **izquierda** | Decisión del responsable, como en 001 |
 | Marca y lema en la cabecera; usuario "Carlos Martínez" | Cabecera de 001: contexto "Gestión de facturación", fecha y menú de usuario | Coherencia con la estructura ya existente (001, FR-038) |
 | Indicadores «Facturado», «Pendiente de cobro» y «Vencido» | Sin indicadores | Decisión del responsable (2026-09-28) |
-| Columna «Estado» con chips redondeados (Cobrada, Pendiente, Vencida, Emitida, Pagada) | Sin columna de estado. Borrador, anulada y sustituida se marcan en la columna del número | Decisión del responsable. Los chips redondeados y el azul de «Pagada» incumplen DESIGN.md (esquinas a 0 px, colores solo de tokens) |
+| Columna «Estado» con chips redondeados (Cobrada, Pendiente, Vencida, Emitida, Pagada) | Sin columna de estado. Borrador, anulada y rectificada se marcan en la columna del número | Decisión del responsable. Los chips redondeados y el azul de «Pagada» incumplen DESIGN.md (esquinas a 0 px, colores solo de tokens) |
 | Filtros «Cliente» y «Estado» | El cliente se busca con la búsqueda. No hay filtro de estado | Misma lógica que clientes (FR-034, FR-035) |
 | Campo «Nº de factura» editable al crear | Número en solo lectura, asignado por el servidor al emitir. Una factura con número erróneo se anula y se reemite, y el contador se ajusta en Configuración (FR-010, FR-024) | Constitución (principio III y "Numeración"); correlatividad del ROF (F-6, art. 6.1.a) |
 | «IVA (21%)» fijo | La etiqueta muestra el tipo vigente de Configuración | Decisión del responsable: el IVA se configura (FR-013) |
@@ -809,13 +826,20 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   - URL:
     `https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/DsRegistroVeriFactu.xlsx`.
   - Los campos del registro de alta y de anulación se transcriben y citan en el plan (research).
-- **F-2**: AEAT, *Especificaciones técnicas para la generación de la huella o hash de los registros
-  de facturación*, versión 0.1.2 (27/08/2024).
+- **F-2**: AEAT, *Detalle de las especificaciones técnicas para generación de la huella o hash de
+  los registros de facturación*, versión 0.1.2 (27/08/2024).
+  - URL:
+    `https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_especificaciones_huella_hash_registros.pdf`.
+  - SHA-256: `f4334c254bb875b417247b54315199f89d75a8c4814dfd1e86efec562653d7de`.
   - Índice oficial:
     `https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica.html`.
-  - El orden de concatenación y los ejemplos oficiales se transcriben en el plan.
-- **F-3**: AEAT, *Validaciones y errores VERI\*FACTU*, v1.2.2 (08/04/2026) (001, F-3). Las
-  tolerancias de importes y las reglas de fechas se transcriben en el plan.
+  - El orden de concatenación y los ejemplos oficiales se transcriben en research R-2.
+- **F-3**: AEAT, *Validaciones y errores VERI\*FACTU*, v1.2.2 (08/04/2026) (001, F-3).
+  - URL:
+    `https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Validaciones_Errores_Veri-Factu.pdf`.
+  - SHA-256: `426eb926fc098a36a163f66ca5f40d9e0847ca23300bbe5008979832d3513440`.
+  - Las tolerancias de importes, los tipos de IVA admitidos y las reglas de fechas se transcriben
+    en research R-10 y R-17.
 - **F-4**: AEAT, *Aclaraciones a dudas de los desarrolladores*, versión 1.3 (4 de diciembre de
   2025).
   - URL:
@@ -951,8 +975,8 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   productor y del sistema.
   - Quién figura como productor depende de la declaración responsable, pendiente de la asesoría
     (TODO(DECLARACION_RESPONSABLE) de la constitución).
-  - En desarrollo y pruebas se usan valores ficticios. En producción, el sistema no emite mientras
-    no estén configurados.
+  - En desarrollo y pruebas se usan valores ficticios. En producción, la API no arranca si no
+    están configurados (research R-5).
 - **Tests obligatorios** (constitución VII): esta feature toca tres de los cuatro:
   - Numeración bajo concurrencia.
   - Importes y redondeos.

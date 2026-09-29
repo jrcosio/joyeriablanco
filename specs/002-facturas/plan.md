@@ -74,7 +74,7 @@ obligatorios de la constitución VII se detallan en R-2, R-7 y R-10.
 - Volumen: menos de 10 usuarios y del orden de cientos a miles de facturas al año (hasta 20.000
   para las pruebas).
 - Web: 5 pantallas o modales nuevos.
-- API: 12 operaciones nuevas y 1 comando de CLI.
+- API: 14 operaciones nuevas y 1 comando de CLI.
 
 ## Constitution Check
 
@@ -83,7 +83,7 @@ obligatorios de la constitución VII se detallan en R-2, R-7 y R-10.
 | Principio / restricción (v2.2.0) | Cómo se cumple | Estado |
 |---|---|---|
 | **I. SDD** | Rama `002-facturas` creada a mano. Specify con 3 marcadores resueltos, clarify con 4 preguntas y plan con 2 preguntas de dominio, cada fase con su commit. Siguen checklist, tasks, analyze e implement | ✅ |
-| **II. Integridad monetaria** | `NUMERIC(12,2)` y `Decimal` en todo el backend, con una única política de redondeo en `domain/importes.py` (R-10). JSON con cadenas: la entrada rechaza números (R-10). La web previsualiza con `BigInt` (R-11). IVA por línea (`lineas_factura.tipo_iva`) y totales por tipo en `desgloses_factura` | ✅ |
+| **II. Integridad monetaria** | `NUMERIC(12,2)` y `Decimal` en todo el backend, con una única política de redondeo en `domain/importes.py` (R-10). También los totales previstos de los borradores se calculan ahí al guardarlos: la vista no redondea (R-9, R-12). JSON con cadenas: la entrada rechaza números (R-10). La web previsualiza con `BigInt` (R-11). IVA por línea (`lineas_factura.tipo_iva`) y totales por tipo en `desgloses_factura` | ✅ |
 | **III. Inalterabilidad** | Tablas 🔒 con `REVOKE` y triggers también para `jb_owner` (R-8). Estado derivado de `correcciones_factura`, sin `UPDATE`. Borradores mutables porque no son facturas expedidas. «Modificar» es una corrección trazable: anulación y reemisión o rectificativa por sustitución (R-4). El límite heredado de `DISABLE TRIGGER` por el dueño se cubre con la comprobación de integridad (FR-031) | ✅ |
 | **IV. Verifactu por diseño** | Formatos tomados de F-1, F-2 y F-3 con versión y SHA-256. Vectores oficiales de huella en los tests. Encadenamiento según F-10, art. 7, con cerrojo y trigger (R-6). Modalidad como columna de configuración y de cada registro: el cambio no exige migraciones. Lo no verificable queda en R-17 | ✅ |
 | **V. Capas** | Routers finos: `routers → services → repositories/modelos`. Huella, importes, numeración y contenido del registro son funciones puras en `app/domain/` y se prueban sin HTTP. Esquemas `*Entrada`/`*Salida`; nunca se devuelve un ORM | ✅ |
@@ -119,11 +119,11 @@ obligatorios de la constitución VII se detallan en R-2, R-7 y R-10.
 specs/002-facturas/
 ├── spec.md              # Especificación (Clarifications: previas, specify, clarify y plan)
 ├── plan.md              # Este fichero
-├── research.md          # Fase 0: fuentes oficiales F-1 a F-10 y decisiones R-1 a R-17
+├── research.md          # Fase 0: fuentes oficiales F-1 a F-10 y decisiones R-1 a R-19
 ├── data-model.md        # Fase 1: tablas, restricciones, estado derivado y transiciones
 ├── quickstart.md        # Fase 1: validación de extremo a extremo
 ├── contracts/
-│   ├── openapi.yaml     # Operaciones nuevas (OpenAPI 3.1, validado), con referencias al de 001
+│   ├── openapi.yaml     # 14 operaciones nuevas (OpenAPI 3.1, validado), con referencias al de 001
 │   └── ui-rutas.md      # Rutas nuevas y aplicación de DESIGN.md
 ├── checklists/          # requirements.md (+ los de /speckit.checklist)
 ├── assets/              # mockup-facturas.png y mockup-nueva-factura.png (orientativos)
@@ -145,11 +145,12 @@ backend/
 │   │   ├── registro.py               # contenido del registro de alta y de anulación según F-1 (R-3, R-4)
 │   │   └── tipos.py                  # + Serie, TipoFactura, Modalidad, MotivoModificacion, CausaRectificacion, TipoCorreccion y TipoEvento ampliado
 │   ├── models/                       # configuracion_facturacion, contador_factura, borrador_factura, factura (+ línea y desglose), correccion_factura y registro_facturacion
-│   ├── repositories/                 # facturas.py (listado sobre la vista), borradores.py, registros.py (cadena), contadores.py y configuracion_facturacion.py
+│   ├── repositories/                 # facturas.py (listado sobre la vista), borradores.py, correcciones.py, registros.py (cadena), contadores.py y configuracion_facturacion.py
 │   ├── services/
 │   │   ├── configuracion_facturacion.py
 │   │   ├── borradores.py
-│   │   ├── emision.py                # emitir, anular y modificar: cerrojos, contador, registro y auditoría (R-6, R-7, R-9)
+│   │   ├── emision.py                # emitir, anular y modificar: cerrojos, idempotencia, contador y auditoría (R-6, R-7, R-9, R-18)
+│   │   ├── cadena.py                 # único generador de registros (comprobación previa, contenido y huella). Solo lo llama emision.py (R-6)
 │   │   ├── facturas.py               # listado y detalle con estado derivado e historial
 │   │   ├── integridad.py             # comprobación de la cadena (FR-031)
 │   │   ├── documentos.py             # implementación real de ClienteDocumentosChecker (FR-042)
@@ -159,11 +160,12 @@ backend/
 │   └── cli.py                        # + verificar-cadena
 ├── scripts/medir_busqueda_facturas.py
 └── tests/
-    ├── unit/                         # test_importes, test_huella (vectores F-2), test_numeracion, test_registro y test_esquemas_importes
+    ├── unit/                         # domain/test_importes, domain/test_huella (vectores F-2), domain/test_numeracion, domain/test_registro y schemas/test_importes
     └── integration/                  # test_emision, test_numeracion_concurrencia, test_cadena_registros, test_facturacion_inalterable, test_correcciones, test_borradores, test_configuracion_facturacion, test_listado_facturas, test_verificar_cadena, test_contrato_openapi (generalizado)
 
 joyeriablanco_web/src/
 ├── lib/dinero.ts (+ test)            # BigInt: parsear, calcular y formatear (R-11)
+├── lib/idempotencia.ts (+ test)      # clave de operación por modal (R-18)
 ├── components/ui/                    # ModalDocumento, CampoDecimal y CampoFecha (extraído de AuditoriaPage)
 ├── components/layout/Sidebar.tsx     # Facturas activa
 ├── api/queries/                      # facturas.ts, borradores.ts y configuracionFacturacion.ts; tipos.ts ampliado
@@ -175,8 +177,8 @@ joyeriablanco_web/e2e/                # facturas.spec.ts; acciones-visibles, tec
 ```
 
 **Structure Decision**: el mismo monorepo y la misma organización por capas de 001. La lógica
-fiscal pura va en `app/domain/`. La transaccional está concentrada en `services/emision.py`, que
-es el único punto que genera registros.
+fiscal pura va en `app/domain/`. La transaccional está concentrada en `services/emision.py`. Los
+registros solo los genera `services/cadena.py`, al que solo llama `emision.py`.
 
 ## Enfoque de implementación (orden por dependencias)
 

@@ -19,7 +19,7 @@ oficiales en [research.md](research.md).
 ```bash
 docker compose up -d --build
 docker compose exec api alembic upgrade head          # aplica 0005_facturacion
-docker compose exec api joyeria cargar-datos-ejemplo  # añade la configuración de facturación demo, unas 60 facturas y 5 borradores
+docker compose exec api joyeria cargar-datos-ejemplo  # añade la configuración de facturación demo, unas 50 facturas con algunas correcciones y 5 borradores
 cd joyeriablanco_web && npm ci && npm run dev          # http://localhost:5173
 ```
 
@@ -66,7 +66,7 @@ La misma comprobación está automatizada en `tests/integration/test_facturacion
 uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest
 
 # Solo los tests obligatorios de la constitución VII para esta feature
-uv run pytest tests/unit/test_importes.py tests/unit/test_huella.py \
+uv run pytest tests/unit/domain/test_importes.py tests/unit/domain/test_huella.py \
   tests/integration/test_numeracion_concurrencia.py tests/integration/test_cadena_registros.py
 
 # Web (dentro de joyeriablanco_web/)

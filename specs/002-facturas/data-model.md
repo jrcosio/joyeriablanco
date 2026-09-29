@@ -25,7 +25,7 @@ clientes 1───* borradores_factura 1───* lineas_borrador
 clientes 1───* facturas🔒 (cliente_id, ON DELETE RESTRICT)
 facturas🔒 1───* lineas_factura🔒
 facturas🔒 1───* desgloses_factura🔒
-facturas🔒 0..1──1 correcciones_factura🔒 (factura_id UNIQUE: la original)
+facturas🔒 1───* correcciones_factura🔒 (factura_id: la corregida; como mucho una en vigor, R-8)
 correcciones_factura🔒 ──> facturas🔒 (factura_nueva_id: reemisión o rectificativa, nullable)
 facturas🔒 ──> facturas🔒 (factura_rectificada_id, solo en REC)
 facturas🔒 1───* registros_facturacion🔒 (alta de la propia factura; anulación de la anulada)
@@ -86,6 +86,8 @@ iniciales.
 | id | uuid | PK | |
 | cliente_id | uuid | NULL, FK clientes ON DELETE RESTRICT | Puede faltar en un borrador incompleto (FR-011) |
 | fecha_expedicion | date | NOT NULL DEFAULT (hoy en Madrid) | Fecha propuesta |
+| tipo_iva_previsto | numeric(5,2) | NOT NULL | IVA vigente al guardar (R-9). Sirve para el aviso de cambio de IVA |
+| base_prevista, cuota_prevista, total_previsto | numeric(12,2) | NOT NULL DEFAULT 0 | Calculados con `domain/importes.py` al guardar. Los usa el listado (R-9, R-12) |
 | version | integer | NOT NULL DEFAULT 1 | `version_id_col`, como en clientes (FR-020) |
 | creado_en / actualizado_en | timestamptz | NOT NULL | |
 | creado_por_id / actualizado_por_id | uuid | NOT NULL, FK usuarios | |
@@ -105,8 +107,8 @@ iniciales.
 
 **Reglas**:
 - Un `PUT` del borrador sustituye todas sus líneas.
-- Un borrador no guarda el IVA ni los importes. Se calculan al vuelo con el IVA vigente para
-  mostrarlos, y se fijan al emitir.
+- Un borrador guarda el IVA y los totales **previstos** del momento en que se guardó (R-9). Al
+  emitir se recalcula todo con el IVA vigente.
 
 ## facturas 🔒
 
@@ -139,6 +141,8 @@ iniciales.
 | emitida_por_id | uuid | NOT NULL, FK usuarios | |
 | emitida_en | timestamptz | NOT NULL DEFAULT now() | |
 | clave_idempotencia | uuid | NULL, UNIQUE | `Idempotency-Key` de la emisión o de la modificación que la creó (R-18) |
+| operacion_idempotencia | varchar(20) | NULL, CHECK IN (`emitir`, `emitir_borrador`, `modificar`) | Ámbito de la clave. El origen es el borrador o la factura corregida (R-18) |
+| origen_idempotencia | uuid | NULL | Id del borrador emitido o de la factura modificada, para detectar una clave reutilizada sobre otro documento |
 | texto_busqueda | text | GENERATED ALWAYS AS (`inmutable_unaccent(lower(num_serie ‖ ' ' ‖ dest_nombre ‖ ' ' ‖ dest_identificacion_numero))`) STORED | GIN trigram (R-12) |
 
 **Índices**:
@@ -194,6 +198,7 @@ tipo»).
 | registro_anulacion_id | uuid | NULL, FK registros_facturacion | En `anulacion*` (CHECK) |
 | creada_por_id | uuid | NOT NULL, FK usuarios | Administrador (FR-023) |
 | clave_idempotencia | uuid | NULL, UNIQUE | `Idempotency-Key` de la anulación o modificación (R-18) |
+| operacion_idempotencia | varchar(20) | NULL, CHECK IN (`modificar`, `anular`) | Ámbito de la clave (R-18) |
 | creada_en | timestamptz | NOT NULL DEFAULT now() | |
 
 **Estado derivado de una factura F** (R-8, sin columnas mutables):
@@ -204,8 +209,11 @@ tipo»).
   estar vigente** (FR-048).
 
 Solo una factura `vigente` se puede anular o modificar (FR-026). Lo garantiza el trigger `BEFORE
-INSERT` `validar_correccion`, que recalcula el estado y lanza `42501` si no es `vigente`. Esa
-garantía está en la BD, además de en el servicio.
+INSERT` `validar_correccion`, que llama a `estado_factura(NEW.factura_id)` y lanza `42501` si no es
+`vigente`. Esa garantía está en la BD, además de en el servicio.
+
+**Orden de inserción** (R-9): la corrección se inserta **al final**, cuando ya existen el registro de
+anulación y la factura nueva que referencia.
 
 En una rectificativa (`REC`), `motivo = no_debio_emitirse` solo se admite con `tipo = anulacion`,
 es decir, sin reemisión (spec, casos límite).
@@ -245,9 +253,13 @@ es decir, sin reemisión (spec, casos límite).
 ## v_listado_facturas (vista)
 
 La vista hace `UNION ALL` de:
-- `borradores_factura`, unida a `clientes`, con los totales calculados al vuelo con la
-  configuración vigente.
-- `facturas`, unida por `LEFT JOIN` a `correcciones_factura`.
+- `borradores_factura`, unida a `clientes`, con sus totales previstos guardados. No calcula nada:
+  el redondeo solo vive en `domain/importes.py`.
+- `facturas`, con `estado_factura(id)`.
+
+**Función `estado_factura(uuid) RETURNS text`**: `STABLE` y escrita con `EXISTS`, aplica la regla de
+R-8. La usan la vista y el trigger `validar_correccion`: es la única implementación del estado
+derivado.
 
 | Columna | Tipo | Notas |
 |---|---|---|

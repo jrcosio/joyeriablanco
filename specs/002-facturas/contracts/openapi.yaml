@@ -20,13 +20,14 @@ info:
 
     | `type` | Estado | Notas |
     |---|---|---|
-    | `emision-no-disponible` | 409 | Falta el emisor, la modalidad o, en producción, el productor. `faltan: [...]` |
+    | `emision-no-disponible` | 409 | Falta el emisor o la modalidad. `faltan: [...]` |
     | `cliente-no-facturable` | 422 | Cliente inactivo o sin domicilio completo. `faltan: [...]` (FR-017) |
     | `fecha-expedicion` | 422 | Fecha futura o anterior a la última emitida de la serie (FR-018) |
     | `tipo-iva-no-admitido` | 422 | Tipo no admitido por F-3 §15.1 en la fecha (R-10) |
     | `factura-no-modificable` | 409 | La factura no está vigente: anulada o rectificada, o corregida a la vez por otro administrador (FR-026, R-8) |
     | `sin-cambios` | 422 | Rectificativa idéntica a la factura vigente (R-9) |
     | `modalidad-bloqueada` | 409 | No se puede cambiar la modalidad porque ya hay registros (FR-050, R-19) |
+    | `idempotencia-conflicto` | 409 | La `Idempotency-Key` ya se usó en otra operación o sobre otro documento (R-18) |
     | `contador-no-ajustable` | 409 | El próximo número debe superar el último usado (FR-010) |
     | `cadena-inconsistente` | 409 | Ha fallado la comprobación previa de la cadena (FR-029, R-6) |
 
@@ -237,7 +238,7 @@ paths:
     parameters: [{ $ref: "#/components/parameters/BorradorId" }]
     get:
       tags: [borradores]
-      summary: Borrador con sus líneas y los totales previstos con el IVA vigente
+      summary: Borrador con sus líneas y los totales previstos guardados, con el IVA vigente al guardarlo (R-9)
       responses:
         "200":
           description: Borrador
@@ -496,7 +497,7 @@ components:
             version: { type: integer, minimum: 1 }
     BorradorSalida:
       type: object
-      required: [id, version, fecha_expedicion, cliente, lineas, totales_previstos, creado_en, creado_por, actualizado_en, actualizado_por]
+      required: [id, version, fecha_expedicion, cliente, lineas, totales_previstos, tipo_iva_previsto, creado_en, creado_por, actualizado_en, actualizado_por]
       properties:
         id: { type: string, format: uuid }
         version: { type: integer }
@@ -514,6 +515,7 @@ components:
               precio_unitario: { $ref: "#/components/schemas/Importe" }
               importe: { $ref: "#/components/schemas/Importe" }
         totales_previstos: { $ref: "#/components/schemas/Totales" }
+        tipo_iva_previsto: { $ref: "#/components/schemas/TipoIva", description: "IVA vigente cuando se guardó (aviso de cambio de IVA)" }
         creado_en: { type: string, format: date-time }
         creado_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
         actualizado_en: { type: string, format: date-time }

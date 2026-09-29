@@ -121,7 +121,7 @@ FR-024 a FR-031) y una solución técnica en R-5 a R-9.
   `2024-01-01T19:20:30+01:00`.
 
 **Vectores oficiales** (pp. 10–12). Se comprobaron recalculándolos y se usan tal cual en
-`tests/unit/test_huella.py`:
+`tests/unit/domain/test_huella.py`:
 
 | Caso | Cadena de entrada | Huella |
 |---|---|---|
@@ -285,7 +285,9 @@ copian en cada registro.
 
 **Validación por entorno**:
 - **Producción**: `Settings` exige `SIF_PRODUCTOR_NOMBRE` y `SIF_PRODUCTOR_NIF` con NIF válido, como
-  ya hace con la cookie segura.
+  ya hace con la cookie segura. La API **no arranca** sin ellos, así que `faltan` (FR-004) nunca
+  tiene que informar del productor. Solo informa de lo que se configura desde la aplicación:
+  emisor y modalidad.
 - **Desarrollo, test y e2e**: se usan valores ficticios marcados como tales.
 
 **Razón**: el registro es inalterable. Un productor mal consignado quedaría así para siempre, así
@@ -430,7 +432,14 @@ Exigiría `UPDATE` sobre un documento emitido.
 **Decisión**:
 - **Tablas mutables**: `borradores_factura` y `lineas_borrador`, con `version` para la concurrencia
   optimista, como `clientes` en 001 (FR-020).
-- **Contenido del borrador**: no guarda el tipo de IVA. Se aplica al emitir (FR-013).
+- **Contenido del borrador**: al guardarse, el servicio calcula con `domain/importes.py` y guarda
+  en el borrador `tipo_iva_previsto` (el vigente en ese momento) y los totales previstos. Esos
+  valores solo sirven para:
+  - El listado, que así no necesita una segunda implementación del redondeo en SQL (constitución
+    II).
+  - El aviso de «el IVA ha cambiado desde que se guardó» (spec, casos límite).
+
+  Al emitir se recalcula todo con el IVA vigente (FR-013).
 - **Emitir un borrador** (`POST /v1/borradores-factura/{id}/emision`): recibe el contenido actual
   del modal más la `version`. En una sola transacción:
   1. Cerrojo de la cadena (R-6).
@@ -445,16 +454,25 @@ Exigiría `UPDATE` sobre un documento emitido.
 - **Emitir sin borrador previo** (`POST /v1/facturas`): el mismo flujo, sin los pasos 2 y 7.
 - **Corrección de una emitida** (`POST /v1/facturas/{id}/modificacion` y `/anulacion`): el mismo
   cerrojo de la cadena.
-  1. Se comprueba que la factura está `vigente` (R-8) y se inserta la corrección, que el trigger
-     `validar_correccion` vuelve a comprobar.
-  2. Se generan los registros en este orden:
-     - En una reemisión, la anulación y después el alta nueva.
-     - En una rectificación, el alta de la rectificativa.
-     - En una anulación de una rectificativa, solo su anulación. La original vuelve a estar
-       vigente por derivación, sin registro nuevo (FR-048).
+  1. Se comprueba que la factura está `vigente` (R-8).
+  2. Se generan los registros y las facturas nuevas en este orden:
+     - En una reemisión, el registro de anulación de la original y después la factura nueva con su
+       alta.
+     - En una rectificación, la rectificativa con su alta.
+     - En una anulación, sola o de una rectificativa, solo el registro de anulación. En el caso de
+       la rectificativa, la original vuelve a estar vigente por derivación, sin registro nuevo
+       (FR-048).
+  3. **Por último** se inserta la corrección, con `factura_nueva_id` y `registro_anulacion_id` ya
+     conocidos. La tabla es de solo inserción y sus `CHECK` exigen esos campos, así que no puede
+     insertarse antes y completarse después. El trigger `validar_correccion` vuelve a comprobar que
+     la factura está vigente. Si falla, se deshace la transacción entera.
 - **Modificación sin cambios** (spec, casos límite):
-  - Se compara el cliente y las líneas normalizadas con la factura vigente.
-  - Con `factura_entregada`, una modificación idéntica se rechaza con `422 sin-cambios`.
+  - Se compara con la factura vigente el cliente, las líneas normalizadas y el **tipo de IVA que se
+    aplicaría**.
+  - Con `factura_entregada`, una modificación que no cambia ninguno de esos tres se rechaza con
+    `422 sin-cambios`.
+  - Una rectificación R1 por «IVA mal aplicado», con las mismas líneas y la configuración ya
+    corregida, sí se admite, porque cambia el tipo.
   - Con `no_debio_emitirse` se admite: es la reemisión con número nuevo.
 
 **Razón**: el registro se genera «de forma simultánea» a la expedición (F-8, art. 9). Número,
@@ -494,7 +512,9 @@ factura y registro se crean en la misma transacción.
   - El 2 y el 7,5 solo del 01/10/2024 al 31/12/2024.
 - La constante `TIPOS_IVA_S1` de `app/domain/importes.py` recoge esas ventanas.
   - Configuración solo admite los tipos válidos para la fecha actual: hoy son 0, 4, 10 y 21.
-  - Al emitir se revalida el tipo frente a la fecha de expedición.
+  - Al emitir se revalida el tipo frente a la fecha que dice F-3 §15.1: «FechaOperacion
+    (FechaExpedicionFactura de la agrupación IDFactura si no se informa FechaOperacion)». En las
+    rectificativas y reemisiones, que heredan la fecha de operación, es esa fecha.
 
 **JSON sin `float`** (constitución II):
 - **Salida**: los importes van como cadena (`"1290.00"`). Es el comportamiento por defecto de
@@ -506,9 +526,11 @@ factura y registro se crean en la misma transacción.
   - En OpenAPI aparecen como `type: string` con `pattern`, mediante `WithJsonSchema`.
 - **Auditoría**: `services/auditoria.to_json` serializa `Decimal` con `format(valor, "f")` (FR-043).
 
-**Test obligatorio** (constitución VII): `tests/unit/test_importes.py` es una tabla de casos
+**Test obligatorio** (constitución VII): `tests/unit/domain/test_importes.py` es una tabla de casos
 calculados a mano (SC-003):
-- Medio céntimo positivo, por ejemplo 1 × 0,125 y base 0,05 al 21 %, que da 0,0105.
+- Medio céntimo exacto, que distingue el redondeo alejado de cero del redondeo al par:
+  - Línea 0,5 × 0,25 = 0,125 → 0,13.
+  - Cuota de una base de 0,50 al 21 % = 0,105 → 0,11.
 - Cantidades con decimales.
 - El importe máximo.
 - La suma de líneas redondeadas frente a la base.
@@ -543,9 +565,14 @@ compensa añadir una dependencia.
 
 **Decisión**:
 - **Vista `v_listado_facturas`**: es de solo lectura y hace `UNION ALL` de:
-  - Borradores, con el cliente actual, número nulo y fecha propuesta.
+  - Borradores, con el cliente actual, número nulo, fecha propuesta y los **totales previstos
+    guardados** (R-9). La vista no calcula nada.
   - Facturas emitidas, con la copia del destinatario y su estado derivado (`vigente`, `anulada` o
-    `rectificada`) mediante un `LEFT JOIN` con `correcciones_factura`.
+    `rectificada`).
+- **Estado derivado**: la regla de R-8 está en **una sola función SQL**, `estado_factura(uuid)`,
+  escrita con `EXISTS`. La usan la vista y el trigger `validar_correccion`, y el repositorio lee el
+  estado de la vista o de la función. Así no hay tres implementaciones que puedan divergir. Un test
+  comprueba que coinciden en todos los casos de FR-048.
 - **Búsqueda** (FR-034): sobre `texto_busqueda`, con el mismo `ILIKE` sin tildes que en clientes
   (`_escapar_like` e `inmutable_unaccent`).
   - `texto_busqueda` es una columna generada en `facturas` con el número, el nombre y la
@@ -560,14 +587,14 @@ compensa añadir una dependencia.
   - `recientes`: fecha desc, número desc, id desc. Un borrador va antes que las emitidas de su
     misma fecha.
   - `antiguas`.
-  - `total_desc` y `total_asc`. El total de un borrador es el calculado al vuelo, igual que en el
-    modal.
+  - `total_desc` y `total_asc`. El total de un borrador es el previsto guardado.
 - **Índices**:
   - `facturas (fecha_expedicion DESC, serie, numero DESC)`.
   - GIN trigram sobre `texto_busqueda`.
   - `borradores_factura (fecha_expedicion DESC)`.
 - **Respuesta**: `Pagina[FacturaResumenSalida]`, con `tipo_documento` (`borrador` o `factura`), `id`,
-  `numero`, `fecha`, `cliente`, `identificacion`, `base`, `cuota`, `total` y `estado`.
+  `num_serie`, `fecha`, `cliente_nombre`, `identificacion`, `base`, `cuota`, `total` y `estado`,
+  igual que en el contrato.
 - **Rendimiento**: SC-007 se mide con `scripts/medir_busqueda_facturas.py`, sobre 20.000 facturas
   en la BD e2e, como en 001 (SC-003).
 
@@ -629,9 +656,10 @@ modal por encima, como en la captura.
 | `/v1/borradores-factura/{id}` | `GET`, `PUT` (con `version`) y `DELETE` | Sesión |
 | `/v1/borradores-factura/{id}/emision` | `POST` | Sesión |
 
-**Problemas nuevos** (RFC 9457, catálogo de 001). Además, `sin-cambios` (422) y
-`modalidad-bloqueada` (409), de R-9 y R-19, y la cabecera `Idempotency-Key` (R-18):
-- `emision-no-disponible` (409): falta el emisor o la modalidad, o falta el productor en producción.
+**Problemas nuevos** (RFC 9457, catálogo de 001). Además de la lista siguiente, están
+`sin-cambios` (422), `modalidad-bloqueada` (409) e `idempotencia-conflicto` (409), de R-9, R-19 y
+R-18, y la cabecera `Idempotency-Key` (R-18):
+- `emision-no-disponible` (409): falta el emisor o la modalidad.
   Lleva la lista `faltan`.
 - `cliente-no-facturable` (422): cliente inactivo o sin domicilio. Lleva `faltan`.
 - `fecha-expedicion` (422).
@@ -641,8 +669,19 @@ modal por encima, como en la captura.
 - `cadena-inconsistente` (409, R-6).
 - Se reutilizan `conflicto-version`, `sin-permiso` y `cliente-con-documentos`.
 
-**CLI**: `joyeria verificar-cadena` (FR-031). Informa «íntegra (N registros)» o el primer registro
-que no cuadra, termina con código 1 si hay discrepancia y deja el evento `cadena_verificada`.
+**CLI**: `joyeria verificar-cadena` (FR-031). Recorre la cadena en orden de `secuencia` y, para
+cada registro:
+- Recalcula la huella y comprueba el enlace con el anterior.
+- Reconstruye con `domain/registro.py` el `contenido` esperado a partir de la factura (copias,
+  líneas y desglose) y lo compara con el guardado. El bloque `SistemaInformatico` y la hora de
+  generación se toman del propio registro, porque cambian con la versión y el momento. Se comparan
+  todos los campos que dependen de la factura.
+- Recalcula con `domain/importes.py` los totales y el desglose de la factura desde sus líneas.
+
+Así se detecta también la alteración de campos que no forman parte de la huella (SC-004).
+
+Informa «íntegra (N registros)» o el primer registro o factura que no cuadra, y termina con código
+1 si hay discrepancia. Deja el evento `cadena_verificada` o `cadena_inconsistente`.
 
 **Contrato**:
 - `contracts/openapi.yaml` de 002 solo contiene las rutas y los esquemas nuevos.
@@ -661,8 +700,23 @@ estos tipos:
 - `contador_ajustado`.
 - `cadena_verificada` y `cadena_inconsistente`.
 
+**Eventos por operación**:
+
+| Operación | Eventos |
+|---|---|
+| Crear, editar o borrar un borrador | `borrador_factura_creado`, `borrador_factura_editado`, `borrador_factura_eliminado` |
+| Emitir, desde borrador o sin él | `factura_emitida` |
+| Anular sin reemitir, también una REC | `factura_anulada`, con el motivo y, en una REC, la factura reactivada |
+| Modificar «no debió emitirse» | `factura_anulada` de la original y `factura_emitida` de la nueva, con `sustituye_a` |
+| Modificar «ya entregada» | `factura_rectificada` de la original, con causa y motivo, y `factura_emitida` de la REC |
+| Configuración y contador | `configuracion_facturacion_cambiada`, `contador_ajustado` (la simulación no audita) |
+| Comprobación de integridad | `cadena_verificada` si todo está bien; `cadena_inconsistente` si hay discrepancia, también la detectada antes de generar un registro (R-6) |
+
 El `detalle` guarda los números de factura y los importes como texto. Hoy no se añade una columna
 `factura_id`: basta con el `detalle`, y la consulta de auditoría ya filtra por tipo.
+
+**Web**: `features/auditoria/tipos-evento.ts` añade la etiqueta en español de cada tipo nuevo. Es
+un `Record<TipoEvento, string>`, así que el typecheck exige completarlo.
 
 ---
 
@@ -673,7 +727,7 @@ El `detalle` guarda los números de factura y los importes como texto. Hoy no se
   bien encadenados:
   - La configuración de facturación ficticia: emisor «Joyería Blanco (demo)», NIF ficticio válido y
     modalidad VERI\*FACTU.
-  - Unas 60 facturas de los últimos 6 meses, con algunas correcciones.
+  - Unas 50 facturas emitidas de los últimos 6 meses, con algunas correcciones.
   - 5 borradores.
 - `reiniciar-bd-e2e` también las deja en su estado inicial.
 - **Carga de volumen**: un script aparte genera 20.000 facturas en la BD e2e para SC-007. Sigue
@@ -689,9 +743,13 @@ El `detalle` guarda los números de factura y los importes como texto. Hoy no se
   `Idempotency-Key` (UUID). La web la genera una vez por modal y la reutiliza en los reintentos.
 - **Almacenamiento**: `facturas.clave_idempotencia` y `correcciones_factura.clave_idempotencia`
   (`uuid UNIQUE NULL`).
+- **Ámbito de la clave**: se guarda junto con la operación (`emitir`, `emitir_borrador`,
+  `modificar` o `anular`) y el documento de origen (borrador o factura). Si llega una clave ya
+  usada con otra operación o sobre otro documento, se responde `409 idempotencia-conflicto` y no se
+  devuelve el recurso ajeno. El cuerpo no se compara: una repetición legítima lleva el mismo.
 - **Consulta**: bajo el cerrojo de la cadena, antes de emitir o corregir, se busca la clave:
-  - Si ya existe, se devuelve **200** con el mismo recurso que devolvió la primera, sin generar
-    nada.
+  - Si ya existe con la misma operación y el mismo origen, se devuelve **200** con el mismo recurso
+    que devolvió la primera, sin generar nada.
   - Si no existe, se ejecuta la operación y responde 201 o 200, según el contrato.
 - **Emitir un borrador ya emitido por otra petición**: con la misma clave se devuelve la factura.
   Con otra clave, `404` (el borrador ya no existe), y la web informa de «Este borrador ya se ha
@@ -728,7 +786,7 @@ Ninguna bloquea esta feature. Todas quedan anotadas para la 004 o para la asesor
 | Id | Pregunta | Fuente | Tratamiento en 002 |
 |---|---|---|---|
 | Q-1 | Margen de `FechaHoraHusoGenRegistro` frente a la hora de la AEAT, sin cuantificar (código 2004 truncado) | F-3, punto 20 | Solo es un aviso. Se usa el minuto de F-10, art. 7.f, para la comprobación propia |
-| Q-2 | Límite de 20 años en `FechaExpedicionFactura`: solo figura en `errores.properties` (1133) | F-3 | Queda cubierto por FR-018, porque la fecha no es anterior a la última de la serie |
+| Q-2 | Límite de 20 años en `FechaExpedicionFactura`: solo figura en `errores.properties` (1133) | F-3 | Queda cubierto por FR-018, que exige el año en curso o el anterior y nunca antes del 28/10/2024 |
 | Q-3 | Qué código de error corresponde a cada casilla de la matriz alta/anulación | F-3, anexo 6 | Se resuelve en la 004 |
 | Q-4 | Signo de `ImporteRectificacion` | F-3 no lo regula | Se consigna el de la original (≥ 0), como en F-9 |
 | Q-5 | `Impuesto` tiene longitud (1) en F-1, pero sus valores tienen 2 caracteres | F-1, fila 38 | No se informa (R-3) |

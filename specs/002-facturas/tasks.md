@@ -46,10 +46,11 @@ preparado para la unión de contratos.
   - En `_exigir_seguridad_en_produccion`: si `entorno is PRODUCCION`, exigir productor nombre y NIF (validado con `app/domain/identificacion.py`). Validar siempre `sif_id_sistema` (`^[A-Z0-9]{2}$` sin Ñ) y las longitudes de F-1, hoja 5.
   - Añadir `__version__` en `backend/app/__init__.py`, que es la `Version` del registro.
   - Documentar las variables en `.env.example`.
+  - Test `backend/tests/unit/test_config_sif.py`: en producción, sin productor o con un NIF no válido, `Settings` falla. Por tanto, `faltan` nunca informa del productor (research R-5).
 - [ ] T002 Generalizar `backend/tests/integration/test_contrato_openapi.py` (research R-14):
   - Leer la **unión** de `specs/*/contracts/openapi.yaml`, ordenados, y conservar el prefijo de `servers`.
   - Mantener estricto que toda operación de la API esté en algún contrato.
-  - Para el sentido contrario, crear la lista `PENDIENTES_002` con las 12 operaciones de 002. Cada tarea de API la irá vaciando y T076 la eliminará.
+  - Para el sentido contrario, crear la lista `PENDIENTES_002` con las 14 operaciones de 002. Cada tarea de API la irá vaciando y T076 la eliminará.
   - Comprobar también los códigos de éxito, incluido el 200 de repetición idempotente (R-18).
 - [ ] T003 Ampliar `backend/app/domain/tipos.py`:
   - Enumeraciones nuevas `Serie` (FAC, REC), `TipoFactura` (F1, R1, R4), `TipoRectificativa` (S), `CausaRectificacion`, `MotivoModificacion`, `TipoCorreccion`, `TipoRegistro` (alta, anulacion), `Modalidad`, `EstadoRemision` (pendiente) y `EstadoFactura`.
@@ -65,7 +66,7 @@ piezas web compartidas. Todas las historias dependen de esta fase.
 ### Tests ⚠️ (escribir primero, deben fallar)
 
 - [ ] T004 [P] ⚖️ Test `backend/tests/unit/domain/test_importes.py` (research R-10, SC-003). Tabla de casos calculados a mano:
-  - **Medio céntimo**: importe de línea `1 × 0.125 → 0.13`; cuota de 0,05 € al 21 % `→ 0.01`, en redondeo alejado de cero.
+  - **Medio céntimo exacto**, que distingue el redondeo alejado de cero del redondeo al par: línea `0.5 × 0.25 = 0.125 → 0.13`; cuota de una base de `0.50` al 21 % `= 0.105 → 0.11`.
   - **Captura**: 1 × 1200 + 2 × 45 → base 1290.00, cuota 270.90, total 1560.90.
   - **Suma**: la suma de las líneas redondeadas es igual a la base.
   - **Varios casos**: cantidades con decimales, importe máximo `Decimal(12,2)` y rechazo por encima de ese límite, desglose con varios tipos (la función lo admite aunque la UI use uno) y devolución total (sin líneas → desglose a 0).
@@ -73,6 +74,7 @@ piezas web compartidas. Todas las historias dependen de esta fase.
     - Admite 0, 4, 10 y 21 en 2026.
     - Rechaza 5 y 22 en 2026.
     - Admite 5 el 15/08/2024 y 7,5 el 15/11/2024.
+    - La fecha evaluada es la de la operación y, si no hay, la de expedición (F-3 §15.1, research R-10).
   - **Tipos**: ninguna función acepta ni devuelve `float`.
 - [ ] T005 [P] ⚖️ Test `backend/tests/unit/domain/test_huella.py` (research R-2):
   - Los tres vectores oficiales de F-2, con la cadena exacta y la huella en mayúsculas.
@@ -101,18 +103,18 @@ piezas web compartidas. Todas las historias dependen de esta fase.
   - **`contadores_factura`**: bajar `ultimo_numero` falla con 42501 (trigger `contador_solo_al_alza`), y `DELETE` falla para `jb_app`.
 - [ ] T010 Test `backend/tests/integration/test_cadena_registros.py` ⚖️ (research R-6, FR-029):
   - **Trigger `validar_encadenamiento`**: el primer registro exige `primer_registro` y `secuencia 1`. Un `INSERT` manual con secuencia no contigua, con `huella_anterior` que no coincide o con un segundo `primer_registro` se rechaza.
-  - **`services/cadena.generar_registro`**: encadena bien altas y anulaciones.
+  - **`services/cadena.create_registro_alta` y `create_registro_anulacion`**: encadenan bien altas y anulaciones.
   - **Comprobación previa**: se detiene con `CadenaInconsistente` si el último registro está alterado (se simula con `jb_owner` usando `ALTER TABLE … DISABLE TRIGGER` dentro de la transacción de test) o si su hora es más de un minuto posterior a `ahora()`, que se congela con monkeypatch.
   - **Formato de la hora**: `YYYY-MM-DDThh:mm:ss+02:00` en verano y `+01:00` en invierno.
 
 ### Backend: implementación
 
-- [ ] T011 [P] Implementar `backend/app/domain/importes.py`, puro y con `Decimal` (research R-10):
-  - `redondear`, `importe_linea`, `calcular_totales(lineas, tipo) -> Totales` (desglose por tipo, `base_total`, `cuota_total`, `importe_total`) y los límites.
-  - `TIPOS_IVA_S1` con sus ventanas de fechas, la cita de F-3 §15.1 y `tipo_admitido(tipo, fecha)`.
-- [ ] T012 [P] Implementar `backend/app/domain/huella.py` (research R-2): `formatear_importe`, `formatear_fecha` (dd-mm-yyyy), `formatear_fecha_hora_huso` (Europe/Madrid, ISO 8601 con desfase), `cadena_alta`, `cadena_anulacion` y `calcular` (SHA-256, hexadecimal en mayúsculas).
-- [ ] T013 [P] Implementar `backend/app/domain/numeracion.py` (research R-7): `formatear(serie, anio, numero)`, `anio_de(fecha)` y `validar_num_serie`.
-- [ ] T014 Implementar `backend/app/domain/registro.py` (research R-3, R-4, R-4b): `contenido_alta(...)`, `contenido_anulacion(...)` y `descripcion_operacion(lineas, rectifica=None)`. Construye el contenido F-1 como `dict[str, object]` con valores en texto, a partir de dataclasses de entrada y del bloque `SistemaInformatico` de `Settings`.
+- [ ] T011 [P] Implementar `backend/app/domain/importes.py`, puro y con `Decimal` (research R-10). Los nombres van en inglés, salvo los términos de dominio (constitución VIII):
+  - `round_amount`, `line_amount`, `compute_totals(lineas, tipo_iva) -> Totales` (desglose por tipo, `base_total`, `cuota_total`, `importe_total`) y los límites.
+  - `TIPOS_IVA_S1` con sus ventanas de fechas, la cita de F-3 §15.1 y `is_rate_allowed(tipo_iva, fecha)`. `fecha` es la de la operación o, si no hay, la de expedición.
+- [ ] T012 [P] Implementar `backend/app/domain/huella.py` (research R-2): `format_amount`, `format_date` (dd-mm-yyyy), `format_timestamp` (Europe/Madrid, ISO 8601 con desfase), `build_alta_string`, `build_anulacion_string` y `compute_huella` (SHA-256, hexadecimal en mayúsculas).
+- [ ] T013 [P] Implementar `backend/app/domain/numeracion.py` (research R-7): `format_num_serie(serie, anio, numero)`, `year_of(fecha)` y `validate_num_serie`.
+- [ ] T014 Implementar `backend/app/domain/registro.py` (research R-3, R-4, R-4b): `build_contenido_alta(...)`, `build_contenido_anulacion(...)` y `build_descripcion_operacion(lineas, rectifica=None)`. Construye el contenido F-1 como `dict[str, object]` con valores en texto, a partir de dataclasses de entrada y del bloque `SistemaInformatico` de `Settings`.
 - [ ] T015 [P] Crear `backend/app/schemas/importes.py` con `Importe` y `Cantidad` para la entrada (`Annotated[Decimal, BeforeValidator(solo_texto), WithJsonSchema(...)]`) e `ImporteSalida` (research R-10).
 - [ ] T016 [P] Añadir a `backend/app/core/errors.py` los problemas de research R-14 y del contrato, con su `type`, estado y campos extra (`faltan`):
   - `EmisionNoDisponible`, `ClienteNoFacturable`, `FechaExpedicionNoValida`, `TipoIvaNoAdmitido` y `FacturaNoModificable`.
@@ -120,20 +122,21 @@ piezas web compartidas. Todas las historias dependen de esta fase.
 - [ ] T017 [P] Actualizar `backend/app/services/auditoria.py`: `to_json` serializa `Decimal` con `format(valor, "f")`, nunca como `float` (FR-043), con su test en `backend/tests/unit/test_auditoria_json.py`.
 - [ ] T018 Crear los modelos según data-model.md y registrarlos en `backend/app/models/__init__.py`: `configuracion_facturacion.py`, `contador_factura.py`, `borrador_factura.py` (con `LineaBorrador` y `version_id_col`), `factura.py` (con `LineaFactura`, `DesgloseFactura` y `texto_busqueda` generada), `correccion_factura.py` y `registro_facturacion.py`, todos en `backend/app/models/`.
 - [ ] T019 Crear la migración `backend/alembic/versions/0005_facturacion.py`, escrita a mano (data-model.md, research R-6 a R-8, R-12 y R-15):
-  - **Tablas**: todas, con sus `CHECK`, `UNIQUE` (también `clave_idempotencia`), FK `RESTRICT` e índices, incluido el GIN trigram de `texto_busqueda`. Fila inicial de `configuracion_facturacion`.
+  - **Tablas**: todas, con sus `CHECK`, `UNIQUE` (también `clave_idempotencia`, `operacion_idempotencia` y `origen_idempotencia`), FK `RESTRICT` e índices, incluido el GIN trigram de `texto_busqueda`. Los borradores llevan `tipo_iva_previsto` y totales previstos. Fila inicial de `configuracion_facturacion`.
   - **Inalterabilidad**:
     - `REVOKE UPDATE, DELETE, TRUNCATE` a `jb_app` en las tablas 🔒, y `REVOKE DELETE, TRUNCATE` en `contadores_factura`.
     - Función `impedir_modificacion_facturacion()` con sus triggers por fila y por sentencia.
-  - **Triggers de negocio**: `contador_solo_al_alza`, `validar_encadenamiento` y `validar_correccion`, este último con el estado derivado y la reactivación de FR-048.
-  - **Vista**: `v_listado_facturas`, con el estado derivado y los totales previstos de los borradores.
+  - **Función `estado_factura(uuid)`**: `STABLE`, con `EXISTS` (research R-8, R-12). Es la única implementación del estado derivado, incluida la reactivación de FR-048.
+  - **Triggers de negocio**: `contador_solo_al_alza`, `validar_encadenamiento` y `validar_correccion`, este último con `estado_factura`.
+  - **Vista**: `v_listado_facturas`, que usa `estado_factura` y los totales previstos **guardados** de los borradores, sin redondear nada en SQL.
   - **Auditoría**: ampliación del `CHECK` de `eventos_auditoria.tipo` con `sql_in(TipoEvento)`, igual que en la 0004.
   - **`downgrade`**: completo.
 - [ ] T020 Implementar los repositorios:
-  - `backend/app/repositories/registros.py`: `tomar_cerrojo_cadena` (`pg_advisory_xact_lock`), `ultimo`, `insertar` y `todos_en_orden`.
-  - `backend/app/repositories/contadores.py`: `asignar(serie, anio)` con `INSERT ON CONFLICT DO NOTHING` + `SELECT FOR UPDATE` + `UPDATE RETURNING`, `ultimo_usado` y `ajustar_al_alza`.
+  - `backend/app/repositories/registros.py`: `lock_chain` (`pg_advisory_xact_lock`), `get_last`, `insert` y `list_in_order`.
+  - `backend/app/repositories/contadores.py`: `assign_numero(serie, anio)` con `INSERT ON CONFLICT DO NOTHING` + `SELECT FOR UPDATE` + `UPDATE RETURNING`, `last_used` y `raise_next`.
   - `backend/app/repositories/configuracion_facturacion.py`: `get` y `update` con versión.
 - [ ] T021 Implementar `backend/app/services/cadena.py` (research R-6):
-  - `generar_registro_alta(db, factura, config) -> RegistroFacturacion` y `generar_registro_anulacion(db, factura_anulada, config)`.
+  - `create_registro_alta(db, factura, config) -> RegistroFacturacion` y `create_registro_anulacion(db, factura_anulada, config)`.
   - Se ejecutan con el cerrojo ya tomado. Hacen la comprobación previa de F-10, art. 7.i, construyen el contenido con `domain/registro.py`, calculan la huella e insertan con la `secuencia` siguiente.
   - Si la cadena no cuadra, dejan el evento `cadena_inconsistente` en una transacción aparte y lanzan `CadenaInconsistente`.
 
@@ -178,12 +181,12 @@ datos del emisor, y puede ajustar al alza el próximo número. Los empleados no 
   - **Lectura y permisos**: `GET` y `PUT` como administrador (valores iniciales: IVA 21.00, clave 01, modalidad nula y emisor vacío); como empleado, 403.
   - **Validaciones**: IVA 22 → 422 `tipo-iva-no-admitido`; clave fuera de L8A → 422; NIF de emisor no válido → 422; el código postal deriva la provincia.
   - **Concurrencia y auditoría**: versión desfasada → 409; evento `configuracion_facturacion_cambiada` con el diff y los importes en texto.
-  - **Emisión posible**: `emision_posible` y `faltan`. En producción (Settings), también falta el productor `SIF_*`.
-  - **Modalidad** (FR-050): con un registro ya existente, cambiarla → 409 `modalidad-bloqueada` y `modalidad_bloqueada = true`.
+  - **Emisión posible**: `emision_posible` y `faltan`, que solo recoge emisor y modalidad (el productor lo exige `Settings` al arrancar, T001).
+  - **Modalidad** (FR-050): con un registro ya existente, cambiarla → 409 `modalidad-bloqueada` y `modalidad_bloqueada = true`. El registro se crea en el fixture con `services/cadena.py` y los repositorios, sin depender de US2.
   - **Contador**:
     - `simular=true` devuelve el hueco sin auditar ni cambiar nada.
-    - `simular=false` aplica el ajuste, deja `contador_ajustado` con el motivo y la siguiente emisión recibe ese número.
-    - Un valor ≤ último usado → 409 `contador-no-ajustable`.
+    - `simular=false` aplica el ajuste, deja `contador_ajustado` con el motivo, y `contadores.assign_numero` devuelve ese número. La emisión completa se prueba en T035.
+    - Un valor ≤ último usado + 1 → 409 `contador-no-ajustable`.
     - Sin motivo → 422.
     - Solo afecta a FAC del año en curso.
   - **Parámetros**: `GET /v1/facturas/parametros` como empleado devuelve IVA, `emision_posible`, `faltan`, `proximo_numero`, `hoy` y `fecha_minima`.
@@ -197,21 +200,24 @@ datos del emisor, y puede ajustar al alza el próximo número. Los empleados no 
 ### Implementation for User Story 1
 
 - [ ] T030 [US1] Implementar `backend/app/services/configuracion_facturacion.py`:
-  - `obtener` y `actualizar`, con validaciones, provincia derivada del CP, modalidad bloqueada si hay registros y auditoría con diff.
-  - `faltan_para_emitir(config, settings)`.
-  - `ajustar_contador(db, actor, proximo, motivo, simular)`: cerrojo de la cadena, luego contador y auditoría.
-  - `parametros(db)`.
+  - `get_config` y `update_config`, con validaciones, provincia derivada del CP, modalidad bloqueada si hay registros y auditoría con diff.
+  - `missing_for_emission(config)`.
+  - `adjust_counter(db, actor, proximo, motivo, simular)`: cerrojo de la cadena, luego contador y auditoría. Exige `proximo > último usado + 1`.
+  - `get_parametros(db)`.
 - [ ] T031 [P] [US1] Crear `backend/app/schemas/configuracion_facturacion.py` según el contrato: `ConfiguracionFacturacionEntrada`/`Salida`, `AjusteContadorEntrada`/`Salida` y `ParametrosFacturacionSalida`.
 - [ ] T032 [US1] Implementar los endpoints y quitarlos de `PENDIENTES_002`:
   - `backend/app/api/v1/configuracion.py`: `GET` y `PUT /v1/configuracion/facturacion` y `POST /v1/configuracion/facturacion/contador`, con `AdminSession`.
   - `backend/app/api/v1/facturas.py` (nuevo): `GET /v1/facturas/parametros`, con sesión.
   - Registrar los routers en `backend/app/api/v1/__init__.py`.
-- [ ] T033 [US1] Regenerar los tipos con `exportar-openapi` + `gen:api` y crear `joyeriablanco_web/src/api/queries/configuracionFacturacion.ts` (configuración, parámetros y contador). Añadir los alias a `joyeriablanco_web/src/api/tipos.ts`.
+- [ ] T033 [US1] Regenerar los tipos con `exportar-openapi` + `gen:api` y crear `joyeriablanco_web/src/api/queries/configuracionFacturacion.ts` (configuración, parámetros y contador). Añadir los alias a `joyeriablanco_web/src/api/tipos.ts` y las etiquetas en español de los 10 tipos de evento nuevos a `joyeriablanco_web/src/features/auditoria/tipos-evento.ts` (research R-15). Sin ellas no pasa el typecheck.
 - [ ] T034 [US1] Crear la pestaña de configuración:
   - `joyeriablanco_web/src/features/configuracion/FacturacionPage.tsx` y `AjusteContadorDialog.tsx`.
   - La ruta `joyeriablanco_web/src/routes/_app/configuracion/facturacion.tsx`.
   - La pestaña «Facturación» en `joyeriablanco_web/src/routes/_app/configuracion.tsx`, con el subtítulo «Usuarios, auditoría y facturación».
   - DESIGN.md según contracts/ui-rutas.md.
+  - E2E `joyeriablanco_web/e2e/configuracion-facturacion.spec.ts` (SC-010):
+    - Como administrador, guardar el IVA y el emisor, y ajustar el contador con su aviso.
+    - Como empleado, sin acceso a la pestaña.
 
 **Checkpoint**: la facturación queda configurable y la emisión ya sabe si es posible.
 
@@ -243,7 +249,10 @@ la misma transacción, y la operación es idempotente.
     - Sin líneas → 422.
     - Sin `Idempotency-Key` → 422.
   - **Año y copias**: fecha del 01/01/2027 → `FAC-2027-0001`. Editar después el cliente no altera la factura (FR-016).
-  - **Idempotencia**: repetir la misma `Idempotency-Key` → 200 con la misma factura, sin segundo registro ni número.
+  - **Límites de fecha** (FR-018): del año anterior sí se admite; de dos años atrás o anterior al 28/10/2024 → 422 `fecha-expedicion`.
+  - **Importe cero**: FAC con total 0 → 422.
+  - **Registro**: guarda la `modalidad` de la configuración y `estado_remision = pendiente` (FR-030).
+  - **Idempotencia**: repetir la misma `Idempotency-Key` → 200 con la misma factura, sin segundo registro ni número. La misma clave en otra operación u otro documento → 409 `idempotencia-conflicto` (research R-18).
   - **Cadena y borrado**: `cadena-inconsistente` → 409 y no se emite. Borrar un cliente con factura → 409 `cliente-con-documentos` (FR-042).
 - [ ] T036 [P] [US2] ⚖️ Test `backend/tests/integration/test_numeracion_concurrencia.py`, con el patrón de `test_usuarios.py::test_regla_del_ultimo_administrador_bajo_concurrencia` (sesiones reales con `AsyncSession(engine_app)`, `asyncio.gather` y limpieza con `engine_owner`), para SC-002 y research R-7:
   - **200 emisiones** repartidas en 10 sesiones: números 1..200 sin huecos ni duplicados; 200 registros con `secuencia` 1..200; cada huella anterior es la del registro previo.
@@ -259,6 +268,7 @@ la misma transacción, y la operación es idempotente.
   - **Cierre**: confirmación al descartar cambios.
   - **Idempotencia**: la misma `Idempotency-Key` en un reintento tras un error de red.
   - **Resultado**: aviso «Factura … emitida» y cierre.
+  - **Sesión caducada** (401): aviso y lo tecleado se descarta, como en 001. Ante un error de red, se conserva (spec, casos límite).
 - [ ] T038 [P] [US2] Test web `joyeriablanco_web/src/features/clientes/ClienteAltaPanel.test.tsx`:
   - Abierto sobre el modal, al guardar llama a `onCreado(cliente)`; al cancelar no cambia nada.
   - Escape cierra solo el panel.
@@ -268,18 +278,18 @@ la misma transacción, y la operación es idempotente.
 ### Implementation for User Story 2
 
 - [ ] T039 [US2] Implementar `backend/app/repositories/facturas.py`:
-  - `insertar_emitida` (factura, líneas y desglose), `get_detalle` (con el estado derivado de R-8), `por_clave_idempotencia` y `ultima_fecha_serie(serie, anio)`.
-  - `tiene_documentos(cliente_id)`, que cuenta borradores y facturas.
-- [ ] T040 [US2] Implementar `emitir(db, actor, datos, clave, *, borrador=None)` en `backend/app/services/emision.py` (research R-6, R-7, R-9, R-18):
-  1. Cerrojo de la cadena y búsqueda de la clave de idempotencia.
-  2. Validaciones de configuración, cliente activo con domicilio (FR-017), fecha (FR-018), líneas y tipo de IVA.
-  3. `calcular_totales`, contador, copias, descripción (FR-045) e inserción.
-  4. `cadena.generar_registro_alta` y auditoría.
+  - `insert_emitida` (factura, líneas y desglose), `get_detalle` (con `estado_factura`), `get_by_idempotency_key` y `last_fecha_in_serie(serie, anio)`.
+  - `has_documentos(cliente_id)`, que cuenta borradores y facturas.
+- [ ] T040 [US2] Implementar `emit_factura(db, actor, datos, clave, *, borrador=None)` en `backend/app/services/emision.py` (research R-6, R-7, R-9, R-18):
+  1. Cerrojo de la cadena y búsqueda de la clave de idempotencia, con su operación y origen.
+  2. Validaciones de configuración, cliente activo con domicilio (FR-017), fecha con todos los límites de FR-018, líneas, total > 0 y tipo de IVA (`is_rate_allowed`).
+  3. `compute_totals`, contador, copias, descripción (FR-045) e inserción.
+  4. `cadena.create_registro_alta` y auditoría.
   5. Logs sin datos personales ni importes (FR-051).
-- [ ] T041 [US2] Implementar `backend/app/services/facturas.py` → `detalle(db, id)`: estado derivado, `rectifica_a`, `sustituye_a`, `vigente_actual`, `correcciones` con `en_vigor`, `registros` y autores con «(eliminado)» (001, FR-061).
+- [ ] T041 [US2] Implementar `backend/app/services/facturas.py` → `get_factura(db, id)`: estado derivado, `rectifica_a`, `sustituye_a`, `vigente_actual`, `correcciones` con `en_vigor`, `registros` y autores con «(eliminado)» (001, FR-061).
 - [ ] T042 [P] [US2] Crear `backend/app/schemas/factura.py` según el contrato: `LineaEntrada`, `FacturaEntrada` (`extra="forbid"`), `LineaSalida`, `Desglose`, `Totales`, `ClienteFacturaSalida`, `FacturaSalida`, `FacturaReferencia`, `RegistroResumen` y `Correccion`.
 - [ ] T043 [US2] En `backend/app/api/v1/facturas.py`, implementar `POST /v1/facturas` (cabecera `Idempotency-Key` obligatoria; 201, o 200 si es repetición) y `GET /v1/facturas/{id}`, y quitarlos de `PENDIENTES_002`.
-- [ ] T044 [US2] Sustituir `SinDocumentos` por la implementación real en `backend/app/services/documentos.py`, usando `repositories/facturas.tiene_documentos`, y conectarla en `get_documentos_checker` (FR-042).
+- [ ] T044 [US2] Sustituir `SinDocumentos` por la implementación real en `backend/app/services/documentos.py`, usando `repositories/facturas.has_documentos`, y conectarla en `get_documentos_checker` (FR-042).
 - [ ] T045 [US2] Regenerar los tipos y crear `joyeriablanco_web/src/api/queries/facturas.ts` (emitir con `Idempotency-Key`, detalle e invalidación de `['facturas']`) y sus alias en `joyeriablanco_web/src/api/tipos.ts`.
 - [ ] T046 [US2] Extraer `joyeriablanco_web/src/features/clientes/ClienteAltaPanel.tsx` de `ClientePanel.tsx`, controlado por props (`isOpen`, `onCreado` y `onCerrar`) y con el mismo `ClienteForm`. `ClientePanel` pasa a usarlo (FR-046).
 - [ ] T047 [US2] Crear en `joyeriablanco_web/src/features/facturas/`, en modo nueva:
@@ -292,7 +302,7 @@ la misma transacción, y la operación es idempotente.
   - En `joyeriablanco_web/src/components/layout/Sidebar.tsx`, activar Facturas y ampliar el tipo `to` (FR-041), con su test actualizado.
 - [ ] T049 [US2] Ampliar `backend/app/services/datos_ejemplo.py` y `reiniciar-bd-e2e` (research R-16):
   - Configuración demo: emisor ficticio con NIF válido y modalidad VERI\*FACTU.
-  - Unas 50 facturas emitidas de los últimos 6 meses, con clientes de ejemplo y generadas **mediante `emision.emitir`**.
+  - Unas 50 facturas emitidas de los últimos 6 meses, con clientes de ejemplo y generadas **mediante `emision.emit_factura`**.
   - Sigue prohibido en producción.
 - [ ] T050 [US2] E2E `joyeriablanco_web/e2e/facturas.spec.ts`, parte 1: emitir una factura de dos líneas (número, aviso y detalle con registro) y «Nuevo cliente» desde el modal, que vuelve con el cliente elegido y las líneas intactas.
 
@@ -325,8 +335,8 @@ las acciones visibles en todos los anchos.
 
 ### Implementation for User Story 3
 
-- [ ] T053 [US3] Añadir `listar(filtros)` a `backend/app/repositories/facturas.py` sobre `v_listado_facturas`: `_filtros` con `_escapar_like` e `inmutable_unaccent`, normalización de la identificación como en clientes, `_ORDENES` con desempate por `id`, y conteo más página (research R-12).
-- [ ] T054 [US3] Crear `FiltrosFacturas` y `listar` en `backend/app/services/facturas.py`, `FacturaResumenSalida` en `backend/app/schemas/factura.py` y `GET /v1/facturas` en `backend/app/api/v1/facturas.py`, y quitarlo de `PENDIENTES_002`.
+- [ ] T053 [US3] Añadir `list_facturas(filtros)` a `backend/app/repositories/facturas.py` sobre `v_listado_facturas`: `_filtros` con `_escapar_like` e `inmutable_unaccent`, normalización de la identificación como en clientes, `_ORDENES` con desempate por `id`, y conteo más página (research R-12).
+- [ ] T054 [US3] Crear `FiltrosFacturas` y `list_facturas` en `backend/app/services/facturas.py`, `FacturaResumenSalida` en `backend/app/schemas/factura.py` y `GET /v1/facturas` en `backend/app/api/v1/facturas.py`, y quitarlo de `PENDIENTES_002`.
 - [ ] T055 [US3] Crear el listado en la web:
   - Query `facturasListaQuery` en `joyeriablanco_web/src/api/queries/facturas.ts`, con `keepPreviousData` y 25 por página.
   - `joyeriablanco_web/src/features/facturas/FiltrosFacturas.tsx`, `TablaFacturas.tsx` (acciones fijas con `components/ui/tabla.ts`, tarjetas en móvil y marcas) y `FacturasPage.tsx`.
@@ -334,6 +344,7 @@ las acciones visibles en todos los anchos.
 - [ ] T056 [US3] Ampliar `joyeriablanco_web/e2e/acciones-visibles.spec.ts` con la tabla de facturas, midiendo una página completa a 768, 1024, 1280, 1440 y 1536 px (SC-008):
   - Primero se mide qué columnas caben junto al menú y se ocultan las necesarias, como en 001 R-22.
   - Los umbrales medidos se anotan en research (R-12) y en la spec (FR-033). Si difieren de lo especificado, **se corrige primero la spec**.
+  - E2E `joyeriablanco_web/e2e/facturas-listado.spec.ts` (SC-010): búsqueda por número, por cliente sin tildes y por NIF; filtros de año y mes, con «Ver todos los años»; orden; paginación; y estado en la URL al recargar.
 
 **Checkpoint**: US1–US3 completas, con el listado operativo.
 
@@ -352,7 +363,8 @@ versión, se borra otro sin que se consuma número y se emite uno de forma idemp
 - [ ] T057 [P] [US4] Test `backend/tests/integration/test_borradores.py`:
   - **CRUD**:
     - `POST` de un borrador incompleto → 201.
-    - `GET` con `totales_previstos` al IVA vigente.
+    - `GET` con `totales_previstos` y `tipo_iva_previsto` guardados al guardar, calculados con `domain/importes.py`.
+    - Eventos `borrador_factura_creado` y `borrador_factura_editado` con su diff.
     - `PUT` sustituye las líneas; con versión desfasada → 409.
     - `DELETE` → 204 con evento `borrador_factura_eliminado`, sin número consumido ni registro.
   - **Emisión**:
@@ -366,13 +378,15 @@ versión, se borra otro sin que se consuma número y se emite uno de forma idemp
   - Botones «Eliminar borrador», «Guardar borrador» y «Emitir factura».
   - Diálogo de conflicto de versión.
   - Mensaje «Este borrador ya se ha emitido» ante un 404.
-  - Aviso si cambió el IVA desde que se guardó.
+  - Aviso si cambió el IVA desde que se guardó: `tipo_iva_previsto` distinto del IVA de `parametros`.
 
 ### Implementation for User Story 4
 
 - [ ] T059 [US4] Implementar el backend de borradores:
   - `backend/app/repositories/borradores.py`.
-  - `backend/app/services/borradores.py`: crear, obtener con totales previstos, editar con versión, eliminar con auditoría y emitir mediante `emision.emitir(..., borrador=…)` con `FOR UPDATE` y versión.
+  - `backend/app/services/borradores.py`: `create_borrador`, `get_borrador`, `update_borrador` con versión, `delete_borrador` y `emit_borrador`.
+    - Al crear y editar se calculan y guardan `tipo_iva_previsto` y los totales previstos con `domain/importes.py`, y se deja su evento de auditoría.
+    - `emit_borrador` llama a `emision.emit_factura(..., borrador=…)`, con `FOR UPDATE` sobre el borrador, que es mutable, y la comprobación de versión.
   - `backend/app/schemas/borrador.py`.
   - `backend/app/api/v1/borradores.py`, con las 5 operaciones, quitándolas de `PENDIENTES_002`.
 - [ ] T060 [US4] Crear la web de borradores:
@@ -412,7 +426,7 @@ comprueba lo siguiente:
 
 - [ ] T063 [P] [US5] Test `backend/tests/integration/test_correcciones.py`, sobre research R-4, R-8, R-9 y R-18:
   - **Anular**:
-    - Solo administrador; un empleado recibe 403.
+    - Solo administrador; un empleado recibe 403, **tanto en `/anulacion` como en `/modificacion`** (SC-005).
     - Declaración obligatoria.
     - Registro de anulación encadenado.
     - Estado `anulada`.
@@ -427,7 +441,9 @@ comprueba lo siguiente:
   - **Modificar «factura entregada»**:
     - Causa `error_datos` → `REC-2026-0001` R4-S con `ImporteRectificacion` igual a los totales de la original, `FacturasRectificadas` y `FechaOperacion` heredada. El contenido sigue R-4.
     - Causa `devolucion_o_precio` sin líneas → R1 con total 0 y desglose a cero.
-    - Rectificativa idéntica → 422 `sin-cambios`.
+    - Rectificativa idéntica → 422 `sin-cambios`. En cambio, con las mismas líneas pero la configuración de IVA ya corregida (R1 «IVA mal aplicado»), se admite.
+    - El tipo de IVA se valida con la fecha de operación heredada (F-3 §15.1).
+    - Eventos de auditoría de cada operación según la tabla de research R-15.
     - Sin causa → 422.
     - Líneas vacías con `error_datos` → 422.
   - **Rectificativa**:
@@ -456,19 +472,20 @@ comprueba lo siguiente:
 ### Implementation for User Story 5
 
 - [ ] T065 [US5] Implementar en `backend/app/services/emision.py`, bajo el cerrojo de la cadena y con idempotencia:
-  - `anular(db, actor, factura_id, declaracion, motivo_texto, clave)`.
-  - `modificar(db, actor, factura_id, datos, clave)`, que puede ser anulación más reemisión o rectificación por sustitución R1/R4, con devolución total.
+  - `anular_factura(db, actor, factura_id, declaracion, motivo_texto, clave)`.
+  - `modify_factura(db, actor, factura_id, datos, clave)`, que puede ser anulación más reemisión o rectificación por sustitución R1/R4, con devolución total.
   - Reglas de REC y de `sin-cambios`.
+  - Orden de research R-9: primero los registros y las facturas nuevas, y **por último** la corrección, con sus referencias ya conocidas.
   - Registros mediante `services/cadena.py`.
   - Auditoría (`factura_anulada` y `factura_rectificada`).
   - Logs sin datos personales.
-- [ ] T066 [US5] Implementar `backend/app/repositories/correcciones.py` (insertar y listar por factura) y completar el estado derivado y el historial en `repositories/facturas.get_detalle`. La reactivación de FR-048 debe coincidir con la vista y con el trigger.
+- [ ] T066 [US5] Implementar `backend/app/repositories/correcciones.py` (insertar y listar por factura) y completar el historial en `repositories/facturas.get_detalle`. El estado sale siempre de `estado_factura` (research R-8, R-12). Test en `backend/tests/integration/test_estado_factura.py`: la función, la vista y el trigger coinciden en todos los casos de FR-048 (anulada, rectificada, rectificativa anulada que reactiva la original y rectificativa de una rectificativa).
 - [ ] T067 [US5] Añadir `AnulacionEntrada` y `ModificacionEntrada` en `backend/app/schemas/factura.py`, e implementar `POST /v1/facturas/{id}/anulacion` y `POST /v1/facturas/{id}/modificacion` con `AdminSession` e `Idempotency-Key`. Quitarlos de `PENDIENTES_002`.
 - [ ] T068 [US5] Web:
   - En `joyeriablanco_web/src/features/facturas/`: `MotivoModificacionDialog.tsx`, `AnularFacturaDialog.tsx`, `HistorialFactura.tsx` y los modos consulta y modificar de `FacturaModal.tsx`, con el aviso de IVA distinto y el resultado tras cada acción (FR-049).
   - La ruta `joyeriablanco_web/src/routes/_app/facturas/$facturaId/modificar.tsx`, solo para administradores.
   - Las marcas «Anulada» y «Rectificada» en `TablaFacturas.tsx`.
-- [ ] T069 [US5] Añadir a `backend/app/services/datos_ejemplo.py`, mediante `emision.anular`/`modificar`, unas cuantas correcciones: una anulación, una reemisión, una rectificativa R4, una devolución total R1 y una rectificativa anulada.
+- [ ] T069 [US5] Añadir a `backend/app/services/datos_ejemplo.py`, mediante `emision.anular_factura` y `modify_factura`, unas cuantas correcciones: una anulación, una reemisión, una rectificativa R4, una devolución total R1 y una rectificativa anulada.
 - [ ] T070 [US5] E2E `joyeriablanco_web/e2e/facturas.spec.ts`, parte 3, como administrador:
   1. Reemisión.
   2. Rectificativa R4.
@@ -489,11 +506,19 @@ altera un registro saltándose los triggers, señala ese registro.
 
 - [ ] T071 [P] [US6] Test `backend/tests/integration/test_verificar_cadena.py` (SC-004):
   - Cadena íntegra → «íntegra (N registros)» y código 0.
-  - Registro alterado (`jb_owner` con `DISABLE TRIGGER` y `UPDATE` dentro de la transacción de test) → se identifica su secuencia y código 1.
+  - Alteraciones dentro de la transacción de test (`jb_owner` con `DISABLE TRIGGER` y `UPDATE`), cada una → se identifica el registro o la factura afectada y código 1:
+    - un campo de la huella;
+    - una línea de factura;
+    - un desglose;
+    - el `contenido` del registro;
+    - la copia del destinatario.
   - Se generan los eventos `cadena_verificada` y `cadena_inconsistente`.
   - Se prueba también `services/integridad.py` sin CLI.
 - [ ] T072 [US6] Implementar la comprobación de integridad:
-  - `backend/app/services/integridad.py`: `verificar(db) -> ResultadoIntegridad`, que recalcula en orden de `secuencia` la huella y el enlace con el anterior.
+  - `backend/app/services/integridad.py`: `verify_chain(db) -> ResultadoIntegridad`. En orden de `secuencia`, hace para cada registro lo siguiente (research R-14):
+    - Recalcula la huella y el enlace con el anterior.
+    - Compara el `contenido` con el que reconstruye `domain/registro.py` desde la factura. El bloque `SistemaInformatico` y la hora se toman del propio registro.
+    - Recalcula los totales y el desglose de la factura desde sus líneas.
   - El comando `joyeria verificar-cadena` en `backend/app/cli.py`, con su salida y código de salida (FR-031).
 
 **Checkpoint**: todas las historias completas.
@@ -511,7 +536,7 @@ altera un registro saltándose los triggers, señala ese registro.
 - [ ] T077 Actualizar la documentación:
   - `README.md`: tabla de módulos, con Facturas y registro Verifactu ✅ y PDF/QR y remisión 🔜, y el comando `verificar-cadena`.
   - `CLAUDE.md`: comandos (`verificar-cadena`).
-  - `specs/002-facturas/quickstart.md`: validado de principio a fin, con el resultado de las 17 validaciones manuales.
+  - `specs/002-facturas/quickstart.md`: validado de principio a fin, con el resultado de las 17 validaciones manuales y el cronometraje de SC-001 (emitir una factura de tres líneas en menos de 2 minutos).
 - [ ] T078 Pasar las puertas de calidad completas:
   - Backend: `uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest`.
   - Web: `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens` y `npx playwright test`.
@@ -530,7 +555,7 @@ altera un registro saltándose los triggers, señala ese registro.
 - **US1 (F3)**: depende de F2.
 - **US2 (F4)**: depende de US1, porque emitir exige la configuración. Es el **MVP de negocio**.
 - **US3 (F5)**: depende de US2, que aporta la ruta `/facturas`, las facturas y los datos de ejemplo.
-- **US4 (F6)**: depende de US2 (`emision.emitir`) y de US3 (acción de fila del listado).
+- **US4 (F6)**: depende de US2 (`emision.emit_factura`) y de US3 (acción de fila del listado).
 - **US5 (F7)**: depende de US2. Sus marcas en el listado dependen de US3.
 - **US6 (F8)**: depende de F2. Tiene más sentido con US5, por las anulaciones en la cadena.
 - **Polish (F9)**: depende de todas.
