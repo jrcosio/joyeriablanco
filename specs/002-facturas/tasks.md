@@ -177,7 +177,7 @@ datos del emisor, y puede ajustar al alza el próximo número. Los empleados no 
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T028 [P] [US1] Test `backend/tests/integration/test_configuracion_facturacion.py`:
+- [X] T028 [P] [US1] Test `backend/tests/integration/test_configuracion_facturacion.py`:
   - **Lectura y permisos**: `GET` y `PUT` como administrador (valores iniciales: IVA 21.00, clave 01, modalidad nula y emisor vacío); como empleado, 403.
   - **Validaciones**: IVA 22 → 422 `tipo-iva-no-admitido`; clave fuera de L8A → 422; NIF de emisor no válido → 422; el código postal deriva la provincia.
   - **Concurrencia y auditoría**: versión desfasada → 409; evento `configuracion_facturacion_cambiada` con el diff y los importes en texto.
@@ -190,7 +190,7 @@ datos del emisor, y puede ajustar al alza el próximo número. Los empleados no 
     - Sin motivo → 422.
     - Solo afecta a FAC del año en curso.
   - **Parámetros**: `GET /v1/facturas/parametros` como empleado devuelve IVA, `emision_posible`, `faltan`, `proximo_numero`, `hoy` y `fecha_minima`.
-- [ ] T029 [P] [US1] Test web `joyeriablanco_web/src/features/configuracion/FacturacionPage.test.tsx` con MSW:
+- [X] T029 [P] [US1] Test web `joyeriablanco_web/src/features/configuracion/FacturacionPage.test.tsx` con MSW:
   - Solo se ofrecen los tipos de IVA admitidos, la lista L8A y la modalidad «Sin decidir» / VERI\*FACTU / no VERI\*FACTU.
   - La modalidad aparece bloqueada con su explicación cuando `modalidad_bloqueada`.
   - Aviso «no se puede emitir» con lo que falta.
@@ -199,18 +199,18 @@ datos del emisor, y puede ajustar al alza el próximo número. Los empleados no 
 
 ### Implementation for User Story 1
 
-- [ ] T030 [US1] Implementar `backend/app/services/configuracion_facturacion.py`:
+- [X] T030 [US1] Implementar `backend/app/services/configuracion_facturacion.py`:
   - `get_config` y `update_config`, con validaciones, provincia derivada del CP, modalidad bloqueada si hay registros y auditoría con diff.
   - `missing_for_emission(config)`.
   - `adjust_counter(db, actor, proximo, motivo, simular)`: cerrojo de la cadena, luego contador y auditoría. Exige `proximo > último usado + 1`.
   - `get_parametros(db)`.
-- [ ] T031 [P] [US1] Crear `backend/app/schemas/configuracion_facturacion.py` según el contrato: `ConfiguracionFacturacionEntrada`/`Salida`, `AjusteContadorEntrada`/`Salida` y `ParametrosFacturacionSalida`.
-- [ ] T032 [US1] Implementar los endpoints y quitarlos de `PENDIENTES_002`:
+- [X] T031 [P] [US1] Crear `backend/app/schemas/configuracion_facturacion.py` según el contrato: `ConfiguracionFacturacionEntrada`/`Salida`, `AjusteContadorEntrada`/`Salida` y `ParametrosFacturacionSalida`.
+- [X] T032 [US1] Implementar los endpoints y quitarlos de `PENDIENTES_002`:
   - `backend/app/api/v1/configuracion.py`: `GET` y `PUT /v1/configuracion/facturacion` y `POST /v1/configuracion/facturacion/contador`, con `AdminSession`.
   - `backend/app/api/v1/facturas.py` (nuevo): `GET /v1/facturas/parametros`, con sesión.
   - Registrar los routers en `backend/app/api/v1/__init__.py`.
-- [ ] T033 [US1] Regenerar los tipos con `exportar-openapi` + `gen:api` y crear `joyeriablanco_web/src/api/queries/configuracionFacturacion.ts` (configuración, parámetros y contador). Añadir los alias a `joyeriablanco_web/src/api/tipos.ts` y las etiquetas en español de los 10 tipos de evento nuevos a `joyeriablanco_web/src/features/auditoria/tipos-evento.ts` (research R-15). Sin ellas no pasa el typecheck.
-- [ ] T034 [US1] Crear la pestaña de configuración:
+- [X] T033 [US1] Regenerar los tipos con `exportar-openapi` + `gen:api` y crear `joyeriablanco_web/src/api/queries/configuracionFacturacion.ts` (configuración, parámetros y contador). Añadir los alias a `joyeriablanco_web/src/api/tipos.ts` y las etiquetas en español de los 10 tipos de evento nuevos a `joyeriablanco_web/src/features/auditoria/tipos-evento.ts` (research R-15). Sin ellas no pasa el typecheck.
+- [X] T034 [US1] Crear la pestaña de configuración:
   - `joyeriablanco_web/src/features/configuracion/FacturacionPage.tsx` y `AjusteContadorDialog.tsx`.
   - La ruta `joyeriablanco_web/src/routes/_app/configuracion/facturacion.tsx`.
   - La pestaña «Facturación» en `joyeriablanco_web/src/routes/_app/configuracion.tsx`, con el subtítulo «Usuarios, auditoría y facturación».

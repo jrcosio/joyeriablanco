@@ -21,3 +21,10 @@ export type UsuarioConContrasenaTemporal = Esquemas['UsuarioConContrasenaTempora
 export type EventoSalida = Esquemas['EventoSalida']
 export type PaginaEventos = Esquemas['Pagina_EventoSalida_']
 export type TipoEvento = EventoSalida['tipo']
+
+export type ConfiguracionFacturacionSalida = Esquemas['ConfiguracionFacturacionSalida']
+export type ConfiguracionFacturacionEntrada = Esquemas['ConfiguracionFacturacionEntrada']
+export type Modalidad = NonNullable<ConfiguracionFacturacionEntrada['modalidad']>
+export type AjusteContadorEntrada = Esquemas['AjusteContadorEntrada']
+export type AjusteContadorSalida = Esquemas['AjusteContadorSalida']
+export type ParametrosFacturacionSalida = Esquemas['ParametrosFacturacionSalida']

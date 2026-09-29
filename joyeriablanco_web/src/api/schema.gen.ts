@@ -273,10 +273,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/configuracion/facturacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Configuracion */
+        get: operations["obtener_configuracion_api_v1_configuracion_facturacion_get"];
+        /** Guardar Configuracion */
+        put: operations["guardar_configuracion_api_v1_configuracion_facturacion_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/configuracion/facturacion/contador": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ajustar Contador */
+        post: operations["ajustar_contador_api_v1_configuracion_facturacion_contador_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facturas/parametros": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Parametros */
+        get: operations["obtener_parametros_api_v1_facturas_parametros_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AjusteContadorEntrada */
+        AjusteContadorEntrada: {
+            /** Proximo Numero */
+            proximo_numero: number;
+            /** Motivo */
+            motivo: string;
+            /** Simular */
+            simular: boolean;
+        };
+        /** AjusteContadorSalida */
+        AjusteContadorSalida: {
+            /**
+             * Serie
+             * @constant
+             */
+            serie: "FAC";
+            /** Anio */
+            anio: number;
+            /** Ultimo Usado */
+            ultimo_usado: number;
+            /** Proximo Numero */
+            proximo_numero: number;
+            /** Numeros Sin Usar */
+            numeros_sin_usar: number;
+            /** Aplicado */
+            aplicado: boolean;
+        };
         /** CambioContrasenaEntrada */
         CambioContrasenaEntrada: {
             /** Contrasena Actual */
@@ -445,12 +524,84 @@ export interface components {
             actualizado_en: string;
             actualizado_por: components["schemas"]["UsuarioReferencia"];
         };
+        /** ConfiguracionFacturacionEntrada */
+        ConfiguracionFacturacionEntrada: {
+            /** Version */
+            version: number;
+            /**
+             * Iva Por Defecto
+             * @example 21.00
+             */
+            iva_por_defecto: string;
+            /** Clave Regimen */
+            clave_regimen: string;
+            modalidad: components["schemas"]["Modalidad"] | null;
+            emisor: components["schemas"]["DatosEmisorEntrada"];
+        };
+        /** ConfiguracionFacturacionSalida */
+        ConfiguracionFacturacionSalida: {
+            /** Version */
+            version: number;
+            /**
+             * Iva Por Defecto
+             * @example 21.00
+             */
+            iva_por_defecto: string;
+            /** Clave Regimen */
+            clave_regimen: string;
+            modalidad: components["schemas"]["Modalidad"] | null;
+            emisor: components["schemas"]["DatosEmisorSalida"];
+            /** Emision Posible */
+            emision_posible: boolean;
+            /** Faltan */
+            faltan: string[];
+            /** Proximo Numero */
+            proximo_numero: string;
+            /** Modalidad Bloqueada */
+            modalidad_bloqueada: boolean;
+            /** Tipos Iva Admitidos */
+            tipos_iva_admitidos: string[];
+            /**
+             * Actualizado En
+             * Format: date-time
+             */
+            actualizado_en: string;
+            actualizado_por: components["schemas"]["UsuarioReferencia"] | null;
+        };
         /** CredencialesEntrada */
         CredencialesEntrada: {
             /** Nombre Usuario */
             nombre_usuario: string;
             /** Contrasena */
             contrasena: string;
+        };
+        /** DatosEmisorEntrada */
+        DatosEmisorEntrada: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Nif */
+            nif?: string | null;
+            /** Direccion */
+            direccion?: string | null;
+            /** Codigo Postal */
+            codigo_postal?: string | null;
+            /** Localidad */
+            localidad?: string | null;
+        };
+        /** DatosEmisorSalida */
+        DatosEmisorSalida: {
+            /** Nombre */
+            nombre: string | null;
+            /** Nif */
+            nif: string | null;
+            /** Direccion */
+            direccion: string | null;
+            /** Codigo Postal */
+            codigo_postal: string | null;
+            /** Localidad */
+            localidad: string | null;
+            /** Provincia */
+            provincia: string | null;
         };
         /** EventoSalida */
         EventoSalida: {
@@ -492,6 +643,12 @@ export interface components {
             /** Nuevos Este Anio */
             nuevos_este_anio: number;
         };
+        /**
+         * Modalidad
+         * @description Modalidad (constitución IV): opción de configuración y campo de cada registro.
+         * @enum {string}
+         */
+        Modalidad: "verifactu" | "no_verifactu";
         /** Pagina[ClienteResumenSalida] */
         Pagina_ClienteResumenSalida_: {
             /** Elementos */
@@ -513,6 +670,27 @@ export interface components {
             pagina: number;
             /** Tamano */
             tamano: number;
+        };
+        /** ParametrosFacturacionSalida */
+        ParametrosFacturacionSalida: {
+            /**
+             * Iva Por Defecto
+             * @example 21.00
+             */
+            iva_por_defecto: string;
+            /** Emision Posible */
+            emision_posible: boolean;
+            /** Faltan */
+            faltan: string[];
+            /** Proximo Numero */
+            proximo_numero: string;
+            /**
+             * Hoy
+             * Format: date
+             */
+            hoy: string;
+            /** Fecha Minima */
+            fecha_minima: string | null;
         };
         /** ProvinciaSalida */
         ProvinciaSalida: {
@@ -558,7 +736,7 @@ export interface components {
          * TipoEvento
          * @enum {string}
          */
-        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado";
+        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente";
         /**
          * TipoIdentificacion
          * @description `NIF` o clave de la lista L7 de DsRegistroVeriFactu.xlsx v1.0 (spec F-2).
@@ -1332,6 +1510,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_configuracion_api_v1_configuracion_facturacion_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfiguracionFacturacionSalida"];
+                };
+            };
+        };
+    };
+    guardar_configuracion_api_v1_configuracion_facturacion_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfiguracionFacturacionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfiguracionFacturacionSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ajustar_contador_api_v1_configuracion_facturacion_contador_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AjusteContadorEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AjusteContadorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_parametros_api_v1_facturas_parametros_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParametrosFacturacionSalida"];
                 };
             };
         };

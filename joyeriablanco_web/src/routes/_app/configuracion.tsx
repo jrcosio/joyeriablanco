@@ -17,7 +17,7 @@ const claseTab =
 function Configuracion() {
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Configuración" subtitle="Usuarios y auditoría del sistema." />
+      <PageHeader title="Configuración" subtitle="Usuarios, auditoría y facturación." />
       <nav
         aria-label="Secciones de configuración"
         className="flex gap-2 border-b border-primary-container/18"
@@ -35,6 +35,13 @@ function Configuracion() {
           activeProps={{ className: 'border-primary text-primary', 'aria-current': 'page' }}
         >
           Auditoría
+        </Link>
+        <Link
+          to="/configuracion/facturacion"
+          className={claseTab}
+          activeProps={{ className: 'border-primary text-primary', 'aria-current': 'page' }}
+        >
+          Facturación
         </Link>
       </nav>
       <Outlet />

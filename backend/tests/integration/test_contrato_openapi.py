@@ -23,10 +23,6 @@ CONTRATOS = sorted(SPECS.glob("*/contracts/openapi.yaml"))
 METODOS = {"get", "post", "put", "patch", "delete"}
 
 PENDIENTES_002: set[tuple[str, str]] = {
-    ("/api/v1/configuracion/facturacion", "get"),
-    ("/api/v1/configuracion/facturacion", "put"),
-    ("/api/v1/configuracion/facturacion/contador", "post"),
-    ("/api/v1/facturas/parametros", "get"),
     ("/api/v1/facturas", "get"),
     ("/api/v1/facturas", "post"),
     ("/api/v1/facturas/{}", "get"),

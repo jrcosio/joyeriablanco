@@ -21,6 +21,7 @@ import { Route as AppClientesClienteIdRouteImport } from './routes/_app/clientes
 import { Route as AppClientesNuevoRouteImport } from './routes/_app/clientes/nuevo'
 import { Route as AppConfiguracionIndexRouteImport } from './routes/_app/configuracion/index'
 import { Route as AppConfiguracionAuditoriaRouteImport } from './routes/_app/configuracion/auditoria'
+import { Route as AppConfiguracionFacturacionRouteImport } from './routes/_app/configuracion/facturacion'
 import { Route as AppConfiguracionUsuariosRouteImport } from './routes/_app/configuracion/usuarios'
 
 const AppRoute = AppRouteImport.update({
@@ -83,6 +84,12 @@ const AppConfiguracionAuditoriaRoute =
     path: '/auditoria',
     getParentRoute: () => AppConfiguracionRoute,
   } as any)
+const AppConfiguracionFacturacionRoute =
+  AppConfiguracionFacturacionRouteImport.update({
+    id: '/facturacion',
+    path: '/facturacion',
+    getParentRoute: () => AppConfiguracionRoute,
+  } as any)
 const AppConfiguracionUsuariosRoute =
   AppConfiguracionUsuariosRouteImport.update({
     id: '/usuarios',
@@ -101,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
   '/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
+  '/configuracion/facturacion': typeof AppConfiguracionFacturacionRoute
   '/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
   '/configuracion/': typeof AppConfiguracionIndexRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesByTo {
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
   '/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
+  '/configuracion/facturacion': typeof AppConfiguracionFacturacionRoute
   '/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
   '/configuracion': typeof AppConfiguracionIndexRoute
 }
@@ -130,6 +139,7 @@ export interface FileRoutesById {
   '/_app/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/_app/clientes/nuevo': typeof AppClientesNuevoRoute
   '/_app/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
+  '/_app/configuracion/facturacion': typeof AppConfiguracionFacturacionRoute
   '/_app/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
   '/_app/configuracion/': typeof AppConfiguracionIndexRoute
 }
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
     | '/configuracion/auditoria'
+    | '/configuracion/facturacion'
     | '/configuracion/usuarios'
     | '/configuracion/'
   fileRoutesByTo: FileRoutesByTo
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
     | '/configuracion/auditoria'
+    | '/configuracion/facturacion'
     | '/configuracion/usuarios'
     | '/configuracion'
   id:
@@ -174,6 +186,7 @@ export interface FileRouteTypes {
     | '/_app/clientes/$clienteId'
     | '/_app/clientes/nuevo'
     | '/_app/configuracion/auditoria'
+    | '/_app/configuracion/facturacion'
     | '/_app/configuracion/usuarios'
     | '/_app/configuracion/'
   fileRoutesById: FileRoutesById
@@ -270,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConfiguracionAuditoriaRouteImport
       parentRoute: typeof AppConfiguracionRoute
     }
+    '/_app/configuracion/facturacion': {
+      id: '/_app/configuracion/facturacion'
+      path: '/facturacion'
+      fullPath: '/configuracion/facturacion'
+      preLoaderRoute: typeof AppConfiguracionFacturacionRouteImport
+      parentRoute: typeof AppConfiguracionRoute
+    }
     '/_app/configuracion/usuarios': {
       id: '/_app/configuracion/usuarios'
       path: '/usuarios'
@@ -296,12 +316,14 @@ const AppClientesRouteWithChildren = AppClientesRoute._addFileChildren(
 
 interface AppConfiguracionRouteChildren {
   AppConfiguracionAuditoriaRoute: typeof AppConfiguracionAuditoriaRoute
+  AppConfiguracionFacturacionRoute: typeof AppConfiguracionFacturacionRoute
   AppConfiguracionUsuariosRoute: typeof AppConfiguracionUsuariosRoute
   AppConfiguracionIndexRoute: typeof AppConfiguracionIndexRoute
 }
 
 const AppConfiguracionRouteChildren: AppConfiguracionRouteChildren = {
   AppConfiguracionAuditoriaRoute: AppConfiguracionAuditoriaRoute,
+  AppConfiguracionFacturacionRoute: AppConfiguracionFacturacionRoute,
   AppConfiguracionUsuariosRoute: AppConfiguracionUsuariosRoute,
   AppConfiguracionIndexRoute: AppConfiguracionIndexRoute,
 }
