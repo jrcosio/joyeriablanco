@@ -31,6 +31,8 @@ from app.domain.tipos import TipoFactura, TipoIdentificacion
 ID_VERSION: Final = "1.0"  # L15
 TIPO_HUELLA_SHA256: Final = "01"  # L12
 CALIFICACION_SUJETA_NO_EXENTA: Final = "S1"  # L9
+# Primera fecha de expedición: entrada en vigor de la Orden HAC/1177/2024 (F-3 §3.1.3.1, 1152).
+FECHA_MINIMA_EXPEDICION: Final = date(2024, 10, 28)
 RECTIFICATIVA_POR_SUSTITUCION: Final = "S"  # L3
 MAX_DESCRIPCION: Final = 500  # DescripcionOperacion, alfanumérico (500)
 

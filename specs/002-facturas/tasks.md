@@ -556,14 +556,14 @@ implementación»; FR-018).
 anterior al pasado, se rectifica una con una fecha anterior a hoy, y se rechazan una futura, una
 anterior al 28/10/2024 y una corrección anterior a su fecha de operación.
 
-- [ ] T080 [P] Tests `backend/tests/integration/test_emision.py` y `test_correcciones.py`:
+- [X] T080 [P] Tests `backend/tests/integration/test_emision.py` y `test_correcciones.py`:
   - Emitir con una fecha anterior a la última factura de la serie y con una de hace dos años → 201, con el número de la serie del año de esa fecha.
   - Futura (error 1112) y anterior al 28/10/2024 (error 1152) → 422 `fecha-expedicion`, también al emitir un borrador.
   - Modificar con `fecha_expedicion`: reemisión y rectificativa con fecha anterior a hoy → 201 con esa fecha; sin ella, la de hoy; anterior a la fecha de operación heredada (error 1146) → 422.
   - `GET /v1/facturas/parametros` devuelve `fecha_minima` = 28/10/2024.
-- [ ] T081 Backend: `check_fecha_expedicion` en `backend/app/services/emision.py` solo con los límites de la AEAT y el de la fecha de operación; `DatosModificacion.fecha_expedicion` y `ModificacionEntrada.fecha_expedicion` (opcional, por defecto hoy); `Parametros.fecha_minima` = 28/10/2024; retirar `repositories/facturas.last_fecha_in_serie` si queda sin uso.
-- [ ] T082 Web: fecha editable en «Modificar» (`CamposFactura` con mínimo propio y la fecha de la operación como ayuda) y envío de `fecha_expedicion`; tipos regenerados; tests de `FacturaModal.consulta.test.tsx` y E2E de correcciones con una fecha anterior a hoy.
-- [ ] T083 Documentación: quickstart (validación 3 bis) y puertas de calidad completas (backend, web y E2E).
+- [X] T081 Backend: `check_fecha_expedicion` en `backend/app/services/emision.py` solo con los límites de la AEAT y el de la fecha de operación; `DatosModificacion.fecha_expedicion` y `ModificacionEntrada.fecha_expedicion` (opcional, por defecto hoy); `Parametros.fecha_minima` = 28/10/2024; retirar `repositories/facturas.last_fecha_in_serie` si queda sin uso.
+- [X] T082 Web: fecha editable en «Modificar» (`CamposFactura` con mínimo propio y la fecha de la operación como ayuda) y envío de `fecha_expedicion`; tipos regenerados; tests de `FacturaModal.consulta.test.tsx` y E2E de correcciones con una fecha anterior a hoy.
+- [X] T083 Documentación: quickstart (validación 3 bis) y puertas de calidad completas (backend, web y E2E).
 
 ---
 

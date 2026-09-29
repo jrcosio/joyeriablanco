@@ -77,22 +77,22 @@ test.describe('Listado de facturas (US3)', () => {
     const parte = numero.replace(/^FAC-/, '')
     await buscar(page, parte)
     await expect(page).toHaveURL(new RegExp(`q=${parte}`))
-    expect((await columna(page, COLUMNA.numero)).filter((n) => n.startsWith('FAC-'))).toEqual([
-      numero,
-    ])
+    await expect
+      .poll(async () => (await columna(page, COLUMNA.numero)).filter((n) => n.startsWith('FAC-')))
+      .toEqual([numero])
 
     // Cliente en minúsculas y sin tildes.
     await buscar(page, sinTildes(cliente).toLowerCase())
-    const clientes = await columna(page, COLUMNA.cliente)
-    expect(clientes.length).toBeGreaterThan(0)
-    expect(clientes.every((c) => c === cliente)).toBe(true)
+    await expect
+      .poll(async () => (await columna(page, COLUMNA.cliente)).every((c) => c === cliente))
+      .toBe(true)
 
     // NIF con puntos y guion.
     const conSeparadores = nif.replace(/^(\d{2})(\d{3})(\d{3})(.)$/, '$1.$2.$3-$4')
     await buscar(page, conSeparadores)
-    const nifs = await columna(page, COLUMNA.nif)
-    expect(nifs.length).toBeGreaterThan(0)
-    expect(nifs.every((n) => n === nif)).toBe(true)
+    await expect
+      .poll(async () => (await columna(page, COLUMNA.nif)).every((n) => n === nif))
+      .toBe(true)
   })
 
   test('filtros de año y mes, con «Ver todos los años»', async ({ page }) => {
@@ -113,8 +113,12 @@ test.describe('Listado de facturas (US3)', () => {
     )
     await elegir(page, /Mes/, nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1))
     await expect(page).toHaveURL(new RegExp(`mes=${String(mes)}`))
-    const fechas = await columna(page, COLUMNA.fecha)
-    expect(fechas.every((f) => Number(f.split('/')[1]) === mes)).toBe(true)
+    // El listado conserva la página anterior mientras llega la filtrada: se espera a esta.
+    await expect
+      .poll(async () =>
+        (await columna(page, COLUMNA.fecha)).every((f) => Number(f.split('/')[1]) === mes),
+      )
+      .toBe(true)
   })
 
   test('orden por total y paginación, con el estado en la URL al recargar', async ({ page }) => {

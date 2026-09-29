@@ -182,10 +182,10 @@ async def test_cliente_no_facturable(
 @pytest.mark.parametrize(
     "fecha",
     [
-        lambda: hoy() + timedelta(days=1),  # futura
-        lambda: date(hoy().year - 2, 12, 31),  # de hace dos años
-        lambda: date(2024, 10, 27),  # antes de la Orden (F-3)
+        lambda: hoy() + timedelta(days=1),  # futura (F-3 §3.1.3.1, error 1112)
+        lambda: date(2024, 10, 27),  # antes de la Orden (F-3 §3.1.3.1, error 1152)
     ],
+    ids=["futura", "anterior-a-la-orden"],
 )
 async def test_fecha_de_expedicion_no_valida(
     client: AsyncClient, empleada: tuple[Usuario, str], maria: Cliente, fecha: Any
@@ -196,19 +196,33 @@ async def test_fecha_de_expedicion_no_valida(
     assert respuesta.json()["type"] == "/problemas/fecha-expedicion"
 
 
-async def test_no_se_puede_emitir_con_fecha_anterior_a_la_ultima_de_la_serie(
+async def test_la_fecha_puede_ser_anterior_a_la_ultima_de_la_serie(
     client: AsyncClient, empleada: tuple[Usuario, str], maria: Cliente
 ) -> None:
+    """FR-018 (cambio tras la implementación): sin orden entre fecha y número en la serie."""
     if hoy().month == 1 and hoy().day == 1:
         pytest.skip("El 1 de enero no hay un día anterior en la misma serie")
-    await _emitir(client, empleada[1], cuerpo_factura(maria.id))
+    primera = (await _emitir(client, empleada[1], cuerpo_factura(maria.id))).json()
+    inicio_de_anio = date(hoy().year, 1, 1)
 
-    respuesta = await _emitir(
-        client, empleada[1], cuerpo_factura(maria.id, fecha=date(hoy().year, 1, 1))
-    )
+    respuesta = await _emitir(client, empleada[1], cuerpo_factura(maria.id, fecha=inicio_de_anio))
 
-    assert respuesta.status_code == 422
-    assert respuesta.json()["type"] == "/problemas/fecha-expedicion"
+    assert respuesta.status_code == 201, respuesta.text
+    segunda = respuesta.json()
+    assert segunda["num_serie"] == f"FAC-{hoy().year}-0002"
+    assert segunda["fecha_expedicion"] == inicio_de_anio.isoformat()
+    assert segunda["fecha_expedicion"] < primera["fecha_expedicion"]
+
+
+async def test_la_fecha_puede_ser_de_cualquier_anio_desde_la_orden(
+    client: AsyncClient, empleada: tuple[Usuario, str], maria: Cliente
+) -> None:
+    fecha = max(date(hoy().year - 2, 12, 15), date(2024, 10, 28))
+
+    respuesta = await _emitir(client, empleada[1], cuerpo_factura(maria.id, fecha=fecha))
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["num_serie"] == f"FAC-{fecha.year}-0001"
 
 
 async def test_tipo_de_iva_no_admitido_en_la_fecha(

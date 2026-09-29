@@ -89,6 +89,7 @@ function FormularioModificacion({
           causa: elegido.causa,
           motivo_texto: elegido.motivo_texto,
           cliente_id: valores.cliente_id,
+          fecha_expedicion: valores.fecha_expedicion,
           lineas: lineasCuerpo(valores.lineas),
         },
         clave,
@@ -110,6 +111,8 @@ function FormularioModificacion({
           if (destino) form.setError(destino, { message: mensaje })
           else setError(mensaje)
         }
+      } else if (e.tipo === 'fecha-expedicion') {
+        form.setError('fecha_expedicion', { message: e.message })
       } else if (e.tipo === 'cliente-no-facturable') {
         form.setError('cliente_id', { message: e.message })
       } else {
@@ -140,11 +143,7 @@ function FormularioModificacion({
       <CamposFactura
         form={form}
         parametros={parametros}
-        fechas={{
-          editable: false,
-          expedicion: parametros.hoy,
-          operacion: factura.fecha_operacion ?? factura.fecha_expedicion,
-        }}
+        fechaOperacion={factura.fecha_operacion ?? factura.fecha_expedicion}
         numeroAyuda="La factura nueva recibe el siguiente número de su serie."
         nombreCliente={nombreCliente}
         onNombreCliente={setNombreCliente}

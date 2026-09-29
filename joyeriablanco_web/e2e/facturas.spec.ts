@@ -294,4 +294,53 @@ test.describe('Facturas', () => {
     await page.goto(`/facturas/${factura.id}/modificar`)
     await expect(page).toHaveURL(/\/acceso-denegado/)
   })
+
+  test('fecha libre: una factura anterior a la última de la serie y una rectificativa de otro día (FR-018)', async ({
+    page,
+  }) => {
+    const dia = (desfase: number) =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(
+        new Date(Date.now() - desfase * 86_400_000),
+      )
+    await iniciarSesion(page, 'admin.demo')
+    await emitirPorLaApi(page) // la última de la serie lleva la fecha de hoy
+
+    await page.goto('/facturas/nueva')
+    const nueva = page.getByRole('dialog', { name: 'Nueva factura' })
+    await expect(nueva.getByText('Se asigna al emitir')).toBeVisible()
+    await nueva.getByLabel(/^Fecha/).fill(dia(3))
+    await nuevoClienteDesdeElModal(page, nueva, 'Cliente Fecha')
+    await nueva.getByRole('textbox', { name: 'Descripción de la línea 1' }).fill('Anillo')
+    await nueva.getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' }).fill('500')
+    const emision = page.waitForResponse(
+      (r) => r.url().endsWith('/api/v1/facturas') && r.request().method() === 'POST',
+    )
+    await nueva.getByRole('button', { name: 'Emitir factura' }).click()
+    await page
+      .getByRole('alertdialog', { name: '¿Emitir la factura?' })
+      .getByRole('button', { name: 'Emitir factura' })
+      .click()
+    const factura = (await (await emision).json()) as FacturaCreada & { fecha_expedicion: string }
+    expect(factura.fecha_expedicion).toBe(dia(3))
+
+    // Rectificativa con fecha de hace dos días: posterior a la operación, anterior a hoy.
+    await page.goto(`/facturas/${factura.id}/modificar`)
+    const modificar = page.getByRole('dialog', { name: `Modificar factura ${factura.num_serie}` })
+    const fecha = modificar.getByLabel(/^Fecha/)
+    await expect(fecha).toHaveAttribute('min', dia(3))
+    await fecha.fill(dia(2))
+    await modificar
+      .getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' })
+      .fill('450')
+    await modificar.getByRole('button', { name: 'Guardar' }).click()
+    const motivo = page.getByRole('alertdialog', { name: 'Motivo de la modificación' })
+    await motivo.locator('label', { hasText: /ya entregada/ }).click()
+    await motivo.locator('label', { hasText: /Devolución, descuento/ }).click()
+    await motivo.getByRole('textbox', { name: /Explica el motivo/ }).fill('Descuento')
+    await motivo.getByRole('button', { name: 'Confirmar' }).click()
+    const rec = page.getByRole('dialog', { name: /^Factura REC-/ })
+    await expect(rec.getByText('Rectificativa R1')).toBeVisible()
+    const enPantalla = dia(2).split('-').reverse().join('/') // AAAA-MM-DD → DD/MM/AAAA
+    await expect(rec.getByText(enPantalla).first()).toBeVisible()
+  })
 })

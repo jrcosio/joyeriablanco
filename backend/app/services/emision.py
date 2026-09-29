@@ -20,7 +20,6 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Final
 
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,7 +38,6 @@ from app.core.errors import (
 )
 from app.core.http import Origen
 from app.core.tiempo import hoy
-from app.domain.huella import format_date
 from app.domain.importes import (
     MAX_LINEAS,
     MAX_PRECIO,
@@ -51,7 +49,11 @@ from app.domain.importes import (
     line_amount,
 )
 from app.domain.numeracion import format_num_serie
-from app.domain.registro import CALIFICACION_SUJETA_NO_EXENTA, build_descripcion_operacion
+from app.domain.registro import (
+    CALIFICACION_SUJETA_NO_EXENTA,
+    FECHA_MINIMA_EXPEDICION,
+    build_descripcion_operacion,
+)
 from app.domain.tipos import (
     CausaRectificacion,
     EstadoFactura,
@@ -76,8 +78,6 @@ from app.services.auditoria import record_event
 from app.services.configuracion_facturacion import missing_for_emission
 
 logger = logging.getLogger(__name__)
-
-FECHA_MINIMA: Final = date(2024, 10, 28)  # F-3 §3.1.3.1: entrada en vigor de la Orden
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,21 +123,23 @@ async def billable_cliente(db: AsyncSession, cliente_id: uuid.UUID) -> Cliente:
     return cliente
 
 
-async def check_fecha_expedicion(db: AsyncSession, fecha: date, serie: Serie) -> None:
-    """FR-018: no futura; del año en curso o del anterior; no antes del 28/10/2024 (F-3) ni de la
-    última factura emitida de la serie en ese año (numeración correlativa, F-6 art. 6.1.a)."""
-    hoy_madrid = hoy()
-    if fecha > hoy_madrid:
+def check_fecha_expedicion(fecha: date, *, fecha_operacion: date | None = None) -> None:
+    """FR-018: solo los límites que valida la AEAT (F-3 §3.1.3.1). Puede ser anterior a otras
+    facturas de su serie y de cualquier año (decisión del responsable; research R-17, Q-9)."""
+    if fecha > hoy():
+        # Error 1112: «El campo FechaExpedicionFactura es superior a la fecha actual».
         raise FechaExpedicionNoValida("La fecha de expedición no puede ser posterior a hoy.")
-    if fecha.year < hoy_madrid.year - 1 or fecha < FECHA_MINIMA:
+    if fecha < FECHA_MINIMA_EXPEDICION:
+        # Error 1152: «La fecha de expedición no puede ser inferior al 28 de octubre de 2024».
         raise FechaExpedicionNoValida(
-            "La fecha de expedición debe ser del año en curso o del anterior."
+            "La fecha de expedición no puede ser anterior al 28/10/2024 (entrada en vigor de la "
+            "Orden HAC/1177/2024)."
         )
-    ultima = await facturas.last_fecha_in_serie(db, serie, fecha.year)
-    if ultima is not None and fecha < ultima:
+    if fecha_operacion is not None and fecha < fecha_operacion:
+        # Error 1146: solo con las claves de régimen 14 y 15, que no se usan.
         raise FechaExpedicionNoValida(
-            "La fecha no puede ser anterior a la de la última factura de la serie "
-            f"({format_date(ultima)})."
+            "La fecha de expedición no puede ser anterior a la de la operación "
+            f"({fecha_operacion:%d/%m/%Y})."
         )
 
 
@@ -231,7 +233,7 @@ async def create_factura(
 ) -> Factura:
     """Expide una factura y su registro de alta. Exige el cerrojo de la cadena ya tomado."""
     serie = Serie.RECTIFICATIVA if rectificacion else Serie.ORDINARIA
-    await check_fecha_expedicion(db, fecha_expedicion, serie)
+    check_fecha_expedicion(fecha_expedicion, fecha_operacion=fecha_operacion)
     check_lineas(lineas, permitir_vacio=rectificacion is not None)
     tipo_iva = config.iva_por_defecto
     if not is_rate_allowed(tipo_iva, fecha_operacion or fecha_expedicion):
@@ -385,6 +387,8 @@ class DatosModificacion:
     motivo_texto: str
     cliente_id: uuid.UUID
     lineas: tuple[DatosLinea, ...]
+    # De la factura nueva (FR-018); sin ella, la de hoy.
+    fecha_expedicion: date | None = None
 
 
 async def find_previous_correccion(
@@ -597,12 +601,13 @@ async def modify_factura(
         raise SinCambios
 
     async def expedir(rectificacion: Rectificacion | None) -> Factura:
-        # La factura nueva se expide hoy y conserva la fecha de operación de la original (FR-018).
+        # La fecha de expedición la elige el administrador (hoy, si no) y la de la operación es
+        # la de la original (FR-018): la primera no puede ser anterior a la segunda.
         return await create_factura(
             db,
             config=config,
             cliente=cliente,
-            fecha_expedicion=hoy(),
+            fecha_expedicion=datos.fecha_expedicion or hoy(),
             fecha_operacion=fecha_operacion_heredada(original),
             lineas=datos.lineas,
             actor=actor,

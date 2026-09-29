@@ -1,7 +1,7 @@
 """Borradores de factura: guardar, editar, borrar y emitir (US4; FR-011, FR-019, FR-020; R-9)."""
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -305,11 +305,17 @@ async def test_emitir_valida_como_cualquier_emision(
     assert sin_cliente.status_code == 422
     assert sin_cliente.json()["errores"][0]["campo"] == "cliente_id"
 
+    # FR-018: la AEAT no admite fechas anteriores al 28/10/2024 (error 1152).
     antigua = await _emitir(
-        client, csrf_emp, creado, cuerpo(maria, fecha=date(hoy().year - 2, 1, 1), version=1)
+        client, csrf_emp, creado, cuerpo(maria, fecha=date(2024, 10, 27), version=1)
     )
     assert antigua.status_code == 422
     assert antigua.json()["type"] == "/problemas/fecha-expedicion"
+    futura = await _emitir(
+        client, csrf_emp, creado, cuerpo(maria, fecha=hoy() + timedelta(days=1), version=1)
+    )
+    assert futura.status_code == 422
+    assert futura.json()["type"] == "/problemas/fecha-expedicion"
 
     desfasada = await _emitir(client, csrf_emp, creado, cuerpo(maria, version=7))
     assert desfasada.status_code == 409

@@ -297,6 +297,7 @@ async def modificar_factura(
             motivo_texto=datos.motivo_texto,
             cliente_id=datos.cliente_id,
             lineas=datos_lineas(datos.lineas),
+            fecha_expedicion=datos.fecha_expedicion,
         ),
         actor=sesion.usuario,
         origen=origen,

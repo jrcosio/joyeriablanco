@@ -8,7 +8,7 @@ export const PARAMETROS: ParametrosFacturacionSalida = {
   faltan: [],
   proximo_numero: 'FAC-2026-0006',
   hoy: '2026-09-29',
-  fecha_minima: '2026-09-02',
+  fecha_minima: '2024-10-28',
 }
 
 /** La API responde a los parámetros del modal de factura y al listado de detrás (vacío). */

@@ -56,6 +56,8 @@ class ModificacionEntrada(EntradaBase):
     motivo_texto: MotivoTexto
     cliente_id: uuid.UUID
     lineas: Annotated[list[LineaEntrada], Field(max_length=100)]
+    # De la factura nueva (FR-018). Sin ella, la de hoy.
+    fecha_expedicion: date | None = None
 
 
 # ---------------------------------------------------------------------------- salida

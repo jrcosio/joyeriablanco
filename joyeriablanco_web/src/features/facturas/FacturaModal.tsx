@@ -276,7 +276,6 @@ function FormularioFactura({
       <CamposFactura
         form={form}
         parametros={parametros}
-        fechas={{ editable: true }}
         numeroAyuda={
           <>
             Previsto: <span className="tabular-nums">{parametros.proximo_numero}</span>

@@ -32,11 +32,12 @@ from app.domain.codigos_postales import provincia_from_codigo_postal
 from app.domain.identificacion import normalize_identificacion, validate_nif
 from app.domain.importes import allowed_rates, is_rate_allowed
 from app.domain.numeracion import format_num_serie
+from app.domain.registro import FECHA_MINIMA_EXPEDICION
 from app.domain.tipos import CLAVES_REGIMEN_L8A, Serie, TipoEvento
 from app.models.configuracion_facturacion import ConfiguracionFacturacion
 from app.models.usuario import Usuario
 from app.repositories import configuracion_facturacion as repo
-from app.repositories import contadores, facturas, registros
+from app.repositories import contadores, registros
 from app.schemas.configuracion_facturacion import (
     AjusteContadorEntrada,
     ConfiguracionFacturacionEntrada,
@@ -246,5 +247,5 @@ async def get_parametros(db: AsyncSession) -> Parametros:
         faltan=missing_for_emission(config),
         proximo_numero=await next_num_serie(db),
         hoy=fecha,
-        fecha_minima=await facturas.last_fecha_in_serie(db, Serie.ORDINARIA, fecha.year),
+        fecha_minima=FECHA_MINIMA_EXPEDICION,
     )

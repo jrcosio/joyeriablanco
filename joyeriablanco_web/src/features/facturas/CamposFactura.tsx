@@ -56,10 +56,6 @@ function Previsualizacion({
   return <TotalesFactura {...totales} tipoIva={tipoIva} />
 }
 
-/** Fecha editable (nueva y borrador, FR-018) o fijada por el servidor (correcciones). */
-export type FechasFactura =
-  { editable: true } | { editable: false; expedicion: string; operacion: string }
-
 /**
  * El formulario del modal de factura con sus tres secciones (FR-037): datos de emisión, detalle y
  * totales. Lo usan la factura nueva, el borrador y la modificación de una emitida; cada modo pone
@@ -69,7 +65,7 @@ export type FechasFactura =
 export function CamposFactura({
   form,
   parametros,
-  fechas,
+  fechaOperacion,
   numeroAyuda,
   nombreCliente,
   onNombreCliente,
@@ -79,7 +75,11 @@ export function CamposFactura({
 }: {
   form: UseFormReturn<ValoresFactura>
   parametros: ParametrosFacturacionSalida
-  fechas: FechasFactura
+  /**
+   * En una corrección, la fecha de la operación heredada de la original: la de expedición no puede
+   * ser anterior (F-3 §3.1.3.1, error 1146; FR-018).
+   */
+  fechaOperacion?: string | undefined
   /** Ayuda bajo «Se asigna al emitir» (p. ej. el próximo número previsto). */
   numeroAyuda: React.ReactNode
   /** Texto del cliente ya elegido; el selector se vuelve a montar cuando cambia. */
@@ -94,6 +94,12 @@ export function CamposFactura({
   const { control, formState } = form
   const clienteId = useWatch({ control, name: 'cliente_id' })
   const [altaCliente, setAltaCliente] = useState(false)
+  // FR-018: la fecha es libre dentro de los límites de la AEAT (fechas AAAA-MM-DD: se comparan como
+  // texto).
+  const minima = [parametros.fecha_minima, fechaOperacion]
+    .filter((f): f is string => Boolean(f))
+    .sort()
+    .at(-1)
 
   return (
     <>
@@ -109,32 +115,29 @@ export function CamposFactura({
         <Seccion titulo="Datos de emisión">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_1fr_2fr]">
             <SoloLectura etiqueta="Nº de factura" valor="Se asigna al emitir" ayuda={numeroAyuda} />
-            {fechas.editable ? (
-              <Controller
-                control={control}
-                name="fecha_expedicion"
-                render={({ field, fieldState }) => (
-                  <CampoFecha
-                    label="Fecha"
-                    isRequired
-                    value={field.value}
-                    onChange={(v) => {
-                      field.onChange(v ?? '')
-                    }}
-                    onBlur={field.onBlur}
-                    max={parametros.hoy}
-                    {...(parametros.fecha_minima ? { min: parametros.fecha_minima } : {})}
-                    error={fieldState.error?.message}
-                  />
-                )}
-              />
-            ) : (
-              <SoloLectura
-                etiqueta="Fecha"
-                valor={fechaCorta(fechas.expedicion)}
-                ayuda={`Fecha de la operación: ${fechaCorta(fechas.operacion)} (la de la original)`}
-              />
-            )}
+            <Controller
+              control={control}
+              name="fecha_expedicion"
+              render={({ field, fieldState }) => (
+                <CampoFecha
+                  label="Fecha"
+                  isRequired
+                  value={field.value}
+                  onChange={(v) => {
+                    field.onChange(v ?? '')
+                  }}
+                  onBlur={field.onBlur}
+                  max={parametros.hoy}
+                  {...(minima ? { min: minima } : {})}
+                  {...(fechaOperacion
+                    ? {
+                        description: `Fecha de la operación: ${fechaCorta(fechaOperacion)} (la de la original).`,
+                      }
+                    : {})}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
             <div className="flex flex-col gap-2">
               <Controller
                 control={control}

@@ -1114,6 +1114,8 @@ export interface components {
             cliente_id: string;
             /** Lineas */
             lineas: components["schemas"]["LineaEntrada"][];
+            /** Fecha Expedicion */
+            fecha_expedicion?: string | null;
         };
         /**
          * MotivoModificacion

@@ -107,17 +107,19 @@ async def _modificar(
     causa: str | None = None,
     lineas: list[dict[str, str]] | None = None,
     clave: uuid.UUID | None = None,
+    fecha: date | None = None,
 ) -> Any:
+    cuerpo: dict[str, Any] = {
+        "motivo": motivo,
+        "causa": causa,
+        "motivo_texto": "El cliente pidió otra talla",
+        "cliente_id": str(cliente.id),
+        "lineas": LINEAS_CAPTURA if lineas is None else lineas,
+    }
+    if fecha is not None:
+        cuerpo["fecha_expedicion"] = fecha.isoformat()
     return await client.post(
-        f"{URL}/{factura['id']}/modificacion",
-        json={
-            "motivo": motivo,
-            "causa": causa,
-            "motivo_texto": "El cliente pidió otra talla",
-            "cliente_id": str(cliente.id),
-            "lineas": LINEAS_CAPTURA if lineas is None else lineas,
-        },
-        headers=cabeceras(csrf, clave),
+        f"{URL}/{factura['id']}/modificacion", json=cuerpo, headers=cabeceras(csrf, clave)
     )
 
 
@@ -263,6 +265,51 @@ async def test_no_debio_emitirse_anula_y_reemite_con_el_siguiente_numero(
     assert anulacion.detalle["sustituida_por"] == nueva["num_serie"]
     emitidas = await eventos(db, TipoEvento.FACTURA_EMITIDA)
     assert emitidas[-1].detalle["sustituye_a"] == original["num_serie"]
+
+
+async def test_la_correccion_admite_una_fecha_anterior_pero_no_a_la_de_la_operacion(
+    client: AsyncClient, csrf: str, maria: Cliente, db: AsyncSession
+) -> None:
+    """FR-018: la fecha de la corrección es editable; F-3 §3.1.3.1 (error 1146) impide que sea
+    anterior a la fecha de la operación, que se hereda de la original."""
+    dia = hoy() - timedelta(days=10)
+    original = await _emitir(client, csrf, maria, fecha=dia)
+
+    antes_de_la_operacion = await _modificar(
+        client,
+        csrf,
+        original,
+        maria,
+        motivo="no_debio_emitirse",
+        fecha=dia - timedelta(days=1),
+    )
+    assert antes_de_la_operacion.status_code == 422
+    assert antes_de_la_operacion.json()["type"] == "/problemas/fecha-expedicion"
+    futura = await _modificar(
+        client, csrf, original, maria, motivo="no_debio_emitirse", fecha=hoy() + timedelta(days=1)
+    )
+    assert futura.status_code == 422
+
+    elegida = dia + timedelta(days=3)
+    respuesta = await _modificar(
+        client,
+        csrf,
+        original,
+        maria,
+        motivo="factura_entregada",
+        causa="error_datos",
+        lineas=OTRAS_LINEAS,
+        fecha=elegida,
+    )
+
+    assert respuesta.status_code == 201, respuesta.text
+    rec = respuesta.json()
+    assert rec["fecha_expedicion"] == elegida.isoformat()
+    assert rec["fecha_operacion"] == dia.isoformat()
+    assert rec["num_serie"] == f"REC-{elegida.year}-0001"
+    assert (await _cadena(db))[-1].contenido["IDFactura"]["FechaExpedicionFactura"] == (
+        elegida.strftime("%d-%m-%Y")
+    )
 
 
 async def test_la_reemision_necesita_lineas(client: AsyncClient, csrf: str, maria: Cliente) -> None:

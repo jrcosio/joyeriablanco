@@ -322,5 +322,5 @@ async def test_parametros_para_cualquier_usuario(
         ],
         "proximo_numero": f"FAC-{hoy().year}-0001",
         "hoy": hoy().isoformat(),
-        "fecha_minima": None,
+        "fecha_minima": "2024-10-28",  # F-3 §3.1.3.1 (FR-018)
     }

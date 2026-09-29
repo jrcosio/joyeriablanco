@@ -34,12 +34,13 @@ indicadores ni columna de estado, con los borradores marcados.
 | 1 | Como admin: Configuración → Facturación en una BD recién migrada (sin datos de ejemplo) | IVA al 21 %, clave 01, modalidad y emisor vacíos, y el aviso «no se puede emitir» con lo que falta | FR-001, FR-004 |
 | 2 | Como empleado, abrir `/configuracion/facturacion` | Acceso denegado. El `PUT` directo responde 403 | FR-001, SC-005 |
 | 3 | «Nueva factura», elegir un cliente, añadir 1 × 1.200,00 y 2 × 45,00 | Previsualización: base 1.290,00, IVA (21 %) 270,90 y total 1.560,90 | FR-013 a FR-015 |
+| 3 bis | Emitir una factura con una fecha anterior a la última emitida (p. ej. de hace tres días) y probar una fecha futura y el 27/10/2024 | Se emite con la fecha elegida y el siguiente número de la serie del año de esa fecha. La futura y la anterior al 28/10/2024 se rechazan en el campo de la fecha | FR-018 |
 | 4 | Emitir y confirmar | Aviso «FAC-2026-000N emitida». Aparece en el listado. En el detalle, el historial muestra el registro de alta con su huella | FR-007, FR-021, FR-028 |
 | 5 | «Nuevo cliente» desde el modal, guardar y volver | El cliente nuevo queda elegido y las líneas siguen escritas | FR-046 |
 | 6 | Guardar como borrador, cerrar y reabrir desde el listado | Marca «Borrador» sin número. Se puede editar y eliminar, y eliminarlo no consume ningún número | FR-019 |
 | 7 | Emitir un borrador cuyo cliente no tiene dirección | 422 `cliente-no-facturable` con enlace a la ficha del cliente | FR-017 |
 | 8 | Como admin: «Modificar» una factura con «no debió emitirse» | La original queda anulada y se emite una FAC nueva con el siguiente número. El historial enlaza las dos | FR-024 |
-| 9 | Como admin: «Modificar» con «ya entregada» y causa «error en datos» | Se emite `REC-2026-000N` (R4, S) con base y cuota rectificadas. La original queda rectificada | FR-024, R-4 |
+| 9 | Como admin: «Modificar» con «ya entregada» y causa «error en datos», cambiando la fecha a un día anterior a hoy | Se emite `REC-2026-000N` (R4, S) con la fecha elegida y base y cuota rectificadas. La original queda rectificada. El campo no admite una fecha anterior a la de la operación de la original | FR-018, FR-024, R-4 |
 | 10 | Como admin: «Modificar» quitando todas las líneas con la causa «devolución…» | Se emite una rectificativa R1 con total 0,00 € | Clarifications (plan) |
 | 11 | Como admin: «Anular» una factura duplicada | Registro de anulación sin factura nueva. El número queda como anulado | FR-025 |
 | 12 | Como empleado, consultar una emitida | No aparecen «Anular» ni «Modificar». El `POST …/anulacion` responde 403 | FR-023, FR-025 |
@@ -108,12 +109,13 @@ repitieron además a mano sobre la pila de desarrollo.
 | 1 | `FacturacionPage.test.tsx` y `test_configuracion_facturacion.py` (BD sin configurar: aviso con lo que falta) |
 | 2 | E2E `configuracion-facturacion.spec.ts` (acceso denegado) y `test_configuracion_facturacion.py` (403) |
 | 3 | `FacturaModal.test.tsx` (1.290,00 / 270,90 / 1.560,90) y E2E `facturas.spec.ts` |
+| 3 bis | E2E `facturas.spec.ts` («fecha libre») y `test_emision.py` (anterior a la última de la serie, de otro año, futura y anterior al 28/10/2024) |
 | 4 | E2E `facturas.spec.ts`: aviso, listado y detalle con el registro de alta y su huella |
 | 5 | `ClienteAltaPanel.test.tsx` y E2E `facturas.spec.ts` |
 | 6 | E2E `facturas.spec.ts` (guardar, reabrir, editar y emitir; eliminar sin consumir número) y `test_borradores.py` |
 | 7 | `test_borradores.py` y `test_emision.py` (`cliente-no-facturable`); aviso con enlace en `ResumenCliente` |
 | 8 | E2E `facturas.spec.ts` (reemisión) y `test_correcciones.py` |
-| 9 | E2E `facturas.spec.ts` (REC R4) y `test_correcciones.py` (contenido del registro según R-4) |
+| 9 | E2E `facturas.spec.ts` (REC R4 y rectificativa con fecha anterior a hoy), `test_correcciones.py` (contenido del registro según R-4 y fecha no anterior a la operación) y `FacturaModal.consulta.test.tsx` |
 | 10 | `test_correcciones.py` (R1 sin líneas, total 0 y desglose a cero) |
 | 11 | E2E `facturas.spec.ts` y `test_correcciones.py` |
 | 12 | E2E `facturas.spec.ts` (empleado sin acciones) y `test_correcciones.py` (403 en ambas rutas) |

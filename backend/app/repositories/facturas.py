@@ -30,19 +30,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.domain.identificacion import normalize_identificacion
-from app.domain.tipos import EstadoFactura, Serie
+from app.domain.tipos import EstadoFactura
 from app.models.borrador_factura import BorradorFactura
 from app.models.factura import DesgloseFactura, Factura, LineaFactura
 from app.repositories.clientes import escape_like
-
-
-async def last_fecha_in_serie(session: AsyncSession, serie: Serie, anio: int) -> date | None:
-    resultado = await session.execute(
-        select(func.max(Factura.fecha_expedicion)).where(
-            Factura.serie == serie.value, Factura.anio == anio
-        )
-    )
-    return resultado.scalar_one_or_none()
 
 
 async def insert_emitida(

@@ -3,8 +3,15 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { FacturaSalida } from '../../api/tipos'
-import { conCatalogos, conSesion, crearCliente, crearSesion, renderApp } from '../../test/app'
-import { conFacturacion, crearFactura } from '../../test/facturas'
+import {
+  conCatalogos,
+  conSesion,
+  crearCliente,
+  crearSesion,
+  problema,
+  renderApp,
+} from '../../test/app'
+import { conFacturacion, crearFactura, PARAMETROS } from '../../test/facturas'
 import { server } from '../../test/msw'
 
 const admin = crearSesion({ rol: 'administrador', nombre: 'Luis Martín' })
@@ -174,13 +181,13 @@ describe('Consulta de una factura emitida (US5)', () => {
     await user.click(within(dialogo).getByRole('button', { name: 'Anular factura' }))
 
     expect(await screen.findByText('Factura FAC-2026-0005 anulada')).toBeInTheDocument()
-    expect(peticiones).toEqual([
+    expect(peticiones.map(({ ruta, cuerpo }) => ({ ruta, cuerpo }))).toEqual([
       {
         ruta: `anulacion:${ID}`,
         cuerpo: { declaracion_no_debio_emitirse: true, motivo_texto: 'Duplicada' },
-        clave: expect.stringMatching(/^[0-9a-f-]{36}$/),
       },
     ])
+    expect(peticiones[0]?.clave).toMatch(/^[0-9a-f-]{36}$/)
     expect(await within(modal).findByText('Anulada')).toBeInTheDocument()
     expect(within(modal).queryByRole('button', { name: 'Anular' })).toBeNull()
   })
@@ -217,7 +224,7 @@ describe('Modificar una factura emitida (US5)', () => {
     expect(
       await screen.findByText('Se ha emitido REC-2026-0001. FAC-2026-0005 queda rectificada'),
     ).toBeInTheDocument()
-    expect(peticiones).toEqual([
+    expect(peticiones.map(({ ruta, cuerpo }) => ({ ruta, cuerpo }))).toEqual([
       {
         ruta: `modificacion:${ID}`,
         cuerpo: {
@@ -225,18 +232,54 @@ describe('Modificar una factura emitida (US5)', () => {
           causa: 'error_datos',
           motivo_texto: 'Precio',
           cliente_id: crearCliente().id,
+          fecha_expedicion: PARAMETROS.hoy, // propone la de hoy (FR-018)
           lineas: [
             { unidades: '1.00', descripcion: 'Anillo', precio_unitario: '1100.00' },
             { unidades: '2.00', descripcion: 'Ajuste', precio_unitario: '45.00' },
           ],
         },
-        clave: expect.stringMatching(/^[0-9a-f-]{36}$/),
       },
     ])
+    expect(peticiones[0]?.clave).toMatch(/^[0-9a-f-]{36}$/)
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(`/facturas/${ID_REC}`)
     })
     expect(await screen.findByRole('dialog', { name: 'Factura REC-2026-0001' })).toBeVisible()
+  })
+
+  it('la fecha es editable y no admite una anterior a la de la operación (FR-018)', async () => {
+    conSesion(admin)
+    const original = crearFactura({ fecha_expedicion: '2026-09-10', fecha_operacion: '2026-09-08' })
+    conFactura([original])
+    server.use(
+      http.post('*/api/v1/facturas/:id/modificacion', () =>
+        problema(
+          422,
+          'fecha-expedicion',
+          'La fecha de expedición no puede ser anterior a la de la operación (08/09/2026).',
+        ),
+      ),
+    )
+    renderApp(`/facturas/${ID}/modificar`)
+    const user = userEvent.setup()
+
+    const modal = await screen.findByRole('dialog', { name: 'Modificar factura FAC-2026-0005' })
+    const fecha = within(modal).getByLabelText(/^Fecha/)
+    expect(fecha).toHaveValue(PARAMETROS.hoy)
+    expect(fecha).toHaveAttribute('min', '2026-09-08')
+    expect(fecha).toHaveAttribute('max', PARAMETROS.hoy)
+    expect(within(modal).getByText(/Fecha de la operación: 08\/09\/2026/)).toBeInTheDocument()
+
+    await user.click(within(modal).getByRole('button', { name: 'Guardar' }))
+    const motivo = await screen.findByRole('alertdialog', { name: 'Motivo de la modificación' })
+    await user.click(within(motivo).getByRole('radio', { name: /no debió emitirse/ }))
+    await user.type(within(motivo).getByRole('textbox', { name: /Explica el motivo/ }), 'Número')
+    await user.click(within(motivo).getByRole('button', { name: 'Confirmar' }))
+
+    expect(
+      await within(modal).findByText(/no puede ser anterior a la de la operación/),
+    ).toBeInTheDocument()
+    expect(fecha).toHaveAttribute('aria-invalid', 'true')
   })
 
   it('un empleado no puede abrir «Modificar»', async () => {
