@@ -89,21 +89,27 @@ def purgar_sesiones() -> None:
 @app.command("cargar-datos-ejemplo")
 def cargar_datos_ejemplo(
     clientes: Annotated[int, typer.Option(min=1, help="Número de clientes ficticios")] = 40,
+    facturas: Annotated[
+        int, typer.Option(min=0, help="Número de facturas emitidas de los últimos 6 meses")
+    ] = 50,
     contrasena_demo: Annotated[
         str | None,
         typer.Option(help="Contraseña conocida para los usuarios de ejemplo (solo desarrollo/E2E)"),
     ] = None,
 ) -> None:
-    """Carga clientes y usuarios ficticios. Se niega en producción (FR-045)."""
+    """Carga usuarios, clientes y facturas ficticios. Se niega en producción (FR-045)."""
     from app.services import datos_ejemplo
 
     resumen = _ejecutar(
-        lambda db: datos_ejemplo.cargar(db, clientes=clientes, contrasena_demo=contrasena_demo)
+        lambda db: datos_ejemplo.cargar(
+            db, clientes=clientes, facturas=facturas, contrasena_demo=contrasena_demo
+        )
     )
     if resumen.ya_cargados:
         typer.echo("Los datos de ejemplo ya estaban cargados: no se ha hecho nada.")
         return
     typer.echo(f"Clientes de ejemplo creados: {resumen.clientes_creados}")
+    typer.echo(f"Facturas de ejemplo emitidas: {resumen.facturas_emitidas}")
     for nombre_usuario, temporal in resumen.contrasenas_temporales.items():
         _mostrar_temporal(nombre_usuario, temporal)
 

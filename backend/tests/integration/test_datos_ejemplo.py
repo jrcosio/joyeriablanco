@@ -1,5 +1,8 @@
 """Datos de ejemplo para desarrollo y E2E (US7; FR-045)."""
 
+from datetime import timedelta
+from itertools import pairwise
+
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,10 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.errors import SinPermiso
 from app.core.security import verify_password
+from app.core.tiempo import hoy
 from app.domain.identificacion import validate_identificacion
 from app.domain.tipos import Rol, TipoIdentificacion
-from app.models import Cliente, Usuario
-from app.services import datos_ejemplo
+from app.models import Cliente, Factura, Usuario
+from app.repositories import registros
+from app.services import cadena, datos_ejemplo
+from app.services.configuracion_facturacion import get_config
 
 
 async def test_carga_clientes_y_usuarios_validos(db: AsyncSession) -> None:
@@ -39,6 +45,38 @@ async def test_carga_clientes_y_usuarios_validos(db: AsyncSession) -> None:
     assert any(not c.activo for c in clientes)
     assert any(c.tipo == "empresa" for c in clientes)
     assert any(c.identificacion_pais != "ES" for c in clientes)
+
+
+async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSession) -> None:
+    """R-16: las facturas pasan por `emit_factura`, así que la cadena queda íntegra."""
+    resumen = await datos_ejemplo.cargar(db, clientes=40, facturas=50)
+
+    assert resumen.facturas_emitidas == 50
+    estado = await get_config(db)
+    assert estado.faltan == []
+    assert estado.config.modalidad == "verifactu"
+    assert estado.config.emisor_nombre == "Joyería Blanco (demo)"
+
+    facturas = list(
+        (await db.execute(select(Factura).order_by(Factura.anio, Factura.numero))).scalars()
+    )
+    assert len(facturas) == 50
+    hoy_madrid = hoy()
+    for previa, siguiente in pairwise(facturas):
+        if previa.anio == siguiente.anio:
+            assert siguiente.numero == previa.numero + 1
+            assert siguiente.fecha_expedicion >= previa.fecha_expedicion
+    for factura in facturas:
+        assert hoy_madrid - timedelta(days=182) < factura.fecha_expedicion <= hoy_madrid
+        assert factura.importe_total > 0
+        assert factura.dest_direccion is not None
+
+    cola = await registros.list_in_order(db)
+    assert [r.secuencia for r in cola] == list(range(1, 51))
+    for anterior, actual in pairwise(cola):
+        assert actual.huella_anterior == anterior.huella
+    for registro in cola:
+        assert cadena.recompute_huella(registro) == registro.huella
 
 
 async def test_es_idempotente(db: AsyncSession) -> None:

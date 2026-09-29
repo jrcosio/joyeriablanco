@@ -325,6 +325,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/facturas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Emitir Factura */
+        post: operations["emitir_factura_api_v1_facturas_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facturas/{factura_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Factura */
+        get: operations["obtener_factura_api_v1_facturas__factura_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -374,6 +408,12 @@ export interface components {
             /** Tipos Identificacion */
             tipos_identificacion: components["schemas"]["TipoIdentificacionSalida"][];
         };
+        /**
+         * CausaRectificacion
+         * @description Causa declarada al rectificar una factura entregada (FR-024; F-9 → R1 o R4).
+         * @enum {string}
+         */
+        CausaRectificacion: "devolucion_o_precio" | "error_datos";
         /** ClienteEdicionEntrada */
         ClienteEdicionEntrada: {
             tipo: components["schemas"]["TipoCliente"];
@@ -445,6 +485,34 @@ export interface components {
             correo?: string | null;
             /** Observaciones */
             observaciones?: string | null;
+        };
+        /** ClienteFacturaSalida */
+        ClienteFacturaSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Nombre */
+            nombre: string;
+            /** Identificacion Pais */
+            identificacion_pais: string;
+            /** Identificacion Tipo */
+            identificacion_tipo: string;
+            /** Identificacion Numero */
+            identificacion_numero: string;
+            /** Direccion */
+            direccion: string | null;
+            /** Codigo Postal */
+            codigo_postal: string | null;
+            /** Localidad */
+            localidad: string | null;
+            /** Provincia */
+            provincia: string | null;
+            /** Pais */
+            pais: string;
+            /** Activo */
+            activo?: boolean | null;
         };
         /** ClienteResumenSalida */
         ClienteResumenSalida: {
@@ -568,6 +636,22 @@ export interface components {
             actualizado_en: string;
             actualizado_por: components["schemas"]["UsuarioReferencia"] | null;
         };
+        /** CorreccionSalida */
+        CorreccionSalida: {
+            tipo: components["schemas"]["TipoCorreccion"];
+            motivo: components["schemas"]["MotivoModificacion"];
+            /** Motivo Texto */
+            motivo_texto: string;
+            /**
+             * Creada En
+             * Format: date-time
+             */
+            creada_en: string;
+            creada_por: components["schemas"]["UsuarioReferencia"];
+            factura_nueva: components["schemas"]["FacturaReferencia"] | null;
+            /** En Vigor */
+            en_vigor: boolean;
+        };
         /** CredencialesEntrada */
         CredencialesEntrada: {
             /** Nombre Usuario */
@@ -603,6 +687,30 @@ export interface components {
             /** Provincia */
             provincia: string | null;
         };
+        /** DesgloseSalida */
+        DesgloseSalida: {
+            /**
+             * Tipo Iva
+             * @example 21.00
+             */
+            tipo_iva: string;
+            /**
+             * Base
+             * @example 1290.00
+             */
+            base: string;
+            /**
+             * Cuota
+             * @example 1290.00
+             */
+            cuota: string;
+        };
+        /**
+         * EstadoFactura
+         * @description Estado de un documento en el listado. El de una emitida se deriva (research R-8).
+         * @enum {string}
+         */
+        EstadoFactura: "borrador" | "vigente" | "anulada" | "rectificada";
         /** EventoSalida */
         EventoSalida: {
             /**
@@ -631,6 +739,72 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** FacturaEntrada */
+        FacturaEntrada: {
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            /**
+             * Cliente Id
+             * Format: uuid
+             */
+            cliente_id: string;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+        };
+        /** FacturaReferencia */
+        FacturaReferencia: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Num Serie */
+            num_serie: string;
+        };
+        /** FacturaSalida */
+        FacturaSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Num Serie */
+            num_serie: string;
+            tipo_factura: components["schemas"]["TipoFactura"];
+            /** Tipo Rectificativa */
+            tipo_rectificativa: string | null;
+            estado: components["schemas"]["EstadoFactura"];
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            /** Fecha Operacion */
+            fecha_operacion: string | null;
+            emisor: components["schemas"]["DatosEmisorSalida"];
+            cliente: components["schemas"]["ClienteFacturaSalida"];
+            /** Lineas */
+            lineas: components["schemas"]["LineaSalida"][];
+            totales: components["schemas"]["TotalesSalida"];
+            /** Descripcion Operacion */
+            descripcion_operacion: string;
+            rectifica_a: components["schemas"]["RectificaA"] | null;
+            sustituye_a: components["schemas"]["FacturaReferencia"] | null;
+            vigente_actual: components["schemas"]["FacturaReferencia"] | null;
+            /** Correcciones */
+            correcciones: components["schemas"]["CorreccionSalida"][];
+            /**
+             * Emitida En
+             * Format: date-time
+             */
+            emitida_en: string;
+            emitida_por: components["schemas"]["UsuarioReferencia"];
+            /** Registros */
+            registros: components["schemas"]["RegistroResumen"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -643,12 +817,61 @@ export interface components {
             /** Nuevos Este Anio */
             nuevos_este_anio: number;
         };
+        /** LineaEntrada */
+        LineaEntrada: {
+            /**
+             * Unidades
+             * @example 2
+             * @example 1.50
+             */
+            unidades: string;
+            /** Descripcion */
+            descripcion: string;
+            /**
+             * Precio Unitario
+             * @example 1200.00
+             */
+            precio_unitario: string;
+        };
+        /** LineaSalida */
+        LineaSalida: {
+            /** Orden */
+            orden: number;
+            /**
+             * Unidades
+             * @example 2.00
+             */
+            unidades: string;
+            /** Descripcion */
+            descripcion: string;
+            /**
+             * Precio Unitario
+             * @example 1290.00
+             */
+            precio_unitario: string;
+            /**
+             * Tipo Iva
+             * @example 21.00
+             */
+            tipo_iva: string;
+            /**
+             * Importe
+             * @example 1290.00
+             */
+            importe: string;
+        };
         /**
          * Modalidad
          * @description Modalidad (constitución IV): opción de configuración y campo de cada registro.
          * @enum {string}
          */
         Modalidad: "verifactu" | "no_verifactu";
+        /**
+         * MotivoModificacion
+         * @description Motivo declarado al modificar o anular una factura emitida (FR-024, FR-025).
+         * @enum {string}
+         */
+        MotivoModificacion: "no_debio_emitirse" | "factura_entregada";
         /** Pagina[ClienteResumenSalida] */
         Pagina_ClienteResumenSalida_: {
             /** Elementos */
@@ -701,6 +924,34 @@ export interface components {
             /** Nombre Visible */
             nombre_visible: string;
         };
+        /** RectificaA */
+        RectificaA: {
+            factura: components["schemas"]["FacturaReferencia"];
+            /**
+             * Base Rectificada
+             * @example 1290.00
+             */
+            base_rectificada: string;
+            /**
+             * Cuota Rectificada
+             * @example 1290.00
+             */
+            cuota_rectificada: string;
+            causa: components["schemas"]["CausaRectificacion"];
+        };
+        /** RegistroResumen */
+        RegistroResumen: {
+            /** Tipo */
+            tipo: string;
+            /** Secuencia */
+            secuencia: number;
+            /** Huella */
+            huella: string;
+            /** Fecha Hora Huso Gen */
+            fecha_hora_huso_gen: string;
+            /** Estado Remision */
+            estado_remision: string;
+        };
         /**
          * Rol
          * @enum {string}
@@ -733,10 +984,21 @@ export interface components {
          */
         TipoCliente: "particular" | "empresa";
         /**
+         * TipoCorreccion
+         * @enum {string}
+         */
+        TipoCorreccion: "anulacion" | "anulacion_y_reemision" | "rectificacion_sustitucion";
+        /**
          * TipoEvento
          * @enum {string}
          */
         TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente";
+        /**
+         * TipoFactura
+         * @description Lista L2 de DsRegistroVeriFactu.xlsx v1.0 (research R-3, R-4). Solo las de esta feature.
+         * @enum {string}
+         */
+        TipoFactura: "F1" | "R1" | "R4";
         /**
          * TipoIdentificacion
          * @description `NIF` o clave de la lista L7 de DsRegistroVeriFactu.xlsx v1.0 (spec F-2).
@@ -753,6 +1015,26 @@ export interface components {
             descripcion: string;
             /** Ambito */
             ambito: string;
+        };
+        /** TotalesSalida */
+        TotalesSalida: {
+            /** Desglose */
+            desglose: components["schemas"]["DesgloseSalida"][];
+            /**
+             * Base Total
+             * @example 1290.00
+             */
+            base_total: string;
+            /**
+             * Cuota Total
+             * @example 1290.00
+             */
+            cuota_total: string;
+            /**
+             * Importe Total
+             * @example 1290.00
+             */
+            importe_total: string;
         };
         /** UsuarioAltaEntrada */
         UsuarioAltaEntrada: {
@@ -1616,6 +1898,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParametrosFacturacionSalida"];
+                };
+            };
+        };
+    };
+    emitir_factura_api_v1_facturas_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FacturaEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_factura_api_v1_facturas__factura_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                factura_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

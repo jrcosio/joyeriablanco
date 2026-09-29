@@ -259,7 +259,7 @@ la misma transacción, y la operación es idempotente.
   - **Fallo forzado**: una emisión que falla a propósito tras asignar número no lo consume.
   - **Ajuste del contador a la vez que las emisiones**: ningún duplicado y el contador nunca baja.
   - **Mismo `Idempotency-Key` en paralelo**: se emite una sola factura (SC-011).
-- [ ] T037 [P] [US2] Test web `joyeriablanco_web/src/features/facturas/FacturaModal.test.tsx` (modo nueva), con MSW:
+- [X] T037 [P] [US2] Test web `joyeriablanco_web/src/features/facturas/FacturaModal.test.tsx` (modo nueva), con MSW:
   - **Estructura**: tres secciones. El número muestra «Se asigna al emitir» y el próximo previsto.
   - **Cliente**: el selector busca clientes activos y el resumen muestra identificación y domicilio.
   - **Líneas**: añadir y quitar, «Añade la primera línea» y límite de 100.
@@ -269,7 +269,7 @@ la misma transacción, y la operación es idempotente.
   - **Idempotencia**: la misma `Idempotency-Key` en un reintento tras un error de red.
   - **Resultado**: aviso «Factura … emitida» y cierre.
   - **Sesión caducada** (401): aviso y lo tecleado se descarta, como en 001. Ante un error de red, se conserva (spec, casos límite).
-- [ ] T038 [P] [US2] Test web `joyeriablanco_web/src/features/clientes/ClienteAltaPanel.test.tsx`:
+- [X] T038 [P] [US2] Test web `joyeriablanco_web/src/features/clientes/ClienteAltaPanel.test.tsx`:
   - Abierto sobre el modal, al guardar llama a `onCreado(cliente)`; al cancelar no cambia nada.
   - Escape cierra solo el panel.
   - Un duplicado se trata igual que en 001.
@@ -290,21 +290,21 @@ la misma transacción, y la operación es idempotente.
 - [X] T042 [P] [US2] Crear `backend/app/schemas/factura.py` según el contrato: `LineaEntrada`, `FacturaEntrada` (`extra="forbid"`), `LineaSalida`, `Desglose`, `Totales`, `ClienteFacturaSalida`, `FacturaSalida`, `FacturaReferencia`, `RegistroResumen` y `Correccion`.
 - [X] T043 [US2] En `backend/app/api/v1/facturas.py`, implementar `POST /v1/facturas` (cabecera `Idempotency-Key` obligatoria; 201, o 200 si es repetición) y `GET /v1/facturas/{id}`, y quitarlos de `PENDIENTES_002`.
 - [X] T044 [US2] Sustituir `SinDocumentos` por la implementación real en `backend/app/services/documentos.py`, usando `repositories/facturas.has_documentos`, y conectarla en `get_documentos_checker` (FR-042).
-- [ ] T045 [US2] Regenerar los tipos y crear `joyeriablanco_web/src/api/queries/facturas.ts` (emitir con `Idempotency-Key`, detalle e invalidación de `['facturas']`) y sus alias en `joyeriablanco_web/src/api/tipos.ts`.
-- [ ] T046 [US2] Extraer `joyeriablanco_web/src/features/clientes/ClienteAltaPanel.tsx` de `ClientePanel.tsx`, controlado por props (`isOpen`, `onCreado` y `onCerrar`) y con el mismo `ClienteForm`. `ClientePanel` pasa a usarlo (FR-046).
-- [ ] T047 [US2] Crear en `joyeriablanco_web/src/features/facturas/`, en modo nueva:
+- [X] T045 [US2] Regenerar los tipos y crear `joyeriablanco_web/src/api/queries/facturas.ts` (emitir con `Idempotency-Key`, detalle e invalidación de `['facturas']`) y sus alias en `joyeriablanco_web/src/api/tipos.ts`.
+- [X] T046 [US2] Extraer `joyeriablanco_web/src/features/clientes/ClienteAltaPanel.tsx` de `ClientePanel.tsx`, controlado por props (`isOpen`, `onCreado` y `onCerrar`) y con el mismo `ClienteForm`: envuelve a `ClientePanel` y, ante un duplicado, ofrece «Usar este cliente» o «Reactivar y usar» en lugar de «Ir al cliente» (FR-046, `contracts/ui-rutas.md`).
+- [X] T047 [US2] Crear en `joyeriablanco_web/src/features/facturas/`, en modo nueva:
   - `factura-valores.ts` (Zod de forma, valores iniciales y `aCuerpo` sin totales).
   - `ResumenCliente.tsx` (con aviso si falta el domicilio), `LineasFactura.tsx` (tabla en escritorio y apilada en móvil) y `TotalesFactura.tsx` (DESIGN.md, «Totals Section»).
   - `FacturaForm.tsx`, `ConfirmarEmisionDialog.tsx` y `FacturaModal.tsx`, sobre `ModalDocumento`, con «Nuevo cliente» y `useClaveOperacion`.
-- [ ] T048 [US2] Crear las rutas y activar el menú:
+- [X] T048 [US2] Crear las rutas y activar el menú:
   - `joyeriablanco_web/src/routes/_app/facturas.tsx`: página con título, botón primario «Nueva factura» y `<Outlet/>`. El listado llega en US3.
   - `joyeriablanco_web/src/routes/_app/facturas/nueva.tsx` y `joyeriablanco_web/src/routes/_app/facturas/$facturaId.tsx`: consulta con datos, totales y registros.
   - En `joyeriablanco_web/src/components/layout/Sidebar.tsx`, activar Facturas y ampliar el tipo `to` (FR-041), con su test actualizado.
-- [ ] T049 [US2] Ampliar `backend/app/services/datos_ejemplo.py` y `reiniciar-bd-e2e` (research R-16):
+- [X] T049 [US2] Ampliar `backend/app/services/datos_ejemplo.py` y `reiniciar-bd-e2e` (research R-16):
   - Configuración demo: emisor ficticio con NIF válido y modalidad VERI\*FACTU.
   - Unas 50 facturas emitidas de los últimos 6 meses, con clientes de ejemplo y generadas **mediante `emision.emit_factura`**.
   - Sigue prohibido en producción.
-- [ ] T050 [US2] E2E `joyeriablanco_web/e2e/facturas.spec.ts`, parte 1: emitir una factura de dos líneas (número, aviso y detalle con registro) y «Nuevo cliente» desde el modal, que vuelve con el cliente elegido y las líneas intactas.
+- [X] T050 [US2] E2E `joyeriablanco_web/e2e/facturas.spec.ts`, parte 1: emitir una factura de dos líneas (número, aviso y detalle con registro) y «Nuevo cliente» desde el modal, que vuelve con el cliente elegido y las líneas intactas.
 
 **Checkpoint**: MVP de negocio. Ya se pueden emitir facturas válidas y encadenadas.
 

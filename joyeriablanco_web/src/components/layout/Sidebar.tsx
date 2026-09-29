@@ -7,13 +7,13 @@ import { Marca } from './Marca'
 interface Entrada {
   etiqueta: string
   icono: LucideIcon
-  to?: '/clientes' | '/configuracion'
+  to?: '/facturas' | '/clientes' | '/configuracion'
   soloAdmin?: boolean
 }
 
-// Facturas y Presupuestos se muestran deshabilitadas hasta sus features (FR-038).
+// Presupuestos se muestra deshabilitada hasta su feature (FR-038 de 001; FR-041 de 002).
 const ENTRADAS: readonly Entrada[] = [
-  { etiqueta: 'Facturas', icono: FileText },
+  { etiqueta: 'Facturas', icono: FileText, to: '/facturas' },
   { etiqueta: 'Presupuestos', icono: ClipboardList },
   { etiqueta: 'Clientes', icono: Users, to: '/clientes' },
   { etiqueta: 'Configuración', icono: Settings, to: '/configuracion', soloAdmin: true },

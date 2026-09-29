@@ -36,6 +36,9 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
   cada guardado se muestran los que devuelve la API.
 - **«Nuevo cliente» desde el modal** (FR-046): abre `ClienteAltaPanel` por encima. Al guardar,
   vuelve al modal con el cliente elegido y todo lo escrito intacto. Se invalida `['clientes']`.
+  Ante un duplicado se muestra el mismo aviso que en 001, pero sin el enlace «Ir al cliente»
+  (saldría del modal y se perdería la factura): en su lugar, «Usar este cliente» o, si está
+  inactivo, «Reactivar y usar», que lo reactiva como en 001 y lo deja elegido.
 - **Modificar** (FR-023, FR-024): al pulsar «Guardar» se abre un diálogo con:
   - El motivo, con dos opciones.
   - Si es «ya entregada», la causa, también con dos opciones.

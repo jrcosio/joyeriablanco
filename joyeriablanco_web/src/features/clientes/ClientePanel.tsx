@@ -22,6 +22,8 @@ export interface ClientePanelProps {
   /** Acciones de ciclo de vida (US4) que se muestran bajo la trazabilidad. */
   acciones?: ReactNode
   accionDuplicado?: (existente: ClienteExistente) => ReactNode
+  /** Ver `ClienteFormProps.enlaceDuplicado`. */
+  enlaceDuplicado?: boolean
 }
 
 /** Panel lateral de alta, ficha y edición de clientes (nivel 2; FR-029, FR-030, FR-058). */
@@ -33,6 +35,7 @@ export function ClientePanel({
   onCerrar,
   acciones,
   accionDuplicado,
+  enlaceDuplicado = true,
 }: ClientePanelProps) {
   const queryClient = useQueryClient()
   const [sucio, setSucio] = useState(false)
@@ -116,6 +119,7 @@ export function ClientePanel({
               }}
               onDirtyChange={setSucio}
               {...(accionDuplicado ? { accionDuplicado } : {})}
+              enlaceDuplicado={enlaceDuplicado}
             />
             {cliente ? (
               <section className="flex flex-col gap-3 border-t border-primary-container/18 pt-5">

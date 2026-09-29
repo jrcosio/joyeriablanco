@@ -4,12 +4,15 @@
 - Es idempotente: si ya existe el usuario `admin.demo`, no hace nada.
 - Los NIF de particulares llevan la letra calculada con el algoritmo oficial. Los de empresa solo
   cumplen la estructura: el algoritmo de su carácter de control no está publicado (R-20.2).
-- Todo pasa por los servicios, así que cada alta queda validada y auditada.
+- Todo pasa por los servicios, así que cada alta queda validada y auditada. Las facturas se
+  emiten con `emision.emit_factura`, de modo que sus registros quedan encadenados (002, R-16).
 """
 
 import random
+import uuid
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING, Final
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,13 +21,19 @@ from app.core.config import get_settings
 from app.core.errors import Duplicado, SinPermiso
 from app.core.http import Origen
 from app.core.security import hash_password
-from app.core.tiempo import ahora
-from app.domain.tipos import Rol, TipoCliente, TipoIdentificacion
+from app.core.tiempo import ahora, hoy
+from app.domain.tipos import CLAVE_REGIMEN_GENERAL, Modalidad, Rol, TipoCliente, TipoIdentificacion
+from app.models.cliente import Cliente
 from app.models.usuario import Usuario
+from app.repositories import configuracion_facturacion as configuracion_repo
 from app.repositories import usuarios as usuarios_repo
 from app.schemas.cliente import ClienteEntrada
+from app.schemas.configuracion_facturacion import (
+    ConfiguracionFacturacionEntrada,
+    DatosEmisorEntrada,
+)
 from app.services import clientes as clientes_srv
-from app.services import usuarios
+from app.services import configuracion_facturacion, emision, usuarios
 
 if TYPE_CHECKING:
     from faker import Faker
@@ -77,10 +86,37 @@ EXTRANJEROS: Final = (
 )
 _NIF_IVA_CUERPO: Final = {"FR": 11, "DE": 9, "PT": 9, "IT": 11}
 
+# Emisor ficticio: el NIF de entidad solo cumple la estructura (R-20.2 de 001).
+EMISOR_DEMO: Final = DatosEmisorEntrada(
+    nombre="Joyería Blanco (demo)",
+    nif="B18000000",
+    direccion="Calle Reyes Católicos, 1",
+    codigo_postal="18001",
+    localidad="Granada",
+)
+DIAS_FACTURAS: Final = 182  # unos 6 meses (R-16)
+
+# (descripción, precio mínimo, precio máximo) sin IVA, en euros.
+ARTICULOS: Final = (
+    ("Anillo de oro amarillo de 18 k", 180, 1800),
+    ("Alianza de oro blanco", 250, 900),
+    ("Pendientes de plata de ley con circonitas", 35, 150),
+    ("Collar de perlas cultivadas", 200, 1200),
+    ("Pulsera de oro rosa", 150, 800),
+    ("Reloj automático de acero", 300, 2500),
+    ("Colgante de oro con esmeralda", 400, 2200),
+    ("Grabado personalizado", 10, 40),
+    ("Ajuste de talla de anillo", 20, 60),
+    ("Limpieza y pulido ultrasónico", 15, 45),
+    ("Cambio de pila de reloj", 8, 20),
+    ("Reparación de cierre", 15, 50),
+)
+
 
 @dataclass(slots=True)
 class ResumenCarga:
     clientes_creados: int = 0
+    facturas_emitidas: int = 0
     ya_cargados: bool = False
     contrasenas_temporales: dict[str, str] = field(default_factory=dict)
 
@@ -172,11 +208,17 @@ def _entrada(rng: random.Random, fake: "Faker", indice: int) -> ClienteEntrada:
 
 async def _crear_usuarios(
     db: AsyncSession, contrasena_demo: str | None, resumen: ResumenCarga
-) -> Usuario:
-    admin: Usuario | None = None
+) -> list[Usuario]:
+    """Crea los usuarios de ejemplo. El primero es el administrador."""
+    creados: list[Usuario] = []
     for nombre_usuario, nombre, rol in USUARIOS_DEMO:
         usuario, temporal = await usuarios.create_usuario(
-            db, nombre_usuario=nombre_usuario, nombre=nombre, rol=rol, actor=admin, origen=ORIGEN
+            db,
+            nombre_usuario=nombre_usuario,
+            nombre=nombre,
+            rol=rol,
+            actor=creados[0] if creados else None,
+            origen=ORIGEN,
         )
         if contrasena_demo:
             usuario.hash_contrasena = hash_password(contrasena_demo)
@@ -184,18 +226,80 @@ async def _crear_usuarios(
             usuario.contrasena_temporal_expira_en = None
         else:
             resumen.contrasenas_temporales[nombre_usuario] = temporal
-        admin = admin or usuario
+        creados.append(usuario)
     await db.flush()
-    if admin is None:  # pragma: no cover — USUARIOS_DEMO nunca está vacío
-        msg = "No se ha creado el administrador de ejemplo."
-        raise RuntimeError(msg)
-    return admin
+    return creados
+
+
+async def _configurar_facturacion(db: AsyncSession, admin: Usuario) -> None:
+    """Configuración demo (R-16): IVA general, emisor ficticio y modalidad VERI*FACTU."""
+    config = await configuracion_repo.get(db)
+    await configuracion_facturacion.update_config(
+        db,
+        ConfiguracionFacturacionEntrada.model_validate(
+            {
+                "version": config.version,
+                "iva_por_defecto": "21.00",
+                "clave_regimen": CLAVE_REGIMEN_GENERAL,
+                "modalidad": Modalidad.VERIFACTU,
+                "emisor": EMISOR_DEMO,
+            }
+        ),
+        actor=admin,
+        origen=ORIGEN,
+    )
+
+
+def _lineas(rng: random.Random) -> tuple[emision.DatosLinea, ...]:
+    lineas = []
+    for descripcion, minimo, maximo in rng.sample(ARTICULOS, k=rng.choice((1, 1, 2, 2, 3))):
+        centimos = rng.randrange(minimo * 100, maximo * 100 + 1)
+        lineas.append(
+            emision.DatosLinea(
+                unidades=Decimal(rng.choice((1, 1, 1, 2))),
+                descripcion=descripcion,
+                precio_unitario=Decimal(centimos) / 100,
+            )
+        )
+    return tuple(lineas)
+
+
+async def _emitir_facturas(
+    db: AsyncSession,
+    rng: random.Random,
+    *,
+    cantidad: int,
+    emisores: list[Usuario],
+    clientes: list[Cliente],
+) -> int:
+    """Emite `cantidad` facturas de los últimos meses, en orden de fecha (FR-018)."""
+    facturables = [c for c in clientes if c.activo and c.direccion and c.localidad]
+    if not facturables or cantidad == 0:
+        return 0
+    hoy_madrid = hoy()
+    fechas: list[date] = sorted(
+        hoy_madrid - timedelta(days=rng.randrange(0, DIAS_FACTURAS)) for _ in range(cantidad)
+    )
+    for fecha in fechas:
+        await emision.emit_factura(
+            db,
+            emision.DatosFactura(
+                fecha_expedicion=fecha,
+                cliente_id=rng.choice(facturables).id,
+                lineas=_lineas(rng),
+            ),
+            actor=rng.choice(emisores),
+            origen=ORIGEN,
+            clave=uuid.UUID(int=rng.getrandbits(128), version=4),
+        )
+    return len(fechas)
 
 
 async def cargar(
     db: AsyncSession,
     *,
     clientes: int = 40,
+    facturas: int = 50,
     contrasena_demo: str | None = None,
     semilla: int = 2026,
 ) -> ResumenCarga:
@@ -212,10 +316,12 @@ async def cargar(
     fake = Faker("es_ES")
     fake.seed_instance(semilla)
     rng = random.Random(semilla)  # noqa: S311 — datos ficticios, no criptográficos
-    admin = await _crear_usuarios(db, contrasena_demo, resumen)
+    demo = await _crear_usuarios(db, contrasena_demo, resumen)
+    admin = demo[0]
 
     momento = ahora()
     indice = 0
+    creados: list[Cliente] = []
     while resumen.clientes_creados < clientes:
         entrada = _entrada(rng, fake, indice)
         indice += 1
@@ -228,8 +334,14 @@ async def cargar(
         )
         cliente.actualizado_en = cliente.creado_en
         cliente.activo = rng.random() >= 0.1
+        creados.append(cliente)
         resumen.clientes_creados += 1
         if resumen.clientes_creados % 500 == 0:
             await db.flush()
     await db.flush()
+
+    await _configurar_facturacion(db, admin)
+    resumen.facturas_emitidas = await _emitir_facturas(
+        db, rng, cantidad=facturas, emisores=demo, clientes=creados
+    )
     return resumen

@@ -11,8 +11,8 @@ export const Route = createFileRoute('/_app/configuracion')({
 })
 
 const claseTab =
-  'inline-flex h-11 items-center border-b-2 border-transparent px-4 label-lg text-on-surface-variant ' +
-  'transition-colors hover:text-on-surface'
+  'inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-2 border-transparent px-3 ' +
+  'label-lg text-on-surface-variant transition-colors hover:text-on-surface sm:px-4'
 
 function Configuracion() {
   return (
@@ -20,7 +20,7 @@ function Configuracion() {
       <PageHeader title="Configuración" subtitle="Usuarios, auditoría y facturación." />
       <nav
         aria-label="Secciones de configuración"
-        className="flex gap-2 border-b border-primary-container/18"
+        className="flex gap-1 overflow-x-auto border-b border-primary-container/18 sm:gap-2"
       >
         <Link
           to="/configuracion/usuarios"

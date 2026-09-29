@@ -35,6 +35,11 @@ export interface ClienteFormProps {
   onDirtyChange?: (sucio: boolean) => void
   /** Acción adicional ante un duplicado (p. ej. reactivar un cliente inactivo, US4). */
   accionDuplicado?: (existente: ClienteExistente) => ReactNode
+  /**
+   * Enlace «Ir al cliente» ante un duplicado. Se quita cuando el alta está abierta sobre otro
+   * documento (modal de factura), porque salir de ahí perdería lo escrito (002, FR-046).
+   */
+  enlaceDuplicado?: boolean
 }
 
 function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) {
@@ -92,6 +97,7 @@ export function ClienteForm({
   onConflicto,
   onDirtyChange,
   accionDuplicado,
+  enlaceDuplicado = true,
 }: ClienteFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [duplicado, setDuplicado] = useState<ClienteExistente | null>(null)
@@ -341,13 +347,15 @@ export function ClienteForm({
             </span>
           </p>
           <div className="flex flex-wrap gap-4 pl-7">
-            <Link
-              to="/clientes/$clienteId"
-              params={{ clienteId: duplicado.id }}
-              className="label-lg text-primary underline-offset-4 hover:underline"
-            >
-              Ir al cliente
-            </Link>
+            {enlaceDuplicado ? (
+              <Link
+                to="/clientes/$clienteId"
+                params={{ clienteId: duplicado.id }}
+                className="label-lg text-primary underline-offset-4 hover:underline"
+              >
+                Ir al cliente
+              </Link>
+            ) : null}
             {accionDuplicado?.(duplicado)}
           </div>
         </div>
