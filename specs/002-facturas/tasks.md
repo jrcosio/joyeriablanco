@@ -97,11 +97,11 @@ piezas web compartidas. Todas las historias dependen de esta fase.
   - Rechazan números JSON (`45`, `45.5`), negativos, más de dos decimales y formatos con coma.
   - La salida serializa como cadena con dos decimales.
   - El esquema OpenAPI generado es `type: string` con `pattern`.
-- [ ] T009 Test `backend/tests/integration/test_facturacion_inalterable.py`, con el patrón de `test_auditoria_inalterable.py` (research R-8, SC-005):
+- [X] T009 Test `backend/tests/integration/test_facturacion_inalterable.py`, con el patrón de `test_auditoria_inalterable.py` (research R-8, SC-005):
   - **Con `jb_app`**: `UPDATE`, `DELETE` y `TRUNCATE` sobre `facturas`, `lineas_factura`, `desgloses_factura`, `correcciones_factura` y `registros_facturacion` fallan con 42501.
   - **Con `jb_owner`**: los mismos intentos fallan con el mensaje «Los documentos de facturación emitidos son inalterables».
   - **`contadores_factura`**: bajar `ultimo_numero` falla con 42501 (trigger `contador_solo_al_alza`), y `DELETE` falla para `jb_app`.
-- [ ] T010 Test `backend/tests/integration/test_cadena_registros.py` ⚖️ (research R-6, FR-029):
+- [X] T010 Test `backend/tests/integration/test_cadena_registros.py` ⚖️ (research R-6, FR-029):
   - **Trigger `validar_encadenamiento`**: el primer registro exige `primer_registro` y `secuencia 1`. Un `INSERT` manual con secuencia no contigua, con `huella_anterior` que no coincide o con un segundo `primer_registro` se rechaza.
   - **`services/cadena.create_registro_alta` y `create_registro_anulacion`**: encadenan bien altas y anulaciones.
   - **Comprobación previa**: se detiene con `CadenaInconsistente` si el último registro está alterado (se simula con `jb_owner` usando `ALTER TABLE … DISABLE TRIGGER` dentro de la transacción de test) o si su hora es más de un minuto posterior a `ahora()`, que se congela con monkeypatch.
@@ -120,8 +120,8 @@ piezas web compartidas. Todas las historias dependen de esta fase.
   - `EmisionNoDisponible`, `ClienteNoFacturable`, `FechaExpedicionNoValida`, `TipoIvaNoAdmitido` y `FacturaNoModificable`.
   - `ContadorNoAjustable`, `CadenaInconsistente`, `SinCambios` y `ModalidadBloqueada`.
 - [X] T017 [P] Actualizar `backend/app/services/auditoria.py`: `to_json` serializa `Decimal` con `format(valor, "f")`, nunca como `float` (FR-043), con su test en `backend/tests/unit/test_auditoria_json.py`.
-- [ ] T018 Crear los modelos según data-model.md y registrarlos en `backend/app/models/__init__.py`: `configuracion_facturacion.py`, `contador_factura.py`, `borrador_factura.py` (con `LineaBorrador` y `version_id_col`), `factura.py` (con `LineaFactura`, `DesgloseFactura` y `texto_busqueda` generada), `correccion_factura.py` y `registro_facturacion.py`, todos en `backend/app/models/`.
-- [ ] T019 Crear la migración `backend/alembic/versions/0005_facturacion.py`, escrita a mano (data-model.md, research R-6 a R-8, R-12 y R-15):
+- [X] T018 Crear los modelos según data-model.md y registrarlos en `backend/app/models/__init__.py`: `configuracion_facturacion.py`, `contador_factura.py`, `borrador_factura.py` (con `LineaBorrador` y `version_id_col`), `factura.py` (con `LineaFactura`, `DesgloseFactura` y `texto_busqueda` generada), `correccion_factura.py` y `registro_facturacion.py`, todos en `backend/app/models/`.
+- [X] T019 Crear la migración `backend/alembic/versions/0005_facturacion.py`, escrita a mano (data-model.md, research R-6 a R-8, R-12 y R-15):
   - **Tablas**: todas, con sus `CHECK`, `UNIQUE` (también `clave_idempotencia`, `operacion_idempotencia` y `origen_idempotencia`), FK `RESTRICT` e índices, incluido el GIN trigram de `texto_busqueda`. Los borradores llevan `tipo_iva_previsto` y totales previstos. Fila inicial de `configuracion_facturacion`.
   - **Inalterabilidad**:
     - `REVOKE UPDATE, DELETE, TRUNCATE` a `jb_app` en las tablas 🔒, y `REVOKE DELETE, TRUNCATE` en `contadores_factura`.
@@ -131,11 +131,11 @@ piezas web compartidas. Todas las historias dependen de esta fase.
   - **Vista**: `v_listado_facturas`, que usa `estado_factura` y los totales previstos **guardados** de los borradores, sin redondear nada en SQL.
   - **Auditoría**: ampliación del `CHECK` de `eventos_auditoria.tipo` con `sql_in(TipoEvento)`, igual que en la 0004.
   - **`downgrade`**: completo.
-- [ ] T020 Implementar los repositorios:
+- [X] T020 Implementar los repositorios:
   - `backend/app/repositories/registros.py`: `lock_chain` (`pg_advisory_xact_lock`), `get_last`, `insert` y `list_in_order`.
   - `backend/app/repositories/contadores.py`: `assign_numero(serie, anio)` con `INSERT ON CONFLICT DO NOTHING` + `SELECT FOR UPDATE` + `UPDATE RETURNING`, `last_used` y `raise_next`.
   - `backend/app/repositories/configuracion_facturacion.py`: `get` y `update` con versión.
-- [ ] T021 Implementar `backend/app/services/cadena.py` (research R-6):
+- [X] T021 Implementar `backend/app/services/cadena.py` (research R-6):
   - `create_registro_alta(db, factura, config) -> RegistroFacturacion` y `create_registro_anulacion(db, factura_anulada, config)`.
   - Se ejecutan con el cerrojo ya tomado. Hacen la comprobación previa de F-10, art. 7.i, construyen el contenido con `domain/registro.py`, calculan la huella e insertan con la `secuencia` siguiente.
   - Si la cadena no cuadra, dejan el evento `cadena_inconsistente` en una transacción aparte y lanzan `CadenaInconsistente`.

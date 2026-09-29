@@ -1,6 +1,7 @@
 """Enumeraciones de dominio compartidas por modelos, esquemas y servicios."""
 
 from enum import StrEnum
+from typing import Final
 
 
 class Rol(StrEnum):
@@ -136,6 +137,15 @@ class EstadoFactura(StrEnum):
     VIGENTE = "vigente"
     ANULADA = "anulada"
     RECTIFICADA = "rectificada"
+
+
+# Lista L8A de DsRegistroVeriFactu.xlsx v1.0, hoja «6) Listas» (F-1): claves de régimen cuando
+# el impuesto es el IVA. Esta feature usa la 01 («Operación de régimen general»), configurable.
+CLAVES_REGIMEN_L8A: Final = (
+    "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "14", "15", "17", "18",
+    "19", "20",
+)  # fmt: skip
+CLAVE_REGIMEN_GENERAL: Final = "01"
 
 
 class OperacionIdempotente(StrEnum):

@@ -62,6 +62,8 @@ async def test_sin_contrasena_demo_los_usuarios_reciben_temporales(db: AsyncSess
 
 async def test_se_niega_en_produccion(db: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENTORNO", "produccion")
+    monkeypatch.setenv("SIF_PRODUCTOR_NOMBRE", "Productora de pruebas, S.L.")
+    monkeypatch.setenv("SIF_PRODUCTOR_NIF", "12345678Z")
     monkeypatch.setenv("ORIGEN_PERMITIDO", "https://joyeria.example.com")
     get_settings.cache_clear()
     try:
