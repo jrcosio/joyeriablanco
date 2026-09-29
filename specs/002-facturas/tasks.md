@@ -542,7 +542,7 @@ altera un registro saltándose los triggers, señala ese registro.
   - Web: `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens` y `npx playwright test`.
   - Revisión de conformidad con DESIGN.md (SC-009).
   - Todo en verde antes de cerrar.
-- [ ] T079 Preguntar al responsable si se retira el contenido de `temporal/`, conservando la carpeta como en 001 (T117). Las capturas ya están copiadas en `specs/002-facturas/assets/`.
+- [X] T079 Preguntar al responsable si se retira el contenido de `temporal/`, conservando la carpeta como en 001 (T117). Las capturas ya están copiadas en `specs/002-facturas/assets/`.
 
 ---
 
