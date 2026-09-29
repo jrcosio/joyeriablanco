@@ -121,6 +121,24 @@ def cargar_datos_ejemplo(
         _mostrar_temporal(nombre_usuario, temporal)
 
 
+@app.command("verificar-cadena")
+def verificar_cadena() -> None:
+    """Comprueba la cadena de registros y los documentos (FR-031). Código 1 si no es íntegra."""
+    from app.services import integridad
+
+    resultado = _ejecutar(integridad.verify_chain)
+    if resultado.discrepancia is None:
+        typer.echo(f"Cadena íntegra ({resultado.registros} registros).")
+        return
+    d = resultado.discrepancia
+    typer.secho(
+        f"Cadena inconsistente en el registro nº {d.secuencia} ({d.num_serie}): {d.motivo}.",
+        fg=typer.colors.RED,
+        err=True,
+    )
+    raise typer.Exit(code=1)
+
+
 @app.command("reiniciar-bd-e2e")
 def reiniciar_bd_e2e() -> None:
     """Reconstruye el esquema de la BD de E2E (downgrade + upgrade). Solo con ENTORNO=e2e."""

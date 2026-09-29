@@ -17,7 +17,7 @@ from app.domain.tipos import Rol, TipoIdentificacion
 from app.models import Cliente, Factura, Usuario
 from app.models.borrador_factura import BorradorFactura
 from app.repositories import registros
-from app.services import cadena, datos_ejemplo
+from app.services import cadena, datos_ejemplo, integridad
 from app.services.configuracion_facturacion import get_config
 
 
@@ -92,6 +92,9 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
         assert actual.huella_anterior == anterior.huella
     for registro in cola:
         assert cadena.recompute_huella(registro) == registro.huella
+    comprobacion = await integridad.verify_chain(db)  # FR-031 sobre una cadena con correcciones
+    assert comprobacion.integra, comprobacion.discrepancia
+    assert comprobacion.registros == 57
 
     # Cinco borradores de hoy, el primero sin cliente, con sus totales previstos (T061).
     assert resumen.borradores_creados == 5

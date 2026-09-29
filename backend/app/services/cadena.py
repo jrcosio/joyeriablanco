@@ -138,7 +138,8 @@ async def verify_tail(
     raise CadenaInconsistente
 
 
-def _anterior(ultimo: RegistroFacturacion | None) -> RegistroAnterior | None:
+def registro_anterior(ultimo: RegistroFacturacion | None) -> RegistroAnterior | None:
+    """Bloque `Encadenamiento/RegistroAnterior` a partir del registro previo (o `None`)."""
     if ultimo is None:
         return None
     return RegistroAnterior(
@@ -192,7 +193,7 @@ async def create_registro_alta(
     session: AsyncSession, factura: Factura, *, rectificada: Factura | None = None
 ) -> RegistroFacturacion:
     ultimo = await repo.get_last(session)
-    anterior = _anterior(ultimo)
+    anterior = registro_anterior(ultimo)
     fecha_hora = format_timestamp(ahora())
     fecha_expedicion = format_date(factura.fecha_expedicion)
     huella = compute_huella(
@@ -242,7 +243,7 @@ async def create_registro_anulacion(
     session: AsyncSession, factura: Factura, *, modalidad: str
 ) -> RegistroFacturacion:
     ultimo = await repo.get_last(session)
-    anterior = _anterior(ultimo)
+    anterior = registro_anterior(ultimo)
     fecha_hora = format_timestamp(ahora())
     fecha_expedicion = format_date(factura.fecha_expedicion)
     huella = compute_huella(

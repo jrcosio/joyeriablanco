@@ -504,7 +504,7 @@ comprueba lo siguiente:
 **Independent Test**: tras emitir y corregir, la comprobación da la cadena por íntegra. Si se
 altera un registro saltándose los triggers, señala ese registro.
 
-- [ ] T071 [P] [US6] Test `backend/tests/integration/test_verificar_cadena.py` (SC-004):
+- [X] T071 [P] [US6] Test `backend/tests/integration/test_verificar_cadena.py` (SC-004):
   - Cadena íntegra → «íntegra (N registros)» y código 0.
   - Alteraciones dentro de la transacción de test (`jb_owner` con `DISABLE TRIGGER` y `UPDATE`), cada una → se identifica el registro o la factura afectada y código 1:
     - un campo de la huella;
@@ -514,7 +514,7 @@ altera un registro saltándose los triggers, señala ese registro.
     - la copia del destinatario.
   - Se generan los eventos `cadena_verificada` y `cadena_inconsistente`.
   - Se prueba también `services/integridad.py` sin CLI.
-- [ ] T072 [US6] Implementar la comprobación de integridad:
+- [X] T072 [US6] Implementar la comprobación de integridad:
   - `backend/app/services/integridad.py`: `verify_chain(db) -> ResultadoIntegridad`. En orden de `secuencia`, hace para cada registro lo siguiente (research R-14):
     - Recalcula la huella y el enlace con el anterior.
     - Compara el `contenido` con el que reconstruye `domain/registro.py` desde la factura. El bloque `SistemaInformatico` y la hora se toman del propio registro.
