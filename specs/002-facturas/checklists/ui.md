@@ -68,3 +68,18 @@ conformidad con DESIGN.md, responsive, teclado y estados.
 - [ ] CHK039 - ¿Se definen los estados de carga, error y reintento del modal (parámetros, cliente, borrador) y del listado? [Completeness, Spec §FR-036]
 - [ ] CHK040 - ¿Se define qué ocurre con lo escrito en el modal si caduca la sesión o falla la red, de forma coherente con 001 (ui-rutas, 401 durante el uso)? [Conflict, Spec §Edge Cases «Sesión caducada», 001 ui-rutas]
 - [ ] CHK041 - ¿Se especifica el orden de lectura y los textos alternativos de los iconos de acción (quitar línea, abrir o consultar la factura)? [Gap, 001 §FR-060]
+
+## Ajuste de cierre: IVA libre, oro de inversión e IBAN (2026-09-30)
+
+- [ ] CHK042 - ¿Está especificado el campo del IVA por defecto: escritura (coma decimal), sufijo, rango y mensaje de error? [Clarity, Spec §FR-001, UI-rutas §IVA por defecto]
+- [ ] CHK043 - ¿Se definen el texto y el momento del aviso de tipo fuera de la lista, y el contenido y los botones del diálogo de confirmación? [Completeness, Spec US1-7, UI-rutas]
+- [ ] CHK044 - ¿Se define dónde va el campo IBAN, su marca de opcional y su presentación en grupos de cuatro? [Clarity, Spec §FR-001, US1-8, UI-rutas §IBAN]
+- [ ] CHK045 - ¿Se especifican la ubicación exacta de la casilla «Sin IVA (oro de inversión)», su etiqueta y su valor inicial en cada modo del modal? [Completeness, Spec §FR-052, §FR-037, UI-rutas]
+- [ ] CHK046 - ¿Se definen las etiquetas de los totales en modo exento («Base exenta» e «IVA 0,00 €») y dónde va la mención? [Clarity, Spec §FR-052, US2-10]
+- [ ] CHK047 - ¿Son coherentes con la casilla el aviso de cambio de IVA del borrador y el del diálogo de motivo? [Consistency, Spec §Edge Cases, UI-rutas]
+- [ ] CHK048 - ¿Se define el bloque «Pago» de la consulta y que no aparezca cuando no hay IBAN? [Completeness, Spec §FR-053, UI §Bloque «Pago»]
+- [ ] CHK049 - ¿Se define cómo se ve «Exenta» en el listado, tanto en la tabla como en las tarjetas de móvil? [Coverage, Spec §FR-033, §FR-049]
+- [ ] CHK050 - ¿Se especifican el orden de foco con la casilla nueva y su nombre accesible? [Coverage, Spec §FR-039, UI-rutas]
+- [ ] CHK051 - ¿Tienen los elementos nuevos (casilla, aviso y bloque «Pago») su aplicación de DESIGN.md, sin tokens nuevos? [Traceability, UI §Aplicación de DESIGN.md]
+- [ ] CHK052 - ¿Se define cómo se ven la casilla y la mención en móvil (menos de 768 px)? [Gap, Spec §FR-040]
+- [ ] CHK053 - ¿Se ha retirado de forma coherente toda referencia a la clave de régimen en la pantalla de configuración (spec, ui-rutas y US1-1)? [Consistency, Spec §FR-001, UI-rutas]

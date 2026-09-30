@@ -81,3 +81,20 @@ inalterabilidad, modalidad y trazabilidad a las fuentes oficiales.
 - [ ] CHK046 - ¿Se define qué pasa al cambiar la modalidad cuando ya hay registros generados, teniendo en cuenta la permanencia de F-10, art. 17? [Gap, Spec §FR-001, Research R-1]
 - [ ] CHK047 - ¿Están documentadas las obligaciones de la modalidad no VERI\*FACTU que esta feature no cubre (firma y registro de eventos), y su efecto en la puesta en producción? [Assumption, Spec §Assumptions]
 - [ ] CHK048 - ¿Están recogidas como condición previa a producción las decisiones pendientes de la asesoría (modalidad, productor y clave de régimen)? [Dependency, Quickstart §4, Spec §Assumptions]
+
+## Ajuste de cierre: IVA libre, oro de inversión e IBAN (2026-09-30)
+
+- [ ] CHK049 - ¿Está justificada con fuente oficial (F-1, L8A y L10; F-3 §15.6.3) la codificación `04` + `E6` de la venta de oro de inversión, y marcada como pendiente de confirmar por la asesoría? [Traceability, Spec §FR-052, Research R-21, R-17 Q-10]
+- [ ] CHK050 - ¿Especifica el requisito qué campos del detalle del desglose se informan y cuáles no en la factura exenta, de forma coherente con F-3 §15.5 y con el carácter «obligatorios y alternativos» de `CalificacionOperacion` y `OperacionExenta` en F-1? [Clarity, Spec §FR-052, Research R-21]
+- [ ] CHK051 - ¿Queda definido que en la factura exenta `CuotaTotal` es 0 e `ImporteTotal` es la base, y que la huella usa los mismos campos que en el resto de facturas? [Completeness, Spec §FR-052, §SC-013, Research R-21]
+- [ ] CHK052 - ¿Se exige un único texto para la mención del art. 6.1.j del ROF en todas las salidas de la factura (modal, consulta y PDF de la 003)? [Consistency, Spec §FR-052, §FR-053, Research R-21]
+- [ ] CHK053 - ¿Se define la rectificativa que pasa una factura de sujeta a exenta, o al revés: tipo R1 o R4, importe rectificado y desglose? [Coverage, Spec §Edge Cases, US5-9, Research R-4]
+- [ ] CHK054 - ¿Se define la devolución total de una factura exenta, con un detalle exento a base 0? [Edge Case, Research R-4, R-21]
+- [ ] CHK055 - ¿Está documentado el riesgo de emitir con un tipo fuera de la lista de F-3 §15.1 y cómo se tratará en la 004? [Assumption, Spec §Edge Cases, Research R-17 Q-11]
+- [ ] CHK056 - ¿Queda claro que el aviso del IVA se evalúa contra la lista de la fecha actual y que al emitir ya no se revalida el tipo contra la fecha de la operación? [Clarity, Spec §FR-001, §FR-013, Research R-10, R-20]
+- [ ] CHK057 - ¿Se exige que la migración del ajuste no altere facturas ni registros existentes y que la comprobación de integridad siga dando por íntegras las cadenas anteriores? [Completeness, Spec §SC-013, Data-model §Migración 0006, Constitución III]
+- [ ] CHK058 - ¿Están acotadas las exenciones que quedan fuera (otras causas, mediación y renuncia), con su justificación normativa? [Scope, Spec §Fuera de alcance, §Assumptions, F-11 art. 140 ter]
+- [ ] CHK059 - ¿Se define qué ocurre con la clave de régimen de las facturas ya emitidas al retirarla de Configuración? [Consistency, Spec §FR-001, Research R-23]
+- [ ] CHK060 - ¿Se especifica quién decide que una pieza es oro de inversión, con la definición legal citada, y que el sistema no lo comprueba? [Assumption, Spec §FR-052, F-11 art. 140]
+- [ ] CHK061 - ¿Exige la spec que la confirmación de un IVA fuera de la lista quede en la auditoría, y no solo el cambio de valor? [Traceability, Spec §FR-001, §FR-003, Research R-20]
+- [ ] CHK062 - ¿Está al día la lista de decisiones pendientes de la asesoría antes de producción (clave `01`; `04` + `E6` y la mención)? [Dependency, Quickstart §4, Research R-17]

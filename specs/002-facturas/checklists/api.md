@@ -67,3 +67,17 @@ atomicidad, idempotencia y JSON sin `float`.
 - [ ] CHK035 - ¿Está cuantificado el objetivo de rendimiento del listado, con su volumen y su forma de medirlo? [Measurability, Spec §SC-007, Research R-12]
 - [ ] CHK036 - ¿Existe un objetivo, aunque sea orientativo, de tiempo de emisión, dado que serializa la cadena? [Gap, Plan §Performance Goals]
 - [ ] CHK037 - ¿Se especifica qué información fiscal o personal puede aparecer en los logs de la API al emitir o corregir, en línea con la privacidad de logs de 001? [Gap, 001 §privacidad de logs]
+
+## Ajuste de cierre: IVA libre, oro de inversión e IBAN (2026-09-30)
+
+- [ ] CHK038 - ¿Se definen el error y su contenido cuando llega un IVA fuera de la lista sin confirmar, incluida la lista oficial que se devuelve? [Completeness, Spec §FR-001, Contract `tipo-iva-sin-confirmar`, Research R-20]
+- [ ] CHK039 - ¿Está especificado cuándo hace falta la confirmación (solo si el tipo cambia), de modo que guardar otros campos no la exija otra vez? [Clarity, Research R-20]
+- [ ] CHK040 - ¿Está documentada la retirada de `clave_regimen` del contrato de configuración, con el efecto de seguir enviándola? [Consistency, Research R-23, Contract §ConfiguracionFacturacionEntrada]
+- [ ] CHK041 - ¿Se especifican el formato de entrada y de salida del IBAN (espacios y mayúsculas) y el error de validación en `emisor.iban`? [Clarity, Spec §FR-001, Research R-22]
+- [ ] CHK042 - ¿Se define el valor por defecto de `oro_inversion` en cada entrada (emitir, borrador y modificar), y por qué es obligatorio al modificar? [Consistency, Contract, Research R-21]
+- [ ] CHK043 - ¿Se documenta cómo representan las líneas, el desglose y los totales de salida una factura exenta (tipo nulo y cuota 0)? [Completeness, Contract §LineaSalida, §Desglose, §TipoIvaOpcional]
+- [ ] CHK044 - ¿Se especifica de dónde sale en la API el texto de la mención (parámetros, factura y borrador), para que la web no lo duplique? [Consistency, Spec §FR-052, Research R-21]
+- [ ] CHK045 - ¿Se define que el listado expone la marca de oro de inversión tanto en borradores como en facturas? [Completeness, Spec §FR-033, Data-model §v_listado_facturas]
+- [ ] CHK046 - ¿Se define la regla de «modificación sin cambios» cuando lo único que cambia es la casilla? [Edge Case, Spec §Edge Cases, Research R-9]
+- [ ] CHK047 - ¿Se exige que la casilla siga los mismos permisos que emitir y modificar, sin operaciones nuevas? [Consistency, Spec §FR-052, Clarifications 2026-09-30]
+- [ ] CHK048 - ¿Se especifica que el IBAN queda en la auditoría pero no en los logs? [Coverage, Spec §FR-051, Research R-22]
