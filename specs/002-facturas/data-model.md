@@ -194,6 +194,8 @@ son «obligatorios y alternativos»; F-3 §15.5 y §15.6.3):
 - **Sujeto**: `calificacion_operacion = 'S1' AND operacion_exenta IS NULL AND tipo_iva IS NOT NULL`.
 - **Exento**: `calificacion_operacion IS NULL AND operacion_exenta = 'E6' AND clave_regimen = '04'
   AND tipo_iva IS NULL AND cuota = 0`.
+- Se escribe a prueba de `NULL`, con `coalesce(…, '')` en la calificación y en la exención. Sin
+  eso, un detalle sin ninguna de las dos daría `NULL OR NULL` y el `CHECK` lo aceptaría.
 
 **Reglas**:
 - Toda factura tiene al menos un desglose. La devolución total lleva uno a 0 (R-4).
