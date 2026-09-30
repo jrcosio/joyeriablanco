@@ -627,9 +627,11 @@ Nunca de memoria (constitución IV).
   - **IVA fuera de lista**: con el IVA de configuración a 5 o a 22, confirmado, se emite sin error. Sustituye el test de las líneas 228 a 237, que esperaba un rechazo por fecha.
   - **IBAN**: se copia en `facturas.emisor_iban` y sale en `emisor.iban`. Cambiarlo después no altera la factura. Sin IBAN, `null`.
   - **Parámetros**: `GET /v1/facturas/parametros` devuelve `mencion_exencion_oro_inversion`.
+  - **Logs** (FR-051, R-22): ampliar `backend/tests/integration/test_logs_facturacion.py`. Tras guardar la configuración con IBAN y emitir una factura exenta, los logs no contienen el IBAN.
 - [ ] T089 [P] [US4] Tests de integración en `backend/tests/integration/test_borradores.py` (R-9, R-21):
   - Un borrador con `oro_inversion: true` tiene cuota prevista 0 y total igual a la base, y su salida lleva `oro_inversion` y `mencion_exencion`.
   - Editarlo cambia la bandera, y el diff de auditoría la incluye.
+  - El `PUT` y la emisión del borrador sin `oro_inversion` → 422: es obligatoria en `BorradorEdicionEntrada`.
   - Al emitirlo, la factura es exenta.
   - Un borrador sin la bandera emite `01`/`S1`.
 - [ ] T090 [P] [US5] Tests de integración en `backend/tests/integration/test_correcciones.py` (R-4, R-9, R-21):
@@ -660,6 +662,7 @@ Nunca de memoria (constitución IV).
     - No hay clave de régimen, y el cuerpo del `PUT` no la lleva.
     - Campo IBAN, agrupado de cuatro en cuatro al salir del campo, con el error del servidor en el campo.
   - **`lib/dinero.test.ts`**: `calcularTotales` con tipo `null`, con cuota 0 y total igual a la base.
+  - **`lib/facturacion.test.ts`**, nuevo: `formatearIban` agrupa de cuatro en cuatro y tolera espacios y minúsculas.
   - **`features/facturas/FacturaModal.test.tsx`**:
     - La casilla «Sin IVA (oro de inversión)» cambia la previsualización a «Base exenta 7.450,00 €», «IVA 0,00 €» y total 7.450,00 €, con la mención de los parámetros.
     - El `POST` lleva `oro_inversion: true`.
@@ -729,7 +732,10 @@ Nunca de memoria (constitución IV).
     - `_contenido` y `_contenido_nuevo` con la bandera.
     - `_aplicar`.
     - La emisión del borrador pasa la bandera.
-  - `backend/app/schemas/borrador.py`: `BorradorEntrada.oro_inversion: bool = False`, y `BorradorSalida.oro_inversion` y `mencion_exencion`.
+  - `backend/app/schemas/borrador.py`:
+    - `BorradorEntrada.oro_inversion: bool = False`, solo al crear.
+    - `BorradorEdicionEntrada.oro_inversion: bool`, obligatorio (R-21).
+    - `BorradorSalida.oro_inversion` y `mencion_exencion`.
   - `backend/app/api/v1/borradores.py`: la correspondencia.
 - [ ] T100 [US5] Correcciones (hace pasar T090):
   - En `backend/app/services/emision.py`:
@@ -756,7 +762,7 @@ Nunca de memoria (constitución IV).
     - Diálogo de confirmación con `ConfirmDialog` ante el 422 `tipo-iva-sin-confirmar`, que reenvía con `confirmar_tipo_iva`.
     - Se retira el `Select` de clave.
     - Campo IBAN en «Datos del emisor», con `CAMPO_DEL_SERVIDOR['emisor.iban']`, `valoresIniciales` y `aCuerpo`.
-  - **`joyeriablanco_web/src/lib/facturacion.ts`**: se retira `CLAVES_REGIMEN`, y se añaden `formatearIban`, que agrupa de 4 en 4, y su test en `lib/facturacion.test.ts`.
+  - **`joyeriablanco_web/src/lib/facturacion.ts`**: se retira `CLAVES_REGIMEN` y se añade `formatearIban`, que agrupa de 4 en 4 y cuyo test está en T094.
   - **`joyeriablanco_web/src/api/queries/configuracionFacturacion.ts`**: si hace falta, la confirmación en la mutación.
 - [ ] T105 [US2] Web del modal (hace pasar su parte de T094):
   - **`joyeriablanco_web/src/lib/dinero.ts`**: `calcularTotales(lineas, tipo: bigint | null)`.

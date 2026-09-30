@@ -70,7 +70,7 @@ paths:
               schema: { $ref: "#/components/schemas/ConfiguracionFacturacionSalida" }
         "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
         "409": { description: "`conflicto-version` o `modalidad-bloqueada`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
-        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+        "422": { description: "`validacion` (p. ej. `emisor.iban`, o `clave_regimen` enviada) o `tipo-iva-sin-confirmar` (R-20)", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
 
   /v1/configuracion/facturacion/contador:
     post:
@@ -517,7 +517,8 @@ components:
       allOf:
         - $ref: "#/components/schemas/BorradorEntrada"
         - type: object
-          required: [version]
+          required: [version, oro_inversion]
+          description: "En la edición y en la emisión, `oro_inversion` es obligatorio (R-21)"
           properties:
             version: { type: integer, minimum: 1 }
     BorradorSalida:

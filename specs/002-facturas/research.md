@@ -920,8 +920,11 @@ de red ni dos pestañas.
   `DesgloseTipo`, que significa exenta. El detalle exento lleva cuota 0.
 - **Rectificativa y reemisión** (R-4): la bandera va en `ModificacionEntrada`, y ahí es
   **obligatoria**. Así una petición que la omita no convierte en sujeta una factura exenta.
-  - En `FacturaEntrada` y `BorradorEntrada` vale `false` por defecto, que es el comportamiento
-    anterior.
+  - Al **crear** (`FacturaEntrada` y el `POST` de `BorradorEntrada`) vale `false` por defecto,
+    que es el comportamiento anterior.
+  - Al **editar o emitir un borrador** (`BorradorEdicionEntrada`: `PUT` y `…/emision`) es
+    obligatoria, por la misma razón que en la modificación: omitirla no puede convertir en sujeto
+    un borrador exento.
   - `_sin_cambios` compara el tratamiento: exenta, o sujeta y a qué tipo.
 - **Permisos**: la bandera la usan los mismos que emiten. En «Modificar», solo el administrador
   (FR-023, FR-052).

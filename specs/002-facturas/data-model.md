@@ -142,7 +142,7 @@ iniciales.
 | dest_identificacion_numero | varchar(20) | NOT NULL | |
 | dest_direccion, dest_codigo_postal, dest_localidad | varchar | NOT NULL | Exigidos al emitir (FR-017) |
 | dest_provincia, dest_pais | varchar | NULL / NOT NULL | |
-| clave_regimen | char(2) | NOT NULL | `01`, o `04` si es de oro de inversión (R-21, R-23). Antes de la 0006, copia de la configuración. La API deriva `oro_inversion` de `clave_regimen = '04'` |
+| clave_regimen | char(2) | NOT NULL, CHECK IN L8A | `01`, o `04` si es de oro de inversión (R-21, R-23). Antes de la 0006, copia de la configuración. La API deriva `oro_inversion` de `clave_regimen = '04'`. El `CHECK` se deja con toda la L8A a propósito: valida lo ya emitido, que pudo copiar otra clave de la configuración, y no endurece nada sobre datos fiscales |
 | modalidad | varchar(20) | NOT NULL | Copia (constitución IV) |
 | base_total, cuota_total, importe_total | numeric(12,2) | NOT NULL, CHECK ≥ 0; en FAC CHECK `importe_total > 0` | R-10 |
 | emitida_por_id | uuid | NOT NULL, FK usuarios | |
