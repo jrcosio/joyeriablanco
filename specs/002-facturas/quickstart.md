@@ -18,7 +18,7 @@ oficiales en [research.md](research.md).
 
 ```bash
 docker compose up -d --build
-docker compose exec api alembic upgrade head          # aplica 0005_facturacion
+docker compose exec api alembic upgrade head          # aplica 0005_facturacion y 0006_iva_libre_oro_iban (ajuste de cierre)
 docker compose exec api joyeria cargar-datos-ejemplo  # configuración de facturación demo, unas 50 facturas con algunas correcciones y 5 borradores
                                                       # (sobre una BD con los datos de 001, añade solo la facturación)
 cd joyeriablanco_web && npm ci && npm run dev          # http://localhost:5173
@@ -31,7 +31,7 @@ indicadores ni columna de estado, con los borradores marcados.
 
 | # | Paso | Resultado esperado | Requisito |
 |---|---|---|---|
-| 1 | Como admin: Configuración → Facturación en una BD recién migrada (sin datos de ejemplo) | IVA al 21 %, clave 01, modalidad y emisor vacíos, y el aviso «no se puede emitir» con lo que falta | FR-001, FR-004 |
+| 1 | Como admin: Configuración → Facturación en una BD recién migrada (sin datos de ejemplo) | IVA al 21 %, sin campo de clave de régimen, modalidad y emisor vacíos, IBAN opcional y el aviso «no se puede emitir» con lo que falta, sin el IBAN | FR-001, FR-004 |
 | 2 | Como empleado, abrir `/configuracion/facturacion` | Acceso denegado. El `PUT` directo responde 403 | FR-001, SC-005 |
 | 3 | «Nueva factura», elegir un cliente, añadir 1 × 1.200,00 y 2 × 45,00 | Previsualización: base 1.290,00, IVA (21 %) 270,90 y total 1.560,90 | FR-013 a FR-015 |
 | 3 bis | Emitir una factura con una fecha anterior a la última emitida (p. ej. de hace tres días) y probar una fecha futura y el 27/10/2024 | Se emite con la fecha elegida y el siguiente número de la serie del año de esa fecha. La futura y la anterior al 28/10/2024 se rechazan en el campo de la fecha | FR-018 |
@@ -49,6 +49,11 @@ indicadores ni columna de estado, con los borradores marcados.
 | 15 | Intentar borrar (admin) un cliente con facturas | 409 `cliente-con-documentos` y se sugiere desactivarlo | FR-042 |
 | 16 | `docker compose exec api joyeria verificar-cadena` | «Cadena íntegra (N registros)», código de salida 0 | FR-031 |
 | 17 | Tabla de facturas a 768, 1024, 1280, 1440 y 1536 px; modal a 360 px | Acciones visibles sin desplazar. Modal a pantalla completa y sin desplazamiento horizontal | SC-008 |
+| 18 | *Ajuste de cierre*. Configuración: escribir 22 en el IVA y guardar; confirmar. Después, volver a 21 | Aviso bajo el campo y diálogo de confirmación. Tras confirmar, queda al 22 % y la auditoría lo muestra con `tipo_iva_fuera_de_lista`. Sin confirmar, el `PUT` directo responde 422 `tipo-iva-sin-confirmar`. Volver a 21 no pide confirmación | FR-001, SC-012 |
+| 19 | *Ajuste de cierre*. Configuración: IBAN `ES91 2100 0418 4502 0005 1333` (dígito erróneo) y luego `es91 2100 0418 4502 0005 1332` | El primero se rechaza en el campo. El segundo se guarda como `ES9121000418450200051332` y se muestra en grupos de cuatro | FR-001 |
+| 20 | *Ajuste de cierre*. «Nueva factura» con 1 × «Lingote de oro 100 g» a 7.450,00 y «Sin IVA (oro de inversión)» marcada; emitir | Previsualización: base exenta 7.450,00, IVA 0,00 y total 7.450,00, con la mención. En la consulta, la mención y el bloque «Pago» con el IBAN. En el listado, «Exenta» en la columna del IVA. El `contenido` del registro lleva `{"ClaveRegimen": "04", "OperacionExenta": "E6", "BaseImponibleOimporteNoSujeto": "7450.00"}` | FR-052, FR-053, SC-013 |
+| 21 | *Ajuste de cierre*. Como admin: «Modificar» una factura de lingote emitida con IVA, marcar «Sin IVA» y elegir «ya entregada», causa «devolución… o IVA mal aplicado» | Rectificativa R1 exenta. La original queda rectificada | FR-052, US5-9 |
+| 22 | *Ajuste de cierre*. `joyeria verificar-cadena` tras `alembic upgrade head` sobre una BD con facturas anteriores al ajuste, y después de emitir las de los pasos 20 y 21 | «Cadena íntegra (N registros)» en los dos casos | FR-031, SC-013 |
 
 ### Inalterabilidad (SC-005)
 
@@ -140,7 +145,8 @@ Antes de emitir facturas reales:
 - [ ] La asesoría confirma la modalidad (TODO(MODALIDAD_VERIFACTU)) y queda fijada en Configuración.
 - [ ] La declaración responsable define el productor (TODO(DECLARACION_RESPONSABLE)) y `SIF_*` está
       en `.env`.
-- [ ] La asesoría confirma la clave de régimen 01.
+- [ ] La asesoría confirma la clave de régimen 01 y, para el oro de inversión, la clave 04 con la
+      exención E6 y la mención del art. 140 bis de la Ley 37/1992 (research R-17, Q-10 y Q-11).
 - [ ] El reloj del servidor está sincronizado por NTP (`timedatectl`), porque el margen es de un
       minuto (F-10, art. 7.f).
 - [ ] Las copias de seguridad están configuradas (README), por la obligación legal de conservación.

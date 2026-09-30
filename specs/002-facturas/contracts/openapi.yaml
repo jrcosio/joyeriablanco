@@ -23,7 +23,7 @@ info:
     | `emision-no-disponible` | 409 | Falta el emisor o la modalidad. `faltan: [...]` |
     | `cliente-no-facturable` | 422 | Cliente inactivo o sin domicilio completo. `faltan: [...]` (FR-017) |
     | `fecha-expedicion` | 422 | Fecha futura o anterior a la última emitida de la serie (FR-018) |
-    | `tipo-iva-no-admitido` | 422 | Tipo no admitido por F-3 §15.1 en la fecha (R-10) |
+    | `tipo-iva-sin-confirmar` | 422 | El IVA por defecto nuevo no está en la lista de F-3 §15.1 de hoy y falta `confirmar_tipo_iva`. Lleva `tipos_oficiales: [...]` (R-20). Sustituye a `tipo-iva-no-admitido` desde el ajuste de cierre |
     | `factura-no-modificable` | 409 | La factura no está vigente: anulada o rectificada, o corregida a la vez por otro administrador (FR-026, R-8) |
     | `sin-cambios` | 422 | Rectificativa idéntica a la factura vigente (R-9) |
     | `modalidad-bloqueada` | 409 | No se puede cambiar la modalidad porque ya hay registros (FR-050, R-19) |
@@ -145,7 +145,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/FacturaSalida" }
         "409": { description: "`emision-no-disponible` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
-        "422": { description: "`validacion`, `cliente-no-facturable`, `fecha-expedicion` o `tipo-iva-no-admitido`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+        "422": { description: "`validacion`, `cliente-no-facturable` o `fecha-expedicion`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
 
   /v1/facturas/{facturaId}:
     parameters: [{ $ref: "#/components/parameters/FacturaId" }]
@@ -336,8 +336,18 @@ components:
     TipoIva:
       type: string
       pattern: "^[0-9]{1,2}(\\.[0-9]{1,2})?$"
-      description: "Porcentaje de IVA. Admitidos hoy: 0, 4, 10 y 21 (F-3 §15.1)"
+      description: "Porcentaje de IVA, de 0 a 99,99 (R-20). La lista oficial de hoy (F-3 §15.1) es informativa: 0, 4, 10 y 21"
       examples: ["21.00"]
+    TipoIvaOpcional:
+      oneOf: [{ $ref: "#/components/schemas/TipoIva" }, { type: "null" }]
+      description: "null en una factura de oro de inversión: sin tipo ni cuota (FR-052, R-21)"
+    OroInversion:
+      type: boolean
+      description: "«Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, R-21)"
+    MencionExencion:
+      type: [string, "null"]
+      description: "Mención de F-6, art. 6.1.j. Solo en facturas de oro de inversión"
+      examples: ["Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)"]
     Modalidad: { type: string, enum: [verifactu, no_verifactu] }
     EstadoFactura:
       type: string
@@ -366,30 +376,42 @@ components:
         direccion: { type: [string, "null"], maxLength: 200 }
         codigo_postal: { type: [string, "null"], pattern: "^[0-9]{5}$" }
         localidad: { type: [string, "null"], maxLength: 100 }
+        iban:
+          type: [string, "null"]
+          maxLength: 42
+          description: "Opcional (FR-001, R-22). En la entrada admite espacios. En la salida va normalizado, sin espacios y en mayúsculas. Estructura ISO 13616, 24 caracteres si es ES, y dígito de control MOD 97-10"
+          examples: ["ES9121000418450200051332"]
         provincia: { type: [string, "null"], description: "Nombre de la provincia derivada del código postal (solo salida)" }
 
     ConfiguracionFacturacionEntrada:
       type: object
-      required: [version, iva_por_defecto, clave_regimen, modalidad, emisor]
+      required: [version, iva_por_defecto, modalidad, emisor]
+      additionalProperties: false
+      description: "Sin clave de régimen desde el ajuste de cierre: la fija el sistema, 01 o 04 (R-23)"
       properties:
         version: { type: integer, minimum: 1 }
         iva_por_defecto: { $ref: "#/components/schemas/TipoIva" }
-        clave_regimen: { type: string, pattern: "^[0-9]{2}$", description: Lista L8A de F-1 }
+        confirmar_tipo_iva:
+          type: boolean
+          default: false
+          description: "Confirma un IVA por defecto nuevo que no está en la lista oficial de hoy. Sin ella, 422 `tipo-iva-sin-confirmar` (R-20)"
         modalidad: { oneOf: [{ $ref: "#/components/schemas/Modalidad" }, { type: "null" }] }
         emisor: { $ref: "#/components/schemas/DatosEmisor" }
     ConfiguracionFacturacionSalida:
-      allOf:
-        - $ref: "#/components/schemas/ConfiguracionFacturacionEntrada"
-        - type: object
-          required: [emision_posible, faltan, proximo_numero, modalidad_bloqueada, actualizado_en]
-          properties:
-            emision_posible: { type: boolean }
-            modalidad_bloqueada: { type: boolean, description: "true si ya hay registros de facturación (FR-050)" }
-            faltan: { type: array, items: { type: string }, description: "Campos que impiden emitir (FR-004)" }
-            proximo_numero: { type: string, description: "Número que recibirá la próxima factura FAC del año en curso", examples: ["FAC-2026-0006"] }
-            tipos_iva_admitidos: { type: array, items: { $ref: "#/components/schemas/TipoIva" } }
-            actualizado_en: { type: string, format: date-time }
-            actualizado_por: { oneOf: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }, { type: "null" }] }
+      type: object
+      required: [version, iva_por_defecto, modalidad, emisor, emision_posible, faltan, proximo_numero, modalidad_bloqueada, tipos_iva_oficiales, actualizado_en]
+      properties:
+        version: { type: integer }
+        iva_por_defecto: { $ref: "#/components/schemas/TipoIva" }
+        modalidad: { oneOf: [{ $ref: "#/components/schemas/Modalidad" }, { type: "null" }] }
+        emisor: { $ref: "#/components/schemas/DatosEmisor" }
+        emision_posible: { type: boolean }
+        modalidad_bloqueada: { type: boolean, description: "true si ya hay registros de facturación (FR-050)" }
+        faltan: { type: array, items: { type: string }, description: "Campos que impiden emitir (FR-004). El IBAN nunca figura" }
+        proximo_numero: { type: string, description: "Número que recibirá la próxima factura FAC del año en curso", examples: ["FAC-2026-0006"] }
+        tipos_iva_oficiales: { type: array, items: { $ref: "#/components/schemas/TipoIva" }, description: "Lista de F-3 §15.1 para hoy. Solo para el aviso (R-20)" }
+        actualizado_en: { type: string, format: date-time }
+        actualizado_por: { oneOf: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }, { type: "null" }] }
 
     AjusteContadorEntrada:
       type: object
@@ -411,7 +433,7 @@ components:
 
     ParametrosFacturacionSalida:
       type: object
-      required: [iva_por_defecto, emision_posible, faltan, proximo_numero, hoy]
+      required: [iva_por_defecto, emision_posible, faltan, proximo_numero, hoy, mencion_exencion_oro_inversion]
       properties:
         iva_por_defecto: { $ref: "#/components/schemas/TipoIva" }
         emision_posible: { type: boolean }
@@ -419,6 +441,7 @@ components:
         proximo_numero: { type: string, description: "Solo informativo; el definitivo se asigna al emitir" }
         hoy: { type: string, format: date, description: "Fecha actual en Europe/Madrid" }
         fecha_minima: { type: [string, "null"], format: date, description: "Primera fecha de expedición admitida: el 28/10/2024 (F-3 §3.1.3.1; FR-018)" }
+        mencion_exencion_oro_inversion: { type: string, description: "Texto de la mención para la previsualización del modal (FR-052, R-21)" }
 
     LineaEntrada:
       type: object
@@ -435,13 +458,13 @@ components:
         unidades: { type: string }
         descripcion: { type: string }
         precio_unitario: { $ref: "#/components/schemas/Importe" }
-        tipo_iva: { $ref: "#/components/schemas/TipoIva" }
+        tipo_iva: { $ref: "#/components/schemas/TipoIvaOpcional" }
         importe: { $ref: "#/components/schemas/Importe" }
     Desglose:
       type: object
       required: [tipo_iva, base, cuota]
       properties:
-        tipo_iva: { $ref: "#/components/schemas/TipoIva" }
+        tipo_iva: { $ref: "#/components/schemas/TipoIvaOpcional" }
         base: { $ref: "#/components/schemas/Importe" }
         cuota: { $ref: "#/components/schemas/Importe" }
     Totales:
@@ -479,6 +502,7 @@ components:
         fecha_expedicion: { type: string, format: date }
         cliente_id: { type: string, format: uuid }
         lineas: { type: array, minItems: 1, maxItems: 100, items: { $ref: "#/components/schemas/LineaEntrada" } }
+        oro_inversion: { allOf: [{ $ref: "#/components/schemas/OroInversion" }], default: false }
 
     BorradorEntrada:
       type: object
@@ -488,6 +512,7 @@ components:
         fecha_expedicion: { type: string, format: date }
         cliente_id: { type: [string, "null"], format: uuid }
         lineas: { type: array, maxItems: 100, items: { $ref: "#/components/schemas/LineaEntrada" } }
+        oro_inversion: { allOf: [{ $ref: "#/components/schemas/OroInversion" }], default: false }
     BorradorEdicionEntrada:
       allOf:
         - $ref: "#/components/schemas/BorradorEntrada"
@@ -497,7 +522,7 @@ components:
             version: { type: integer, minimum: 1 }
     BorradorSalida:
       type: object
-      required: [id, version, fecha_expedicion, cliente, lineas, totales_previstos, tipo_iva_previsto, creado_en, creado_por, actualizado_en, actualizado_por]
+      required: [id, version, fecha_expedicion, cliente, lineas, oro_inversion, mencion_exencion, totales_previstos, tipo_iva_previsto, creado_en, creado_por, actualizado_en, actualizado_por]
       properties:
         id: { type: string, format: uuid }
         version: { type: integer }
@@ -514,6 +539,8 @@ components:
               descripcion: { type: string }
               precio_unitario: { $ref: "#/components/schemas/Importe" }
               importe: { $ref: "#/components/schemas/Importe" }
+        oro_inversion: { $ref: "#/components/schemas/OroInversion" }
+        mencion_exencion: { $ref: "#/components/schemas/MencionExencion" }
         totales_previstos: { $ref: "#/components/schemas/Totales" }
         tipo_iva_previsto: { $ref: "#/components/schemas/TipoIva", description: "IVA vigente cuando se guardó (aviso de cambio de IVA)" }
         creado_en: { type: string, format: date-time }
@@ -531,10 +558,11 @@ components:
 
     ModificacionEntrada:
       type: object
-      required: [motivo, motivo_texto, cliente_id, lineas]
+      required: [motivo, motivo_texto, cliente_id, lineas, oro_inversion]
       additionalProperties: false
       properties:
         motivo: { $ref: "#/components/schemas/MotivoModificacion" }
+        oro_inversion: { allOf: [{ $ref: "#/components/schemas/OroInversion" }], description: "Obligatorio: la web lo precarga con el de la original (R-4, R-21)" }
         causa: { oneOf: [{ $ref: "#/components/schemas/CausaRectificacion" }, { type: "null" }], description: "Obligatoria si motivo = factura_entregada" }
         motivo_texto: { type: string, minLength: 1, maxLength: 500 }
         cliente_id: { type: string, format: uuid }
@@ -577,7 +605,7 @@ components:
 
     FacturaSalida:
       type: object
-      required: [id, num_serie, tipo_factura, estado, fecha_expedicion, emisor, cliente, lineas, totales, descripcion_operacion, emitida_en, emitida_por, registros, correcciones]
+      required: [id, num_serie, tipo_factura, estado, fecha_expedicion, emisor, cliente, lineas, totales, oro_inversion, mencion_exencion, descripcion_operacion, emitida_en, emitida_por, registros, correcciones]
       properties:
         id: { type: string, format: uuid }
         num_serie: { type: string, examples: ["FAC-2026-0001"] }
@@ -586,10 +614,12 @@ components:
         estado: { $ref: "#/components/schemas/EstadoFactura" }
         fecha_expedicion: { type: string, format: date }
         fecha_operacion: { type: [string, "null"], format: date }
-        emisor: { $ref: "#/components/schemas/DatosEmisor" }
+        emisor: { $ref: "#/components/schemas/DatosEmisor", description: "Copia al emitir, IBAN incluido (FR-016, FR-053)" }
         cliente: { $ref: "#/components/schemas/ClienteFacturaSalida" }
         lineas: { type: array, items: { $ref: "#/components/schemas/LineaSalida" } }
         totales: { $ref: "#/components/schemas/Totales" }
+        oro_inversion: { $ref: "#/components/schemas/OroInversion" }
+        mencion_exencion: { $ref: "#/components/schemas/MencionExencion" }
         descripcion_operacion: { type: string }
         rectifica_a:
           oneOf:
@@ -613,7 +643,7 @@ components:
 
     FacturaResumenSalida:
       type: object
-      required: [tipo_documento, id, num_serie, fecha, cliente_nombre, identificacion, base, cuota, total, estado]
+      required: [tipo_documento, id, num_serie, fecha, cliente_nombre, identificacion, base, cuota, total, estado, oro_inversion]
       properties:
         tipo_documento: { type: string, enum: [borrador, factura] }
         id: { type: string, format: uuid }
@@ -625,6 +655,7 @@ components:
         cuota: { $ref: "#/components/schemas/Importe" }
         total: { $ref: "#/components/schemas/Importe" }
         estado: { $ref: "#/components/schemas/EstadoFactura" }
+        oro_inversion: { allOf: [{ $ref: "#/components/schemas/OroInversion" }], description: "La web muestra «Exenta» en la columna del IVA (FR-033)" }
     PaginaFacturas:
       type: object
       required: [elementos, total, pagina, tamano]

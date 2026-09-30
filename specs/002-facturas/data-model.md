@@ -14,8 +14,10 @@ Se mantienen las de 001: nombres en español y `snake_case`, `id uuid DEFAULT uu
 - **Solo inserción**: las tablas marcadas con 🔒 tienen `REVOKE UPDATE, DELETE, TRUNCATE` para
   `jb_app` y triggers de `impedir_modificacion_facturacion()` que alcanzan también a `jb_owner`
   (R-8).
-- **Migración única nueva**: `0005_facturacion`, escrita a mano. Amplía también el `CHECK` de
+- **Migración de la feature**: `0005_facturacion`, escrita a mano. Amplía también el `CHECK` de
   `eventos_auditoria.tipo` (R-15), con la técnica de la 0004.
+- **Ajuste de cierre** (2026-09-30): `0006_iva_libre_oro_iban`, también a mano y solo con DDL, sin
+  ningún `UPDATE`. Ver la sección «Migración 0006» al final.
 
 ## Diagrama
 
@@ -44,8 +46,7 @@ iniciales.
 
 | Columna | Tipo | Restricciones | Notas |
 |---|---|---|---|
-| iva_por_defecto | numeric(5,2) | NOT NULL DEFAULT 21.00 | Validado en el servicio contra `TIPOS_IVA_S1` y la fecha actual (R-10). La BD admite `CHECK (iva_por_defecto IN (0,2,4,5,7.5,10,21))` |
-| clave_regimen | char(2) | NOT NULL DEFAULT '01', CHECK IN L8A | FR-001. Lista L8A de F-1 |
+| iva_por_defecto | numeric(5,2) | NOT NULL DEFAULT 21.00, CHECK `>= 0 AND < 100` | Libre de 0 a 99,99. Fuera de `allowed_rates(hoy)` exige `confirmar_tipo_iva` (R-20) |
 | modalidad | varchar(20) | NULL, CHECK IN (`verifactu`, `no_verifactu`) | Sin valor inicial (Clarifications). Si es NULL, no se puede emitir (FR-004). No se puede cambiar si existe algún registro (FR-050, R-19) |
 | emisor_nombre | varchar(120) | NULL | `NombreRazonEmisor` |
 | emisor_nif | char(9) | NULL, CHECK `~ '^[0-9A-Z]{9}$'` | Validado con `domain/identificacion.py` (FR-002) |
@@ -53,6 +54,7 @@ iniciales.
 | emisor_codigo_postal | char(5) | NULL | España. La provincia se deriva como en clientes |
 | emisor_localidad | varchar(100) | NULL | |
 | emisor_provincia_codigo | char(2) | NULL, FK provincias | |
+| emisor_iban | varchar(34) | NULL, CHECK `~ '^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$'` | Opcional, no entra en `faltan`. Validado con `domain/iban.py` (R-22) |
 | version | integer | NOT NULL DEFAULT 1 | Concurrencia optimista |
 | actualizado_en | timestamptz | NOT NULL DEFAULT now() | |
 | actualizado_por_id | uuid | NULL, FK usuarios | |
@@ -61,7 +63,10 @@ iniciales.
 - **Emisión posible** cuando `modalidad`, `emisor_nombre`, `emisor_nif`, `emisor_direccion`,
   `emisor_codigo_postal` y `emisor_localidad` no son NULL. En producción hacen falta además
   `SIF_*` (R-5).
-- **Auditoría**: cada `PUT` deja `configuracion_facturacion_cambiada` con el diff (FR-003).
+- **Auditoría**: cada `PUT` deja `configuracion_facturacion_cambiada` con el diff (FR-003), que
+  incluye `emisor_iban` y, si se confirmó un tipo fuera de la lista, `tipo_iva_fuera_de_lista`
+  (R-20).
+- **Sin clave de régimen**: la columna `clave_regimen` se eliminó en la 0006 (R-23).
 
 ## contadores_factura
 
@@ -87,6 +92,7 @@ iniciales.
 | cliente_id | uuid | NULL, FK clientes ON DELETE RESTRICT | Puede faltar en un borrador incompleto (FR-011) |
 | fecha_expedicion | date | NOT NULL DEFAULT (hoy en Madrid) | Fecha propuesta |
 | tipo_iva_previsto | numeric(5,2) | NOT NULL | IVA vigente al guardar (R-9). Sirve para el aviso de cambio de IVA |
+| oro_inversion | boolean | NOT NULL DEFAULT false | «Sin IVA (oro de inversión)» (FR-052, R-21). Con `true`, los totales previstos van sin cuota |
 | base_prevista, cuota_prevista, total_previsto | numeric(12,2) | NOT NULL DEFAULT 0 | Calculados con `domain/importes.py` al guardar. Los usa el listado (R-9, R-12) |
 | version | integer | NOT NULL DEFAULT 1 | `version_id_col`, como en clientes (FR-020) |
 | creado_en / actualizado_en | timestamptz | NOT NULL | |
@@ -128,6 +134,7 @@ iniciales.
 | fecha_operacion | date | NULL, CHECK `fecha_operacion <= fecha_expedicion` | Heredada en reemisiones y rectificativas |
 | descripcion_operacion | varchar(500) | NOT NULL | FR-045 |
 | emisor_nif, emisor_nombre, emisor_direccion, emisor_codigo_postal, emisor_localidad, emisor_provincia | varchar | NOT NULL | Copia al emitir (FR-016). La provincia va como nombre |
+| emisor_iban | varchar(34) | NULL, CHECK de estructura | Copia al emitir (FR-016, R-22). NULL en las anteriores a la 0006 o si no había IBAN |
 | cliente_id | uuid | NOT NULL, FK clientes ON DELETE RESTRICT | FR-042 |
 | dest_nombre | varchar(120) | NOT NULL | Copia del cliente |
 | dest_identificacion_pais | char(2) | NOT NULL | |
@@ -135,7 +142,7 @@ iniciales.
 | dest_identificacion_numero | varchar(20) | NOT NULL | |
 | dest_direccion, dest_codigo_postal, dest_localidad | varchar | NOT NULL | Exigidos al emitir (FR-017) |
 | dest_provincia, dest_pais | varchar | NULL / NOT NULL | |
-| clave_regimen | char(2) | NOT NULL | Copia de la configuración |
+| clave_regimen | char(2) | NOT NULL | `01`, o `04` si es de oro de inversión (R-21, R-23). Antes de la 0006, copia de la configuración. La API deriva `oro_inversion` de `clave_regimen = '04'` |
 | modalidad | varchar(20) | NOT NULL | Copia (constitución IV) |
 | base_total, cuota_total, importe_total | numeric(12,2) | NOT NULL, CHECK ≥ 0; en FAC CHECK `importe_total > 0` | R-10 |
 | emitida_por_id | uuid | NOT NULL, FK usuarios | |
@@ -161,7 +168,7 @@ iniciales.
 | unidades | numeric(9,2) | NOT NULL, CHECK > 0 | |
 | descripcion | varchar(500) | NOT NULL | |
 | precio_unitario | numeric(12,2) | NOT NULL, CHECK ≥ 0 | |
-| tipo_iva | numeric(5,2) | NOT NULL | IVA vigente al emitir (FR-013, constitución II) |
+| tipo_iva | numeric(5,2) | NULL, CHECK `IS NULL OR (>= 0 AND < 100)` | IVA vigente al emitir (FR-013, constitución II). NULL en una factura de oro de inversión (R-21) |
 | importe | numeric(12,2) | NOT NULL | `redondear(unidades × precio)` (R-10) |
 
 Una rectificativa de devolución total no tiene líneas (Clarifications de plan).
@@ -173,15 +180,26 @@ tipo»).
 
 | Columna | Tipo | Restricciones | Notas |
 |---|---|---|---|
-| factura_id | uuid | PK (con tipo_iva), FK facturas | |
-| tipo_iva | numeric(5,2) | PK | |
-| clave_regimen | char(2) | NOT NULL | |
-| calificacion_operacion | char(2) | NOT NULL, CHECK (`S1`) | L9 |
+| factura_id | uuid | PK (con orden), FK facturas | |
+| orden | smallint | PK, CHECK 1–12 | Orden del detalle en el registro. F-1 admite de 1 a 12 detalles. Las filas anteriores a la 0006 tienen 1: cada factura tenía un solo tipo |
+| tipo_iva | numeric(5,2) | NULL, CHECK `IS NULL OR (>= 0 AND < 100)`, UNIQUE NULLS NOT DISTINCT (factura_id, tipo_iva) | NULL en el detalle exento |
+| clave_regimen | char(2) | NOT NULL | `ClaveRegimen` del detalle (L8A): `01` o `04` |
+| calificacion_operacion | char(2) | NULL | L9: `S1` en el detalle sujeto |
+| operacion_exenta | char(2) | NULL | L10: `E6` en el detalle exento (R-21) |
 | base | numeric(12,2) | NOT NULL, CHECK ≥ 0 | |
-| cuota | numeric(12,2) | NOT NULL, CHECK ≥ 0 | `redondear(base × tipo / 100)` |
+| cuota | numeric(12,2) | NOT NULL, CHECK ≥ 0 | `redondear(base × tipo / 100)`. 0 en el detalle exento |
+
+**CHECK `ck_desgloses_factura_calificacion`** (F-1: `CalificacionOperacion` y `OperacionExenta`
+son «obligatorios y alternativos»; F-3 §15.5 y §15.6.3):
+- **Sujeto**: `calificacion_operacion = 'S1' AND operacion_exenta IS NULL AND tipo_iva IS NOT NULL`.
+- **Exento**: `calificacion_operacion IS NULL AND operacion_exenta = 'E6' AND clave_regimen = '04'
+  AND tipo_iva IS NULL AND cuota = 0`.
 
 **Reglas**:
 - Toda factura tiene al menos un desglose. La devolución total lleva uno a 0 (R-4).
+- Una factura de oro de inversión tiene un único detalle, el exento, y todas sus líneas con
+  `tipo_iva` NULL. La coherencia entre líneas, desglose y `facturas.clave_regimen` la garantiza el
+  servicio, y la revisa la comprobación de integridad (FR-031).
 - `Σ base = base_total`, `Σ cuota = cuota_total` y `importe_total = base_total + cuota_total`. Lo
   comprueba el servicio y lo cubren los tests de importes.
 
@@ -271,6 +289,7 @@ derivado.
 | base, cuota, total | numeric(12,2) | |
 | estado | text | `borrador`, `vigente`, `anulada` o `rectificada` |
 | texto_busqueda | text | |
+| oro_inversion | boolean | Añadida al final en la 0006: `b.oro_inversion` o `f.clave_regimen = '04'`. La web muestra «Exenta» en la columna del IVA (FR-033) |
 
 Se usa solo para el listado (R-12). El detalle se lee de las tablas.
 
@@ -291,3 +310,43 @@ REC vigente ──Anular (admin)──> REC anulada + registro de anulación
                            └─> la factura que rectificaba vuelve a estar vigente (FR-048), sin registro nuevo
 anulada / rectificada: solo consulta (FR-026)
 ```
+
+## Migración 0006 (ajuste de cierre, 2026-09-30)
+
+`0006_iva_libre_oro_iban`, en SQL escrito a mano. Solo contiene DDL, así que no dispara los
+triggers de inalterabilidad ni necesita ningún `UPDATE` (constitución III). En orden:
+
+1. **Configuración**:
+   - `DROP CONSTRAINT ck_configuracion_facturacion_clave_regimen` y `DROP COLUMN clave_regimen`
+     (R-23).
+   - `ck_configuracion_facturacion_iva` pasa a `iva_por_defecto >= 0 AND iva_por_defecto < 100`
+     (R-20).
+   - `ADD COLUMN emisor_iban varchar(34)` con `ck_configuracion_facturacion_emisor_iban` (R-22).
+2. **Facturas**: `ADD COLUMN emisor_iban varchar(34)` con `ck_facturas_emisor_iban`.
+3. **Líneas de factura**: `ALTER COLUMN tipo_iva DROP NOT NULL`. `ck_lineas_factura_tipo_iva` pasa
+   a `tipo_iva IS NULL OR (tipo_iva >= 0 AND tipo_iva < 100)`.
+4. **Desgloses**:
+   - `ADD COLUMN orden smallint NOT NULL DEFAULT 1`. PostgreSQL guarda el valor por defecto en el
+     catálogo, sin reescribir filas. Después se hace `DROP DEFAULT`.
+   - `DROP CONSTRAINT pk_desgloses_factura` y `ADD CONSTRAINT pk_desgloses_factura PRIMARY KEY
+     (factura_id, orden)`, con `ck_desgloses_factura_orden CHECK (orden BETWEEN 1 AND 12)`.
+   - `ADD CONSTRAINT uq_desgloses_factura_tipo UNIQUE NULLS NOT DISTINCT (factura_id, tipo_iva)`.
+   - `ADD COLUMN operacion_exenta char(2)`. `ALTER COLUMN tipo_iva DROP NOT NULL` y `ALTER COLUMN
+     calificacion_operacion DROP NOT NULL`.
+   - Nuevos `ck_desgloses_factura_tipo_iva` (rango o NULL) y `ck_desgloses_factura_calificacion`
+     (sujeto o exento, arriba).
+5. **Borradores**: `ADD COLUMN oro_inversion boolean NOT NULL DEFAULT false`.
+6. **Vista**: `CREATE OR REPLACE VIEW v_listado_facturas` con la columna `oro_inversion` al final.
+
+**Seguridad de la migración**:
+- Cada `CHECK` nuevo se valida contra las filas existentes. Todas las facturas anteriores cumplen
+  la rama «sujeto»: `S1`, sin exención y con tipo.
+- Los triggers `*_sin_modificaciones` son `BEFORE UPDATE OR DELETE` de fila, y ningún paso escribe
+  filas.
+- Las columnas nuevas de `jb_owner` heredan los privilegios de `jb_app` por tabla, así que no hace
+  falta ningún `GRANT`.
+
+**`downgrade`**: solo para reconstruir las BD de test y E2E. Restaura las columnas y los `CHECK`
+anteriores; los que no se pueden validar quedan `NOT VALID`, como en la 0004 y la 0005. La clave de
+régimen vuelve con `DEFAULT '01'`. Si hay facturas exentas, el `SET NOT NULL` de `tipo_iva` falla,
+y se deja así a propósito: no se pierde ningún dato fiscal.

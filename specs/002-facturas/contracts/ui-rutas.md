@@ -11,7 +11,7 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
 | `/facturas/borradores/$borradorId` | Sesión | Modal «Borrador» editable, con «Eliminar borrador», «Guardar borrador» y «Emitir factura» | `GET/PUT/DELETE /v1/borradores-factura/{id}`, `POST …/emision` |
 | `/facturas/$facturaId` | Sesión | Modal de consulta de una factura emitida: estado, enlaces e historial. «Anular» y «Modificar» solo para administradores y solo si está vigente | `GET /v1/facturas/{id}`, `POST …/anulacion` |
 | `/facturas/$facturaId/modificar` | Administrador | Modal «Modificar factura» con los datos precargados, cliente y líneas editables. Al guardar pide el motivo y, en su caso, la causa | `POST /v1/facturas/{id}/modificacion` |
-| `/configuracion/facturacion` | Administrador | Pestaña «Facturación». Contiene el IVA por defecto (solo los tipos admitidos), la clave de régimen (lista L8A) y la modalidad («Sin decidir», VERI\*FACTU o no VERI\*FACTU; bloqueada con explicación si ya hay registros, FR-050). Además, los datos del emisor y el próximo número con ajuste al alza | `GET/PUT /v1/configuracion/facturacion`, `POST /v1/configuracion/facturacion/contador` |
+| `/configuracion/facturacion` | Administrador | Pestaña «Facturación». Contiene el IVA por defecto (campo libre con «%», de 0 a 99,99; R-20) y la modalidad («Sin decidir», VERI\*FACTU o no VERI\*FACTU; bloqueada con explicación si ya hay registros, FR-050). Además, los datos del emisor con el IBAN opcional (R-22) y el próximo número con ajuste al alza. Desde el ajuste de cierre no hay clave de régimen (R-23) | `GET/PUT /v1/configuracion/facturacion`, `POST /v1/configuracion/facturacion/contador` |
 
 ## Comportamientos
 
@@ -62,6 +62,32 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
   - Lo renueva solo cuando la operación ha terminado con éxito.
   - Mientras hay una petición en curso, el botón está deshabilitado.
 - **Después de cada acción**: lo que muestra la interfaz está descrito en la spec, FR-049.
+- **IVA por defecto** (FR-001, R-20; ajuste de cierre):
+  - El campo es un `CampoDecimal` con el sufijo «%» y admite la coma decimal.
+  - Si el valor escrito no está en `tipos_iva_oficiales`, un aviso bajo el campo lo dice mientras
+    se escribe: «22 % no está entre los tipos que admite hoy la AEAT (0, 4, 10 y 21)».
+  - Al guardar, si la API responde `422 tipo-iva-sin-confirmar`, se abre el diálogo «¿Guardar un
+    tipo de IVA que la AEAT no admite hoy?», que explica el riesgo (research R-17, Q-11). «Guardar
+    igualmente» reenvía con `confirmar_tipo_iva: true`, y «Cancelar» deja el formulario como
+    estaba.
+- **IBAN** (FR-001, R-22): es un campo de texto en «Datos del emisor», opcional y sin la marca de
+  necesario para emitir. Al salir del campo y al mostrarse, aparece agrupado de cuatro en cuatro.
+  Un error de la API se muestra en el propio campo.
+- **«Sin IVA (oro de inversión)»** (FR-052, R-21; ajuste de cierre):
+  - Es una `Casilla` en la sección de totales, antes de la base, desmarcada por defecto en una
+    factura nueva.
+  - En un borrador se carga su valor. En «Modificar», el de la factura original.
+  - Con la casilla marcada, los totales muestran «Base exenta», «IVA 0,00 €» y el total, y debajo
+    la mención `mencion_exencion_oro_inversion` de `/v1/facturas/parametros` en `body-sm`.
+  - El aviso de cambio de IVA del borrador no se muestra si el borrador es exento.
+  - En el diálogo de motivo de «Modificar», el aviso de IVA distinto solo aparece si la original y
+    la corrección van con IVA.
+  - El orden de tabulación es: líneas, «Añadir línea», la casilla y los botones del pie.
+- **Consulta de una factura emitida** (FR-053):
+  - Si `mencion_exencion` no es `null`, se muestra junto a los totales.
+  - Si `emisor.iban` no es `null`, se muestra un bloque «Pago» con «IBAN» y el número agrupado.
+- **Listado** (FR-033): en la columna del IVA, las filas con `oro_inversion` muestran «Exenta» en
+  lugar de la cuota.
 - **Rol**: un empleado no ve «Anular», «Modificar» ni la pestaña Facturación. La API decide en
   cualquier caso (FR-023, FR-025).
 - **Historial** (FR-026): una sección plegable del modal de consulta con las correcciones y los
@@ -80,7 +106,8 @@ que no aparecen aquí se aplican como en 001.
 | Modal de factura (`ModalDocumento`) | Nivel 2 · `surface-container-high`, borde `tertiary` @ 35 %, `shadow-nivel-2` | Título en Bodoni `headline-md`; secciones en `title-lg` | `max-w-5xl` centrado; pantalla completa por debajo de 768 px. Cuerpo desplazable y pie fijo con filete superior de 1 px `primary-container` @ 18 % |
 | Resumen del cliente | Nivel 1 · `surface-container` | Etiquetas `label-sm` en `on-surface-variant`; datos `body-md` | Filete de 1 px `primary-container` @ 18 % |
 | Tabla de líneas | Contenedor `surface-container-low` | Cabecera `label-md` en mayúsculas | Campos de DESIGN.md. Unidades y precio con `CampoDecimal`; el precio lleva el símbolo € fijo en `primary-container`. Importe en solo lectura, alineado a la derecha y tabular |
-| Totales | Caja de resumen con acento `primary-container` (DESIGN.md, «Totals Section») | Base e IVA en `body-md`; total en Bodoni `headline-md` en `primary` | Etiqueta «IVA (21 %)» con el tipo vigente |
+| Totales | Caja de resumen con acento `primary-container` (DESIGN.md, «Totals Section») | Base e IVA en `body-md`; total en Bodoni `headline-md` en `primary` | Etiqueta «IVA (21 %)» con el tipo vigente. Casilla «Sin IVA (oro de inversión)» con la `Casilla` de 1 px y radio 0 ya existente. En modo exento, «Base exenta» y la mención en `body-sm` `on-surface-variant` |
+| Bloque «Pago» de la consulta | Dentro de la caja de totales, con filete superior de 1 px `primary-container` @ 18 % | Etiqueta `label-sm`; IBAN en `body-md` tabular | Solo si la factura tiene IBAN (FR-053) |
 | Botones del modal | «Emitir factura»: primario. «Guardar borrador», «Modificar» y «Añadir línea»: secundario. «Cancelar» y «Cerrar»: ghost. «Anular» y «Eliminar borrador»: destructivo | `label-lg` en mayúsculas | En móvil se apilan a ancho completo |
 | Diálogos (confirmar, motivo, anular, contador) | Nivel 2, `Dialog` de 001 | `title-lg` y `body-md` | Radio 0 en las opciones del motivo y la causa |
 | Pestaña Facturación | Tarjeta nivel 1 | Formularios de 001 | El próximo número se muestra en Bodoni `headline-sm` con el botón secundario «Ajustar» |

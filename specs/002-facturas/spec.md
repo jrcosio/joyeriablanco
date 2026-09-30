@@ -511,9 +511,10 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   - **Datos del emisor**: razón social o nombre y apellidos, NIF y domicilio completo (dirección,
     código postal, localidad y provincia), exigidos por F-6, art. 6.1.c, d y e.
     - **IBAN** de la cuenta en la que cobra la joyería: opcional, y no forma parte de lo necesario
-      para emitir (FR-004). Si se rellena, DEBE ser un IBAN válido según ISO 13616, con la longitud
-      de su país y el dígito de control correcto. Se guarda sin espacios y en mayúsculas, y se
-      muestra agrupado de cuatro en cuatro.
+      para emitir (FR-004). Si se rellena, DEBE tener la estructura de ISO 13616 (código de país,
+      dos dígitos de control y hasta 34 caracteres en total), 24 caracteres si la cuenta es
+      española, y el dígito de control correcto (research R-22). Se guarda sin espacios y en
+      mayúsculas, y se muestra agrupado de cuatro en cuatro.
   - **Modalidad del sistema de facturación**: VERI\*FACTU o no VERI\*FACTU. Empieza sin valor
     («Sin decidir»), porque la elección está pendiente de la asesoría (Clarifications). La elige el
     administrador y DEBE fijarse antes de la feature 004. Una vez generado el primer registro, queda

@@ -20,6 +20,14 @@ numeradas F-n, aparecen en la spec.
 | F-8 | RD 1007/2023 (RRSIF), BOE-A-2023-24840 | consolidado a 03/12/2025 | — |
 | F-9 | AEAT, FAQ «Procedimientos de facturación» | página del 22/07/2026 | HTML |
 | F-10 | Orden HAC/1177/2024, BOE-A-2024-22138 | consolidado a 28/10/2024 | PDF consolidado `a0090109d56c29c1f1d9be42df5fecc5d7b2384605dd2b2af549236ff5bcc5de` |
+| F-11 | Ley 37/1992 (LIVA), BOE-A-1992-28740: título IX, capítulo V, arts. 140, 140 bis y 140 ter | redacción de la Ley 55/1999, en vigor desde el 01/01/2000; consulta 2026-09-30 | API de datos abiertos del BOE (XML, sin hash estable) |
+
+**Ajuste de cierre (2026-09-30)**:
+- F-1 y F-3 se volvieron a descargar, y sus SHA-256 coinciden con los de la tabla.
+- F-6, art. 6, se consultó en la API de datos abiertos del BOE. La redacción vigente es la de
+  07/12/2023.
+- Para F-3 hubo que descodificar las fuentes CID del PDF (mapas `ToUnicode`), porque parte del
+  texto de §15.4 a §15.6 no se extrae como texto plano.
 
 **URLs**:
 - Documentos de desarrolladores AEAT (F-1 a F-4):
@@ -172,7 +180,7 @@ Correspondencia para una factura F1 de esta feature:
 | `FechaOperacion` (21) | Solo en reemisiones y rectificativas (FR-018) | F-3 §3.1.3.7: la de expedición no puede ser anterior |
 | `DescripcionOperacion` (22) | FR-045, ≤ 500 | Obligatorio en F-1. F-3 no tiene reglas para este campo |
 | `Destinatarios/IDDestinatario` (32–36) | `NombreRazon` + `NIF` (España) o `IDOtro` (`CodigoPais`, `IDType` L7, `ID`) | Copia del cliente. Obligatorio en F1 (F-3 §13, error 1189) |
-| `Desglose/DetalleDesglose` (38–47) | Uno por tipo de IVA, con `Impuesto` `01`, `ClaveRegimen` de Configuración (`01`), `CalificacionOperacion` `S1`, `TipoImpositivo` `21.00`, `BaseImponibleOimporteNoSujeto` y `CuotaRepercutida` | FR-013 a FR-015 |
+| `Desglose/DetalleDesglose` (38–47) | Uno por tipo de IVA, con `ClaveRegimen` `01`, `CalificacionOperacion` `S1`, `TipoImpositivo` `21.00`, `BaseImponibleOimporteNoSujeto` y `CuotaRepercutida`. En la factura de oro de inversión, uno solo con `ClaveRegimen` `04`, `OperacionExenta` `E6` y `BaseImponibleOimporteNoSujeto` (R-21). La clave ya no sale de Configuración (R-23) | FR-013 a FR-015, FR-052 |
 | `CuotaTotal` (48), `ImporteTotal` (49) | Suma de cuotas; suma de bases y cuotas | R-10 |
 | `Encadenamiento` (50–54) | `PrimerRegistro` `S` o `RegistroAnterior` (NIF, número, fecha y huella del anterior) | R-6 |
 | `SistemaInformatico` (55) | R-5 | Configuración del despliegue |
@@ -184,8 +192,8 @@ Correspondencia para una factura F1 de esta feature:
 - `RefExterna`, `FacturaSimplificadaArt7273`, `FacturaSinIdentifDestinatarioArt61d`, `Macrodato`,
   `EmitidaPorTerceroODestinatario`, `Tercero` y `Cupon`.
 - `NumRegistroAcuerdoFacturacion` e `IdAcuerdoSistemaInformatico`.
-- En el desglose: `OperacionExenta`, `BaseImponibleACoste` y recargo de equivalencia. El régimen es
-  general y no hay exenciones.
+- En el desglose: `BaseImponibleACoste` y recargo de equivalencia. `OperacionExenta` solo se
+  informa en la factura de oro de inversión (R-21).
 
 **Destinatario con NIF español no censado** (001, R-20.1 y R-20.4): el tipo `07` no se genera en
 esta feature. Se envía el NIF tal como está en la ficha. Lo que devuelva la AEAT (errores 1193 o
@@ -225,7 +233,8 @@ informa**. Se evita así la incoherencia, que queda anotada para cotejarla con e
 - **Devolución total** (Clarifications de plan):
   - Rectificativa R1 sin líneas.
   - Desglose con un único `DetalleDesglose` a base `0.00` y cuota `0.00`, al tipo de
-    Configuración. F-1 exige entre 1 y 12 detalles.
+    Configuración. F-1 exige entre 1 y 12 detalles. Si la rectificativa se marca como de oro de
+    inversión, el detalle es exento, con base `0.00` (R-21).
   - Totales a 0 e `ImporteRectificacion` con los importes de la original.
   - F-3 §15.7 exige que la base y la cuota tengan el mismo signo, y con cero se cumple.
 - **Signo**: los totales de una rectificativa por sustitución son ≥ 0 en esta feature, porque solo
@@ -250,6 +259,12 @@ informa**. Se evita así la incoherencia, que queda anotada para cotejarla con e
   aplicado», en el que el administrador corrige primero la configuración.
 - **Alternativa descartada**: heredar siempre el tipo de la original. Impide corregir un IVA mal
   aplicado y contradice la decisión del responsable.
+- **Oro de inversión** (ajuste de cierre, FR-052):
+  - «Modificar» precarga la casilla «Sin IVA (oro de inversión)» con el valor de la original y
+    deja cambiarla. Así, un lingote facturado con IVA por error se corrige con una R1 exenta
+    (spec, US5-9).
+  - El aviso de tipo distinto solo se muestra si la original y la corrección van con IVA y sus
+    tipos no coinciden.
 
 **R-4b. Registro de anulación** (F-1, hoja 3):
 - **Se informa**:
@@ -434,8 +449,9 @@ Exigiría `UPDATE` sobre un documento emitido.
 - **Tablas mutables**: `borradores_factura` y `lineas_borrador`, con `version` para la concurrencia
   optimista, como `clientes` en 001 (FR-020).
 - **Contenido del borrador**: al guardarse, el servicio calcula con `domain/importes.py` y guarda
-  en el borrador `tipo_iva_previsto` (el vigente en ese momento) y los totales previstos. Esos
-  valores solo sirven para:
+  en el borrador `tipo_iva_previsto` (el vigente en ese momento) y los totales previstos. Si el
+  borrador está marcado como de oro de inversión (`oro_inversion`, R-21), los totales previstos
+  van sin cuota. Esos valores solo sirven para:
   - El listado, que así no necesita una segunda implementación del redondeo en SQL (constitución
     II).
   - El aviso de «el IVA ha cambiado desde que se guardó» (spec, casos límite).
@@ -468,10 +484,10 @@ Exigiría `UPDATE` sobre un documento emitido.
      insertarse antes y completarse después. El trigger `validar_correccion` vuelve a comprobar que
      la factura está vigente. Si falla, se deshace la transacción entera.
 - **Modificación sin cambios** (spec, casos límite):
-  - Se compara con la factura vigente el cliente, las líneas normalizadas y el **tipo de IVA que se
-    aplicaría**.
+  - Se compara con la factura vigente el cliente, las líneas normalizadas y el **tratamiento del
+    IVA que se aplicaría**: el tipo de Configuración o «sin IVA» por oro de inversión (FR-052).
   - Con `factura_entregada`, una modificación que no cambia ninguno de esos tres se rechaza con
-    `422 sin-cambios`.
+    `422 sin-cambios`. Marcar o desmarcar «Sin IVA» cuenta como cambio.
   - Una rectificación R1 por «IVA mal aplicado», con las mismas líneas y la configuración ya
     corregida, sí se admite, porque cambia el tipo.
   - Con `no_debio_emitirse` se admite: es la reemisión con número nuevo.
@@ -507,15 +523,21 @@ factura y registro se crean en la misma transacción.
   - Como máximo 100 líneas.
 - Si algún total supera el límite, error de validación.
 
-**Tipos de IVA admitidos** (F-3 §15.1, con `CalificacionOperacion S1`):
+**Tipos de IVA oficiales** (F-3 §15.1, con `CalificacionOperacion S1`):
 - «Solo se permiten TipoImpositivo = 0; 2; 4; 5; 7,5; 10 y 21», con estas ventanas:
   - El 5 solo del 01/07/2022 al 30/09/2024.
   - El 2 y el 7,5 solo del 01/10/2024 al 31/12/2024.
 - La constante `TIPOS_IVA_S1` de `app/domain/importes.py` recoge esas ventanas.
-  - Configuración solo admite los tipos válidos para la fecha actual: hoy son 0, 4, 10 y 21.
-  - Al emitir se revalida el tipo frente a la fecha que dice F-3 §15.1: «FechaOperacion
-    (FechaExpedicionFactura de la agrupación IDFactura si no se informa FechaOperacion)». En las
-    rectificativas y reemisiones, que heredan la fecha de operación, es esa fecha.
+- **Desde el ajuste de cierre** (R-20), la lista es **informativa**:
+  - Configuración admite cualquier tipo de 0 a 99,99. Pide confirmación si el tipo no está entre
+    los de la fecha actual (hoy, 0, 4, 10 y 21).
+  - Al emitir ya no se revalida el tipo.
+  - *Antes del ajuste*: Configuración solo admitía los tipos de hoy, y al emitir se revalidaba el
+    tipo frente a la fecha de la operación.
+
+**Factura de oro de inversión** (R-21): las líneas no tienen tipo. El único detalle del desglose
+tiene como base la suma de los importes de las líneas y cuota 0, así que el total es igual a la
+base. La política de redondeo es la misma: solo se redondea el importe de cada línea.
 
 **JSON sin `float`** (constitución II):
 - **Salida**: los importes van como cadena (`"1290.00"`). Es el comportamiento por defecto de
@@ -653,7 +675,7 @@ modal por encima, como en la captura.
 |---|---|---|
 | `/v1/configuracion/facturacion` | `GET` y `PUT` (con `version`) | Administrador |
 | `/v1/configuracion/facturacion/contador` | `POST` (ajuste al alza). Con `simular: true`, solo calcula el hueco | Administrador |
-| `/v1/facturas/parametros` | `GET`: IVA vigente, si se puede emitir, qué falta y el próximo número previsto | Sesión |
+| `/v1/facturas/parametros` | `GET`: IVA vigente, si se puede emitir, qué falta, el próximo número previsto y la mención de la exención del oro de inversión (R-21) | Sesión |
 | `/v1/facturas` | `GET` (listado, R-12) y `POST` (emitir sin borrador) | Sesión |
 | `/v1/facturas/{id}` | `GET`: detalle con líneas, desglose, estado, enlaces e historial | Sesión |
 | `/v1/facturas/{id}/anulacion` | `POST` | Administrador |
@@ -669,7 +691,8 @@ R-18, y la cabecera `Idempotency-Key` (R-18):
   Lleva la lista `faltan`.
 - `cliente-no-facturable` (422): cliente inactivo o sin domicilio. Lleva `faltan`.
 - `fecha-expedicion` (422).
-- `tipo-iva-no-admitido` (422).
+- `tipo-iva-sin-confirmar` (422): el IVA por defecto nuevo no está en la lista oficial de hoy y
+  falta la confirmación (R-20). Sustituye al `tipo-iva-no-admitido` de antes del ajuste de cierre.
 - `factura-no-modificable` (409): factura anulada o rectificada.
 - `contador-no-ajustable` (409): el valor no supera el último usado.
 - `cadena-inconsistente` (409, R-6).
@@ -731,9 +754,10 @@ un `Record<TipoEvento, string>`, así que el typecheck exige completarlo.
 **Decisión**:
 - `cargar-datos-ejemplo` pasa a crear, a través de los **servicios**, para que los registros queden
   bien encadenados:
-  - La configuración de facturación ficticia: emisor «Joyería Blanco (demo)», NIF ficticio válido y
-    modalidad VERI\*FACTU.
-  - Unas 50 facturas emitidas de los últimos 6 meses, con algunas correcciones.
+  - La configuración de facturación ficticia: emisor «Joyería Blanco (demo)», NIF ficticio válido,
+    IBAN ficticio válido (R-22) y modalidad VERI\*FACTU.
+  - Unas 50 facturas emitidas de los últimos 6 meses, con algunas correcciones y al menos una de
+    oro de inversión (R-21).
   - 5 borradores.
 - `reiniciar-bd-e2e` también las deja en su estado inicial.
 - **Carga de volumen**: un script aparte genera 20.000 facturas en la BD e2e para SC-007. Sigue
@@ -785,6 +809,201 @@ de red ni dos pestañas.
 
 ---
 
+## R-20. IVA por defecto libre, con aviso y confirmación (ajuste de cierre, FR-001)
+
+**Decisión**:
+- **Entrada**:
+  - `iva_por_defecto` sigue siendo `TipoIvaEntrada`: texto `^[0-9]{1,2}(\.[0-9]{1,2})?$`, de
+    0 a 99,99.
+  - `PUT /v1/configuracion/facturacion` admite `confirmar_tipo_iva: boolean`, por defecto
+    `false`.
+- **Regla del servidor** (`services/configuracion_facturacion.py`): el servidor responde `422
+  tipo-iva-sin-confirmar` y no guarda nada si se cumplen las tres condiciones:
+  - El tipo cambia respecto al guardado.
+  - No está en `allowed_rates(hoy())`.
+  - `confirmar_tipo_iva` es `false`.
+
+  La respuesta lleva `tipos_oficiales: ["0.00", "4.00", "10.00", "21.00"]`. Guardar otros campos
+  con un tipo ya confirmado no vuelve a pedir la confirmación.
+- **Auditoría**: el diff del cambio (FR-003) lleva también `"tipo_iva_fuera_de_lista": true` cuando
+  se confirma un tipo que no está en la lista. Así queda la constancia de que se aceptó el aviso.
+- **Salida**: `tipos_iva_oficiales` sustituye a `tipos_iva_admitidos`, con el mismo contenido
+  (`allowed_rates(hoy())`). La web lo usa para avisar mientras se escribe, antes de guardar.
+- **Emisión**: se retira la comprobación contra `TIPOS_IVA_S1` de `create_factura`. El tipo de la
+  configuración se aplica sin más (FR-013).
+- **BD** (migración 0006, data-model): `CHECK (iva_por_defecto >= 0 AND iva_por_defecto < 100)` en
+  configuración. En líneas y desgloses, `tipo_iva IS NULL OR (tipo_iva >= 0 AND tipo_iva < 100)`.
+  Sustituyen al `IN (0, 2, 4, 5, 7.5, 10, 21)`.
+
+**Razón**:
+- El responsable pidió desde el principio que el IVA «se pueda cambiar por si en un futuro cambia»
+  (Input de la spec). Una lista cerrada en el código obliga a una versión nueva del programa para
+  aplicar un cambio legal.
+- La lista oficial (F-3 §15.1) la aplica la AEAT al recibir el registro. Si la ley cambia, la AEAT
+  la actualizará. Hasta entonces el riesgo es un rechazo en la remisión (R-17, Q-11), que el aviso
+  hace explícito.
+- La confirmación en el servidor evita que una llamada directa a la API se salte el aviso.
+
+**Alternativas descartadas**:
+- **Mantener la lista cerrada**: es el fallo que motivó el ajuste.
+- **Lista ampliable por el administrador**: añade una pantalla y un modelo de datos para lo mismo
+  que consigue la confirmación.
+- **Aviso solo en la web**: una petición directa lo esquivaría.
+- **Bloquear la emisión** con un tipo fuera de la lista: el responsable eligió que emitir nunca se
+  bloquee por el tipo.
+
+---
+
+## R-21. Factura de oro de inversión exenta (ajuste de cierre, FR-052)
+
+**Fuentes** (transcripción literal):
+- **F-11** (LIVA, título IX, capítulo V, «Régimen especial del oro de inversión»):
+  - Art. 140: «se considerarán oro de inversión: 1.º Los lingotes o láminas de oro de ley igual o
+    superior a 995 milésimas y cuyo peso se ajuste a lo dispuesto en el apartado noveno del anexo
+    de esta Ley. 2.º Las monedas de oro que reúnan los siguientes requisitos: a) […] ley igual o
+    superior a 900 milésimas. b) […] acuñadas con posterioridad al año 1800. c) […] moneda de
+    curso legal en su país de origen. d) […] comercializadas habitualmente por un precio no
+    superior en un 80 por 100 al valor de mercado del oro contenido en ellas».
+  - Art. 140 bis.Uno.1.º: «Estarán exentas del impuesto las siguientes operaciones: 1.º Las
+    entregas, adquisiciones intracomunitarias e importaciones de oro de inversión».
+  - Art. 140 ter.Uno: la renuncia la puede hacer el transmitente que «se dedique con
+    habitualidad a la realización de actividades de producción de oro de inversión o de
+    transformación de oro que no sea de inversión en oro de inversión», cuando el adquirente sea
+    empresario o profesional. No es el caso de la joyería (spec, Clarifications).
+- **F-1**:
+  - Hoja 2, filas 39 a 45: `ClaveRegimen` (L8A), `CalificacionOperacion` (L9),
+    `OperacionExenta` (L10), `TipoImpositivo`, `BaseImponibleOimporteNoSujeto` y
+    `CuotaRepercutida`, en ese orden.
+  - `CalificacionOperacion`, `OperacionExenta` y `BaseImponibleOimporteNoSujeto` llevan el
+    superíndice 1, «Campo obligatorio» (hoja «7) Leyenda»). Además, la hoja «0) Control de
+    cambios» dice: «Modificación de campos CalificacionOperacion y OperaciónExenta a obligatorios
+    y alternativos». Cada detalle lleva, por tanto, uno de los dos y nunca ambos.
+  - L8A `04`: «Régimen especial del oro de inversión.»
+  - L10 `E6`: «Exenta por otros». `E1` a `E5` corresponden a los arts. 20, 21, 22, 23 y 24, y 25.
+- **F-3** (v1.2.2):
+  - §15.5: «Si el campo OperacionExenta está cumplimentado no se pueden informar ninguno de estos
+    campos: TipoImpositivo, CuotaRepercutida, TipoRecargoEquivalencia y
+    CuotaRecargoEquivalencia.» También: «y ClaveRegimen es igual a "01", no pueden marcarse los
+    valores de OperacionExenta "E2" y "E3"».
+  - §15.6.3: «si clave de ClaveRegimen es igual a "04", CalificacionOperacion solo puede ser
+    "S2", o bien OperacionExenta».
+  - §15.7: «[CuotaRepercutida] Solo podrá ser distinta de cero […] si CalificacionOperacion es
+    "S1"».
+  - §16 y §17: `CuotaTotal` es la suma de `CuotaRepercutida` y del recargo, y `ImporteTotal` la
+    suma de `BaseImponibleOimporteNoSujeto`, `CuotaRepercutida` y el recargo. En la exenta dan 0
+    y la base.
+- **F-6** (ROF, art. 6.1.j): «En el supuesto de que la operación que se documenta en una factura
+  esté exenta del Impuesto, una referencia a las disposiciones correspondientes de la Directiva
+  2006/112/CE […] o a los preceptos correspondientes de la Ley del Impuesto o indicación de que la
+  operación está exenta.»
+
+**Decisión**:
+- **Alcance**: una bandera `oro_inversion` por factura y por borrador, no por línea (spec,
+  Clarifications). Con ella, **todas** las líneas son exentas.
+- **Registro de alta**: el único `DetalleDesglose` es `{"ClaveRegimen": "04", "OperacionExenta":
+  "E6", "BaseImponibleOimporteNoSujeto": "<base>"}`, en el orden de F-1 y sin `CalificacionOperacion`,
+  `TipoImpositivo` ni `CuotaRepercutida`. `CuotaTotal` es `0.00` e `ImporteTotal` la base. La
+  huella (F-2) no cambia de campos: `CuotaTotal` e `ImporteTotal` ya estaban en ella.
+- **Clave del registro**: `facturas.clave_regimen` y `desgloses_factura.clave_regimen` valen `04` en
+  una factura de oro de inversión y `01` en las demás (R-23). La bandera de la API se deriva de
+  `facturas.clave_regimen = '04'`, así que la factura no necesita otra columna.
+- **Contenido del registro desde la factura**: `cadena.datos_alta` toma la clave, la calificación y
+  la exención de cada fila de `desgloses_factura`, no de la cabecera. En las facturas anteriores al
+  ajuste, fila y cabecera coinciden porque ambas se copiaron de Configuración. Así el contenido
+  reconstruido por `verificar-cadena` es idéntico y la cadena existente sigue íntegra (SC-013).
+- **Mención**: la constante `MENCION_EXENCION_ORO_INVERSION = "Operación exenta de IVA (art. 140
+  bis.Uno.1.º de la Ley 37/1992)"` vive en `app/domain/exenciones.py`, junto con las claves `04` y
+  `E6`. Se expone como `mencion_exencion` en `FacturaSalida` y `BorradorSalida` (`null` si no
+  aplica) y como `mencion_exencion_oro_inversion` en `/v1/facturas/parametros`, para que el modal
+  la muestre antes de guardar. El PDF de la 003 usará la misma constante.
+- **Importes** (R-10): `domain/importes.py` admite `tipo_iva = None` en `LineaCalculo` y
+  `DesgloseTipo`, que significa exenta. El detalle exento lleva cuota 0.
+- **Rectificativa y reemisión** (R-4): la bandera va en `ModificacionEntrada`, y ahí es
+  **obligatoria**. Así una petición que la omita no convierte en sujeta una factura exenta.
+  - En `FacturaEntrada` y `BorradorEntrada` vale `false` por defecto, que es el comportamiento
+    anterior.
+  - `_sin_cambios` compara el tratamiento: exenta, o sujeta y a qué tipo.
+- **Permisos**: la bandera la usan los mismos que emiten. En «Modificar», solo el administrador
+  (FR-023, FR-052).
+- **Listado**: la vista añade al final la columna `oro_inversion`: la del borrador, o
+  `clave_regimen = '04'` en la factura. `FacturaResumenSalida.oro_inversion` permite mostrar
+  «Exenta» (FR-033).
+
+**Razón**:
+- La exención del art. 140 bis no está en los arts. 20 a 25, así que su causa en L10 es `E6`.
+- La operación es del régimen especial del capítulo V, y L8A tiene su clave propia, `04`. F-3
+  §15.6.3 admite `04` con `OperacionExenta`.
+- Tomar la clave del desglose y no de la cabecera es lo que haría falta para mezclar tratamientos
+  en el futuro, y no cambia nada de lo ya registrado.
+- La confirmación final de `04` + `E6` y de la mención corresponde a la asesoría (R-17, Q-10),
+  como la de `01`.
+
+**Alternativas descartadas**:
+- **`01` con `E6`**: no refleja el régimen especial que L8A identifica con `04`.
+- **Tipo 0 % con `S1`**: la operación es exenta, no sujeta al 0 %. F-3 §15.5 y la mención del ROF
+  la distinguen.
+- **Casilla por línea**: el responsable eligió una para toda la factura.
+- **Columna `oro_inversion` en `facturas`**: duplicaría `clave_regimen = '04'`.
+
+---
+
+## R-22. IBAN del emisor (ajuste de cierre, FR-001, FR-016, FR-053)
+
+**Decisión**:
+- **Normalización** (`app/domain/iban.py`, funciones puras con tests de tabla):
+  - Se quitan los espacios y se pasa a mayúsculas.
+  - La estructura es `^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$` (de 15 a 34 caracteres).
+  - Si empieza por `ES`, debe tener exactamente 24 caracteres (`ES`, dos dígitos de control y los
+    20 del código cuenta cliente) y solo dígitos tras el país.
+  - El dígito de control es ISO 7064 MOD 97-10: se pasan los cuatro primeros caracteres al final,
+    se sustituye cada letra por su número (A = 10 … Z = 35) y el resto de dividir entre 97 debe ser
+    1.
+- **Dónde se guarda**:
+  - `configuracion_facturacion.emisor_iban varchar(34)` NULL, con `CHECK` de la estructura.
+  - Al emitir, se copia en `facturas.emisor_iban varchar(34)` NULL (FR-016). Las facturas
+    anteriores al ajuste no tienen IBAN, y no se rellena nada con `UPDATE` (constitución III).
+- **API**:
+  - `DatosEmisorEntrada.iban` (hasta 42 caracteres, para admitir espacios) y `DatosEmisorSalida.iban`,
+    normalizado. La salida del emisor es la misma en configuración y en `FacturaSalida.emisor`.
+  - Un IBAN inválido da `422 validacion` en `emisor.iban`.
+  - No entra en `faltan` (FR-004).
+- **Auditoría**: se añade a `CAMPOS_AUDITADOS`. No aparece en los logs (FR-051).
+- **Web**: se muestra en grupos de cuatro, p. ej. `ES91 2100 0418 4502 0005 1332`, el IBAN de
+  ejemplo que se usa en los datos demo.
+
+**Razón**:
+- El dígito de control MOD 97-10 es la comprobación que exige el propio IBAN. Detecta los errores
+  de tecleo habituales, como un carácter cambiado o dos intercambiados, sin consultar a ningún
+  banco.
+- La longitud de cada país la publica el registro IBAN de SWIFT, autoridad de registro de ISO
+  13616. No se pudo descargar (la web de SWIFT respondió 403 el 2026-09-30), así que solo se fija
+  la de España, que es la de la cuenta de la joyería. El resto de países queda cubierto por la
+  estructura y el dígito de control.
+- No es un formato de la AEAT: el principio IV de la constitución no aplica, pero la fuente queda
+  citada.
+
+**Alternativa descartada**: la tabla completa de longitudes por país sin fuente verificada, porque
+no se puede comprobar.
+
+---
+
+## R-23. Retirada de la clave de régimen de Configuración (ajuste de cierre, FR-001)
+
+**Decisión**:
+- La migración 0006 elimina `configuracion_facturacion.clave_regimen` y su `CHECK`. La auditoría
+  conserva sus cambios anteriores.
+- La API deja de aceptarla y de devolverla. Con `extra="forbid"`, enviarla da 422: la web
+  regenerada deja de enviarla.
+- El sistema fija la clave de cada factura: `CLAVE_REGIMEN_GENERAL = "01"` o
+  `CLAVE_REGIMEN_ORO_INVERSION = "04"` (R-21).
+- Las facturas emitidas conservan su copia de la clave (constitución III).
+
+**Razón**: la joyería factura siempre en régimen general (spec, Clarifications). Una clave editable
+solo permitía cometer errores, y la única excepción legal, el oro de inversión, la decide la casilla
+de la factura, no la configuración.
+
+---
+
 ## R-17. Preguntas abiertas
 
 Ninguna bloquea esta feature. Todas quedan anotadas para la 004 o para la asesoría.
@@ -800,3 +1019,5 @@ Ninguna bloquea esta feature. Todas quedan anotadas para la 004 o para la asesor
 | Q-7 | Productor del sistema y declaración responsable | F-8, art. 13; constitución, TODO | Variables `SIF_*`, exigidas en producción (R-5) |
 | Q-8 | NIF español no censado (L7 `07`) y errores 1193/2001 | 001, R-20.4 | Se envía el NIF de la ficha. Se trata en la 004 |
 | Q-9 | Fecha de expedición anterior al día de emisión, cuando el registro se genera ese día, frente a la exigencia de F-8, art. 9, de generarlo «simultánea o inmediatamente anterior». Desde el cambio tras la implementación, además, sin orden entre fecha y número dentro de la serie (F-6, art. 6.1.a: numeración correlativa) | F-8, art. 9; F-6, art. 6.1.a; F-3 solo prohíbe fechas futuras y anteriores al 28/10/2024 | El responsable quiere la fecha libre dentro de los límites de la AEAT, también en las correcciones (Clarifications, «cambio tras la implementación»). La asesoría debe validarlo antes de producción |
+| Q-10 | Codificación de la venta de oro de inversión: `ClaveRegimen 04` + `OperacionExenta E6` y la mención «Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)» | F-1 (L8A, L10), F-3 §15.5 y §15.6.3, F-6 art. 6.1.j, F-11 | Aplicada según R-21. La asesoría la confirma antes de producción, junto con la clave `01` |
+| Q-11 | Un IVA por defecto fuera de la lista de F-3 §15.1, confirmado por el administrador tras un cambio legal, puede ser rechazado por la AEAT hasta que actualice sus validaciones | F-3 §15.1 | Se avisa y se exige confirmación (R-20). El rechazo, si llega, se trata en la 004 |

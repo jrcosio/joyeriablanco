@@ -11,8 +11,16 @@ Se añade la facturación sobre la base de 001.
 **Qué ve el usuario**:
 - Un **listado** con la misma lógica que clientes, sin indicadores ni estado de cobro.
 - Un **modal** sobre el listado para crear, editar borradores, consultar y modificar.
-- **Configuración → Facturación**: IVA por defecto (21 %), clave de régimen, modalidad pendiente de
-  la asesoría, datos del emisor y ajuste al alza del contador.
+- **Configuración → Facturación**: IVA por defecto (21 %), modalidad pendiente de la asesoría,
+  datos del emisor y ajuste al alza del contador.
+
+**Ajuste de cierre (2026-09-30)**, pedido por el responsable tras probar la facturación:
+- **IVA por defecto libre** de 0 a 99,99 %, con aviso y confirmación si no está en la lista oficial
+  (R-20).
+- **Sin clave de régimen en Configuración** (R-23).
+- **IBAN opcional** del emisor, copiado en cada factura (R-22).
+- **Casilla «Sin IVA (oro de inversión)»** para toda la factura: registro con `04` + `E6` y
+  mención del art. 6.1.j del ROF (R-21).
 
 **Qué hace el servidor**:
 - Al emitir, en una sola transacción: asigna el número `FAC-AAAA-NNNN` bajo cerrojo, calcula los
@@ -30,7 +38,7 @@ Se añade la facturación sobre la base de 001.
 **Fuera de alcance**: el PDF con QR (003), la remisión a la AEAT y la firma (004) y los
 presupuestos (005).
 
-Las decisiones y las fuentes oficiales citadas (F-1 a F-10) están en [research.md](research.md).
+Las decisiones y las fuentes oficiales citadas (F-1 a F-11) están en [research.md](research.md).
 
 ## Technical Context
 
@@ -48,6 +56,14 @@ la web.
 - Los triggers de encadenamiento y de contador solo al alza.
 - La vista `v_listado_facturas`.
 - La ampliación del `CHECK` de auditoría.
+
+El ajuste de cierre añade `0006_iva_libre_oro_iban`, con solo DDL (data-model, «Migración 0006»):
+- `CHECK` de rango para el IVA.
+- IBAN en configuración y en facturas.
+- `oro_inversion` en borradores.
+- Desglose con `orden` y `operacion_exenta`.
+- Retirada de la clave de régimen de configuración.
+- Columna `oro_inversion` en la vista.
 
 **Testing**: pytest contra la BD de test, Vitest + MSW y Playwright, como en 001. Los tests
 obligatorios de la constitución VII se detallan en R-2, R-7 y R-10.
@@ -106,6 +122,39 @@ obligatorios de la constitución VII se detallan en R-2, R-7 y R-10.
   `UPDATE` (principio III).
 - **Idempotencia**: evita emisiones duplicadas que después exigirían una anulación.
 
+**Re-check del ajuste de cierre** (2026-09-30), tras research R-20 a R-23, data-model (0006),
+contracts y quickstart: sin violaciones.
+- **I. SDD**: el ajuste sigue el ciclo completo en la rama `002-facturas`, como los ajustes de
+  cierre de 001:
+  - specify + clarify, con seis respuestas del responsable.
+  - Plan, checklists, tasks (fase 11), analyze e implement, cada uno con su commit.
+- **II. Integridad monetaria**:
+  - Todo sigue en `Decimal`, `NUMERIC` y texto en JSON.
+  - El tipo sigue guardándose en cada línea. En la factura de oro de inversión no hay tipo que
+    guardar (`NULL`), y la cabecera guarda el total por tratamiento: un detalle exento con cuota 0.
+  - La política de redondeo no cambia (R-10).
+- **III. Inalterabilidad**:
+  - La 0006 solo tiene DDL, sin ningún `UPDATE` ni `DELETE` sobre facturas o registros.
+  - Las facturas anteriores conservan su copia de la clave de régimen y quedan sin IBAN.
+  - Retirar la clave solo afecta a la fila mutable de configuración.
+- **IV. Verifactu por diseño**:
+  - `04`, `E6` y la forma del detalle exento se toman de F-1 (L8A, L10, leyenda y control de
+    cambios) y de F-3 §15.5, §15.6.3 y §15.7, en las mismas versiones y con el mismo SHA-256.
+  - La mención sale de F-6, art. 6.1.j, y la exención de F-11, art. 140 bis.
+  - Lo no confirmado queda como Q-10 y Q-11. La modalidad no se ve afectada.
+  - El contenido de los registros anteriores se reconstruye igual (R-21), así que `verificar-cadena`
+    sigue validándolos.
+- **VI. Servidor como fuente de verdad**:
+  - El servidor calcula los totales exentos, y la web solo previsualiza.
+  - La confirmación del IVA fuera de la lista la exige el servidor (R-20).
+- **VII. Tests obligatorios**:
+  - Importes: casos exentos y la devolución total exenta.
+  - Encadenamiento: registro exento, cadena mixta y `verificar-cadena` sobre registros anteriores
+    a la 0006.
+  - La numeración bajo concurrencia se vuelve a pasar sin cambios.
+- **Sistema de diseño**: se reutilizan `Casilla`, `CampoDecimal` y `Dialog`, sin componentes ni
+  tokens nuevos. No hay desviaciones de DESIGN.md.
+
 **Re-check post-diseño**, tras data-model, contracts y quickstart: sin violaciones.
 - **Borradores mutables**: los permite expresamente el principio III (2.1.0).
 - **`contadores_factura` mutable**: la numeración necesita una tabla de contadores y la
@@ -121,7 +170,7 @@ obligatorios de la constitución VII se detallan en R-2, R-7 y R-10.
 specs/002-facturas/
 ├── spec.md              # Especificación (Clarifications: previas, specify, clarify y plan)
 ├── plan.md              # Este fichero
-├── research.md          # Fase 0: fuentes oficiales F-1 a F-10 y decisiones R-1 a R-19
+├── research.md          # Fase 0: fuentes oficiales F-1 a F-11 y decisiones R-1 a R-23 (R-20 a R-23: ajuste de cierre)
 ├── data-model.md        # Fase 1: tablas, restricciones, estado derivado y transiciones
 ├── quickstart.md        # Fase 1: validación de extremo a extremo
 ├── contracts/
@@ -137,14 +186,16 @@ specs/002-facturas/
 ```text
 .env.example                          # + SIF_* ficticios (R-5)
 backend/
-├── alembic/versions/0005_facturacion.py
+├── alembic/versions/0005_facturacion.py + 0006_iva_libre_oro_iban.py (ajuste de cierre)
 ├── app/
 │   ├── core/config.py                # + SIF_* con validación en producción (R-5)
 │   ├── domain/
 │   │   ├── importes.py               # redondeo, línea, desglose, totales y TIPOS_IVA_S1 (R-10)
 │   │   ├── huella.py                 # cadenas de alta y anulación, SHA-256 (R-2)
 │   │   ├── numeracion.py             # formato FAC/REC y año de la fecha (R-7)
-│   │   ├── registro.py               # contenido del registro de alta y de anulación según F-1 (R-3, R-4)
+│   │   ├── registro.py               # contenido del registro de alta y de anulación según F-1 (R-3, R-4); detalle exento (R-21)
+│   │   ├── exenciones.py             # ajuste de cierre: claves 04/E6 y mención del oro de inversión (R-21)
+│   │   ├── iban.py                   # ajuste de cierre: normalización y MOD 97-10 (R-22)
 │   │   └── tipos.py                  # + Serie, TipoFactura, Modalidad, MotivoModificacion, CausaRectificacion, TipoCorreccion y TipoEvento ampliado
 │   ├── models/                       # configuracion_facturacion, contador_factura, borrador_factura, factura (+ línea y desglose), correccion_factura y registro_facturacion
 │   ├── repositories/                 # facturas.py (listado sobre la vista), borradores.py, correcciones.py, registros.py (cadena), contadores.py y configuracion_facturacion.py
@@ -217,6 +268,16 @@ registros solo los genera `services/cadena.py`, al que solo llama `emision.py`.
    - E2E: `facturas.spec.ts`, acciones visibles, teclado y responsive.
    - Medición de SC-007.
    - Actualización del README (estado de los módulos) y validación del quickstart.
+
+10. **Ajuste de cierre** (2026-09-30; tasks, fase 11), con TDD:
+    - Dominio puro: `iban.py`, `exenciones.py`, `importes.py` con el modo exento y
+      `registro.py` con el detalle exento.
+    - Migración 0006 y modelos.
+    - Configuración: IVA libre con confirmación, sin clave y con IBAN.
+    - Emisión, borradores y correcciones con la bandera `oro_inversion`, y la integridad.
+    - API y contrato.
+    - Web: configuración, casilla y totales, consulta y listado.
+    - Datos de ejemplo, E2E y quickstart.
 
 ## Complexity Tracking
 
