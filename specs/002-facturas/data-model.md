@@ -346,7 +346,15 @@ triggers de inalterabilidad ni necesita ningún `UPDATE` (constitución III). En
 - Las columnas nuevas de `jb_owner` heredan los privilegios de `jb_app` por tabla, así que no hace
   falta ningún `GRANT`.
 
-**`downgrade`**: solo para reconstruir las BD de test y E2E. Restaura las columnas y los `CHECK`
-anteriores; los que no se pueden validar quedan `NOT VALID`, como en la 0004 y la 0005. La clave de
-régimen vuelve con `DEFAULT '01'`. Si hay facturas exentas, el `SET NOT NULL` de `tipo_iva` falla,
-y se deja así a propósito: no se pierde ningún dato fiscal.
+**`downgrade`**: solo sirve para reconstruir las BD de test y E2E. `tests/conftest.py` hace
+`downgrade base` + `upgrade head` al empezar cada sesión, sobre la BD que dejó la anterior, así que
+el `downgrade` **nunca debe fallar por los datos**:
+- Hace `DROP` y `CREATE` de la vista sin `oro_inversion`, quita `borradores_factura.oro_inversion`
+  y el IBAN de facturas y configuración, y restaura `clave_regimen char(2) NOT NULL DEFAULT '01'`
+  en configuración.
+- Los `CHECK` anteriores (`IN (0, 2, 4, 5, 7.5, 10, 21)` y `= 'S1'`) vuelven `NOT VALID`, como en
+  la 0004 y la 0005.
+- `NOT NULL` en `tipo_iva` y `calificacion_operacion`, la PK `(factura_id, tipo_iva)` y la retirada
+  de `orden` y `operacion_exenta` solo se aplican, en un bloque `DO`, si no hay filas exentas. Si
+  las hay, esas columnas se quedan como en la 0006, porque el siguiente `downgrade`, el de la 0005,
+  elimina las tablas.

@@ -31,7 +31,7 @@ fallar. Los que exige la constitución VII están marcados con ⚖️:
 
 - **Backend**: `backend/app/…`, `backend/tests/…` y `backend/alembic/versions/…`.
 - **Web**: `joyeriablanco_web/src/…` y `joyeriablanco_web/e2e/…`.
-- **Reglas fiscales**: se toman **solo** de research (R-1 a R-19) y de sus fuentes F-n. Nunca de
+- **Reglas fiscales**: se toman **solo** de research (R-1 a R-23) y de sus fuentes F-n. Nunca de
   memoria (constitución IV).
 
 ---
@@ -565,6 +565,234 @@ anterior al 28/10/2024 y una corrección anterior a su fecha de operación.
 - [X] T082 Web: fecha editable en «Modificar» (`CamposFactura` con mínimo propio y la fecha de la operación como ayuda) y envío de `fecha_expedicion`; tipos regenerados; tests de `FacturaModal.consulta.test.tsx` y E2E de correcciones con una fecha anterior a hoy.
 - [X] T083 Documentación: quickstart (validación 3 bis) y puertas de calidad completas (backend, web y E2E).
 
+
+---
+
+## Phase 11: Ajuste de cierre — IVA libre, oro de inversión exento e IBAN (2026-09-30)
+
+**Goal**: el responsable escribe el IVA por defecto que haya en cada momento (con aviso y
+confirmación si no está en la lista de la AEAT), deja de ver la clave de régimen, añade el IBAN de
+la joyería, que se copia en cada factura, y vende oro de inversión sin IVA con una casilla para toda
+la factura (spec, Clarifications 2026-09-30; FR-001, FR-013, FR-016, FR-023, FR-033, FR-037,
+FR-052, FR-053; research R-20 a R-23).
+
+**Independent Test**:
+- Configuración: se guarda 22 %, primero rechazado y después confirmado, y se vuelve a 21 %. Se
+  guarda un IBAN válido y se rechaza uno erróneo.
+- Se emite una factura de lingote «Sin IVA», con base = total y registro `04` + `E6`, y se
+  rectifica a exenta una factura de lingote emitida con IVA.
+- `verificar-cadena` da íntegra una cadena que mezcla facturas sujetas y exentas, incluidas las
+  anteriores a la migración 0006 (SC-012, SC-013; quickstart 18 a 22).
+
+**Fuentes**: solo research R-20 a R-23 y R-3, R-4, R-9 y R-10 actualizados (F-1, F-3, F-6 y F-11).
+Nunca de memoria (constitución IV).
+
+### Tests primero (deben fallar)
+
+- [ ] T084 [P] ⚖️ Tests de importes en `backend/tests/unit/domain/test_importes.py` (R-10, R-21):
+  - Líneas con `tipo_iva=None` (exentas), p. ej. 1 × 7.450,00: un único desglose `tipo_iva=None`, base 7.450,00 y cuota 0,00, con total igual a la base.
+  - Medio céntimo en el importe de una línea exenta (0,5 × 0,25 → 0,13).
+  - Devolución total exenta: sin líneas y `tipo_iva_por_defecto=None` → un detalle exento a 0.
+  - Los casos S1 existentes siguen dando lo mismo.
+  - `allowed_rates` y `is_rate_allowed` quedan como información: hoy 0, 4, 10 y 21.
+- [ ] T085 [P] ⚖️ Tests del registro en `backend/tests/unit/domain/test_registro.py` (R-21):
+  - El detalle exento es exactamente `{"ClaveRegimen": "04", "OperacionExenta": "E6", "BaseImponibleOimporteNoSujeto": "7450.00"}`, en ese orden y sin `CalificacionOperacion`, `TipoImpositivo` ni `CuotaRepercutida`.
+  - `CuotaTotal` es `0.00` e `ImporteTotal` es la base.
+  - **Regresión**: el `contenido` de un alta S1 es idéntico, clave a clave y en orden, al de antes del ajuste (fijado como literal en el test).
+  - Adaptar el test de las líneas 118 a 124: `OperacionExenta` no aparece en un detalle S1.
+  - `app/domain/exenciones.py` expone `04`, `E6` y la mención literal de FR-052.
+- [ ] T086 [P] Tests del IBAN en `backend/tests/unit/domain/test_iban.py`, en tabla (R-22):
+  - Válidos: `ES9121000418450200051332` y `DE89370400440532013000`.
+  - Se normalizan: `es91 2100 0418 4502 0005 1332` → `ES9121000418450200051332`.
+  - Se rechazan, cada uno con su motivo: dígito de control erróneo (`…1333`), ES con 23 o 25 caracteres, ES con letras en la parte numérica, sin código de país, menos de 15 o más de 34 caracteres y caracteres no alfanuméricos.
+- [ ] T087 [P] [US1] Tests de integración en `backend/tests/integration/test_configuracion_facturacion.py` (R-20, R-22, R-23):
+  - **IVA**:
+    - 22 sin confirmar → 422 `tipo-iva-sin-confirmar` con `tipos_oficiales`, y no se guarda nada.
+    - Con `confirmar_tipo_iva: true` → 200. La auditoría lleva el cambio y `tipo_iva_fuera_de_lista: true`.
+    - Con 22 ya guardado, cambiar solo el emisor no pide confirmación. Pasar a 10 o a 21 tampoco.
+    - `"100"`, `"22.555"` y el número JSON `22` → 422 `validacion`.
+  - **Clave de régimen**: enviar `clave_regimen` → 422 (campo no admitido). La salida no la lleva y lleva `tipos_iva_oficiales`.
+  - **IBAN**:
+    - Uno válido con espacios y minúsculas se guarda normalizado.
+    - Uno erróneo → 422 en `emisor.iban`.
+    - Vacío → `null`, y no figura en `faltan`.
+    - El cambio de IBAN queda en la auditoría.
+  - Adaptar los tests que usaban `clave_regimen` y `tipo-iva-no-admitido` (líneas 59, 71 y 123 a 126).
+- [ ] T088 [P] [US2] Tests de integración en `backend/tests/integration/test_emision.py` (FR-052, FR-016, R-20, R-21):
+  - **`POST /v1/facturas` con `oro_inversion: true`** → 201:
+    - Salida: `oro_inversion: true`, `mencion_exencion` con el literal, líneas con `tipo_iva: null`, desglose `[{tipo_iva: null, base, cuota: "0.00"}]` e `importe_total` igual a la base.
+    - En la BD: `facturas.clave_regimen = '04'` y un desglose con `clave_regimen='04'`, `operacion_exenta='E6'` y `calificacion_operacion` NULL.
+    - El `contenido` del registro, con el detalle de T085.
+  - **Sin la bandera**: `01`/`S1` como antes.
+  - **IVA fuera de lista**: con el IVA de configuración a 5 o a 22, confirmado, se emite sin error. Sustituye el test de las líneas 228 a 237, que esperaba un rechazo por fecha.
+  - **IBAN**: se copia en `facturas.emisor_iban` y sale en `emisor.iban`. Cambiarlo después no altera la factura. Sin IBAN, `null`.
+  - **Parámetros**: `GET /v1/facturas/parametros` devuelve `mencion_exencion_oro_inversion`.
+- [ ] T089 [P] [US4] Tests de integración en `backend/tests/integration/test_borradores.py` (R-9, R-21):
+  - Un borrador con `oro_inversion: true` tiene cuota prevista 0 y total igual a la base, y su salida lleva `oro_inversion` y `mencion_exencion`.
+  - Editarlo cambia la bandera, y el diff de auditoría la incluye.
+  - Al emitirlo, la factura es exenta.
+  - Un borrador sin la bandera emite `01`/`S1`.
+- [ ] T090 [P] [US5] Tests de integración en `backend/tests/integration/test_correcciones.py` (R-4, R-9, R-21):
+  - **Sujeta → exenta** (US5-9): «ya entregada», causa `devolucion_o_precio` y `oro_inversion: true` → REC R1 con `04`/`E6` y la base y cuota rectificadas de la original.
+  - **Exenta → sujeta**: tipo de configuración y `01`/`S1`.
+  - **Reemisión exenta**: `no_debio_emitirse` con la bandera.
+  - **«Sin cambios»**:
+    - Mismas líneas y cliente, solo con la bandera cambiada → se admite.
+    - Exenta con las mismas líneas y la misma bandera → 422 `sin-cambios`.
+  - **Devolución total exenta**: detalle exento a 0.
+  - **Bandera obligatoria**: `ModificacionEntrada` sin `oro_inversion` → 422.
+  - Adaptar el test de las líneas 469 a 495, sobre el tipo 7,5 validado contra la fecha heredada: ya no se revalida al emitir.
+- [ ] T091 [P] [US3] Tests de integración en `backend/tests/integration/test_listado_facturas.py`: `oro_inversion` en `FacturaResumenSalida`, tanto para borradores como para facturas exentas y sujetas (FR-033).
+- [ ] T092 [P] [US6] ⚖️ Tests de integración en `backend/tests/integration/test_cadena_registros.py` y `test_verificar_cadena.py` (FR-031, SC-013):
+  - Una cadena que alterna facturas sujetas y exentas, con una rectificativa exenta y una anulación, sale íntegra.
+  - Alterar, con `DISABLE TRIGGER USER` como en el resto, la base de un desglose exento, su `operacion_exenta` o el `tipo_iva` de una línea exenta → se detecta la factura o el registro.
+- [ ] T093 [P] Tests en BD en `backend/tests/integration/test_facturacion_inalterable.py` (data-model, «Migración 0006»):
+  - La nueva `ck_desgloses_factura_calificacion` rechaza: exento con cuota > 0, exento con clave `01`, S1 con `E6`, S1 sin tipo, y detalle sin calificación ni exención.
+  - `uq_desgloses_factura_tipo` impide dos detalles exentos en una factura.
+  - `ck_configuracion_facturacion_iva` rechaza 100.
+  - `UPDATE` y `DELETE` siguen bloqueados en `facturas`, `lineas_factura` y `desgloses_factura`, también sobre las columnas nuevas.
+  - Adaptar las inserciones de `backend/tests/integration/facturacion_sql.py` y `facturacion_datos.py`: sin la clave en configuración, y con `orden` en el desglose.
+- [ ] T094 [P] Tests de la web en `joyeriablanco_web/src/` (ui-rutas, «IVA por defecto», «IBAN» y «Sin IVA»):
+  - **Fixtures**: en `test/facturas.ts`, `oro_inversion`, `mencion_exencion`, `emisor.iban` y `tipos_iva_oficiales`.
+  - **`features/configuracion/FacturacionPage.test.tsx`**:
+    - Campo de IVA libre con «%», aviso mientras se escribe 22 y mensaje de fuera de rango.
+    - Un 422 `tipo-iva-sin-confirmar` abre el diálogo. «Guardar igualmente» reenvía con `confirmar_tipo_iva: true`, y «Cancelar» no reenvía.
+    - No hay clave de régimen, y el cuerpo del `PUT` no la lleva.
+    - Campo IBAN, agrupado de cuatro en cuatro al salir del campo, con el error del servidor en el campo.
+  - **`lib/dinero.test.ts`**: `calcularTotales` con tipo `null`, con cuota 0 y total igual a la base.
+  - **`features/facturas/FacturaModal.test.tsx`**:
+    - La casilla «Sin IVA (oro de inversión)» cambia la previsualización a «Base exenta 7.450,00 €», «IVA 0,00 €» y total 7.450,00 €, con la mención de los parámetros.
+    - El `POST` lleva `oro_inversion: true`.
+  - **`FacturaModal.borrador.test.tsx`**: carga la bandera, el `PUT` la envía y no hay aviso de cambio de IVA en un borrador exento.
+  - **`FacturaModal.consulta.test.tsx`**:
+    - Consulta de una exenta: la mención y el bloque «Pago» con el IBAN agrupado. Sin IBAN no hay bloque.
+    - «Modificar» precarga la bandera de la original y el cuerpo la envía.
+  - **`MotivoModificacionDialog.test.tsx`**: el aviso de IVA distinto solo aparece si la original y la corrección van con IVA.
+  - **`FacturasPage.test.tsx`**: «Exenta» en la columna del IVA.
+
+### Implementación
+
+- [ ] T095 Dominio puro (hace pasar T084 a T086):
+  - **`backend/app/domain/exenciones.py`**: nuevo, con `CLAVE_REGIMEN_ORO_INVERSION = "04"` (L8A), `OPERACION_EXENTA_OTROS = "E6"` (L10) y `MENCION_EXENCION_ORO_INVERSION`, con el docstring de fuentes de R-21.
+  - **`backend/app/domain/iban.py`**: nuevo, con `normalize_iban(texto) -> str` y `validate_iban(iban) -> str | None` (el motivo, como `validate_nif`). Sigue R-22.
+  - **`backend/app/domain/importes.py`**:
+    - `LineaCalculo.tipo_iva` y `DesgloseTipo.tipo_iva` pasan a `Decimal | None`, y `compute_totals(…, tipo_iva_por_defecto: Decimal | None)`. El grupo exento lleva cuota 0 y va después de los sujetos al ordenar.
+    - El comentario de `TIPOS_IVA_S1` pasa a decir «informativa» (R-20).
+  - **`backend/app/domain/registro.py`**:
+    - `DetalleDesglose` (clave, calificación, exención, tipo, base y cuota) sustituye a `DatosAlta.clave_regimen` y a los `DesgloseTipo` del alta.
+    - `_detalle` con la rama exenta.
+    - Se actualiza el docstring de campos no informados.
+  - **`backend/app/domain/tipos.py`**: se retira `CLAVES_REGIMEN_L8A` si queda sin uso y se mantiene `CLAVE_REGIMEN_GENERAL`.
+- [ ] T096 Migración y modelos (hace pasar T093):
+  - **`backend/alembic/versions/0006_iva_libre_oro_iban.py`**: SQL a mano, solo DDL, en el orden de data-model («Migración 0006»), con el `downgrade` que nunca falla por los datos (bloque `DO`).
+  - **Modelos**:
+    - `backend/app/models/configuracion_facturacion.py`: sin `clave_regimen` y con `emisor_iban`.
+    - `backend/app/models/factura.py`:
+      - `LineaFactura.tipo_iva` opcional.
+      - `DesgloseFactura`: PK `(factura_id, orden)`, `tipo_iva` y `calificacion_operacion` opcionales, y `operacion_exenta`.
+      - `Factura.emisor_iban`, y la relación `desgloses` ordenada por `orden`.
+    - `backend/app/models/borrador_factura.py`: `oro_inversion`.
+  - Probar a mano `alembic downgrade 0005 && alembic upgrade head` sobre la BD de desarrollo con facturas.
+- [ ] T097 [US1] Configuración (hace pasar T087):
+  - **`backend/app/core/errors.py`**: `TipoIvaSinConfirmar` (422 `tipo-iva-sin-confirmar`, con `tipos_oficiales`) sustituye a `TipoIvaNoAdmitido`.
+  - **`backend/app/schemas/configuracion_facturacion.py`**:
+    - `DatosEmisorEntrada.iban` (máximo 42) y `DatosEmisorSalida.iban`.
+    - `ConfiguracionFacturacionEntrada.confirmar_tipo_iva: bool = False`, sin `clave_regimen`.
+    - `ConfiguracionFacturacionSalida.tipos_iva_oficiales`, sin `clave_regimen`.
+    - `ParametrosFacturacionSalida.mencion_exencion_oro_inversion`.
+  - **`backend/app/services/configuracion_facturacion.py`**:
+    - `_normalizar` con el IBAN y la regla de confirmación de R-20, que solo aplica si el tipo cambia.
+    - `CAMPOS_AUDITADOS` sin la clave y con `emisor_iban`.
+    - La marca `tipo_iva_fuera_de_lista` en el detalle de auditoría.
+    - `get_parametros` con la mención.
+  - **`backend/app/api/v1/configuracion.py`**: la correspondencia de la salida.
+- [ ] T098 [US2] Emisión (hace pasar T088):
+  - **`backend/app/services/emision.py`**:
+    - `DatosFactura.oro_inversion`, y `create_factura(…, oro_inversion)` con `tipo_iva=None` si es exenta.
+    - `facturas.clave_regimen` y la del desglose: `01` o `04`. El desglose con `orden`, y S1 o `E6`.
+    - `emisor_iban` copiado.
+    - Se retira `is_rate_allowed` y `TipoIvaNoAdmitido`.
+    - `_tipo_iva_de` pasa a devolver el tratamiento (`Decimal | None`).
+  - **`backend/app/services/cadena.py`**: `datos_alta` construye los `DetalleDesglose` desde las filas de `desgloses_factura` (R-21).
+  - **`backend/app/schemas/factura.py`**:
+    - `FacturaEntrada.oro_inversion: bool = False`.
+    - `ModificacionEntrada.oro_inversion: bool`, obligatorio.
+    - `tipo_iva` opcional en `LineaSalida` y `DesgloseSalida`.
+    - `FacturaSalida.oro_inversion` y `mencion_exencion`.
+    - `FacturaResumenSalida.oro_inversion`.
+  - **`backend/app/api/v1/facturas.py`**: la serialización. `oro_inversion` es `clave_regimen == CLAVE_REGIMEN_ORO_INVERSION`, y la mención y el IBAN van en el emisor.
+  - **`backend/app/repositories/facturas.py`**: el listado lee la columna `oro_inversion` de la vista.
+- [ ] T099 [US4] Borradores (hace pasar T089):
+  - `backend/app/services/borradores.py`:
+    - `DatosBorrador.oro_inversion`.
+    - `_previstos(lineas, tipo | None)`.
+    - `_contenido` y `_contenido_nuevo` con la bandera.
+    - `_aplicar`.
+    - La emisión del borrador pasa la bandera.
+  - `backend/app/schemas/borrador.py`: `BorradorEntrada.oro_inversion: bool = False`, y `BorradorSalida.oro_inversion` y `mencion_exencion`.
+  - `backend/app/api/v1/borradores.py`: la correspondencia.
+- [ ] T100 [US5] Correcciones (hace pasar T090):
+  - En `backend/app/services/emision.py`:
+    - `DatosModificacion.oro_inversion`.
+    - `modify_factura` pasa la bandera a `create_factura`.
+    - `_sin_cambios` compara el tratamiento: exenta, o sujeta y a qué tipo.
+  - En `backend/app/api/v1/facturas.py`: la correspondencia de `ModificacionEntrada`.
+- [ ] T101 [US6] Integridad (hace pasar T092), en `backend/app/services/integridad.py`:
+  - `_problema_de_totales` con líneas de `tipo_iva` NULL.
+  - Coherencia: todas las líneas sin tipo si y solo si `clave_regimen = '04'`, con un único detalle exento.
+  - El `tipo_iva_por_defecto` sale del desglose guardado.
+- [ ] T102 [P] Datos de ejemplo en `backend/app/services/datos_ejemplo.py` (R-16):
+  - Configuración demo sin clave y con el IBAN `ES9121000418450200051332`.
+  - Al menos dos facturas de oro de inversión exentas («Lingote de oro 50 g», «Moneda de oro Krugerrand 1 oz») y un borrador exento.
+  - Adaptar `backend/tests/integration/test_datos_ejemplo.py` si cuenta tipos.
+- [ ] T103 Contrato y tipos:
+  - Pasar `backend/tests/integration/test_contrato_openapi.py`: no hay operaciones nuevas.
+  - Regenerar con `uv --directory backend run joyeria exportar-openapi` (actualiza `joyeriablanco_web/src/api/openapi.json`) y `npm run gen:api` en `joyeriablanco_web/` (`src/api/schema.gen.ts`).
+  - Revisar los alias de `joyeriablanco_web/src/api/tipos.ts`.
+- [ ] T104 [US1] Web de configuración (hace pasar su parte de T094):
+  - **`joyeriablanco_web/src/features/configuracion/FacturacionPage.tsx`**:
+    - IVA con `CampoDecimal` y sufijo «%», validado con zod de 0 a 99,99.
+    - Aviso contra `tipos_iva_oficiales` mientras se escribe.
+    - Diálogo de confirmación con `ConfirmDialog` ante el 422 `tipo-iva-sin-confirmar`, que reenvía con `confirmar_tipo_iva`.
+    - Se retira el `Select` de clave.
+    - Campo IBAN en «Datos del emisor», con `CAMPO_DEL_SERVIDOR['emisor.iban']`, `valoresIniciales` y `aCuerpo`.
+  - **`joyeriablanco_web/src/lib/facturacion.ts`**: se retira `CLAVES_REGIMEN`, y se añaden `formatearIban`, que agrupa de 4 en 4, y su test en `lib/facturacion.test.ts`.
+  - **`joyeriablanco_web/src/api/queries/configuracionFacturacion.ts`**: si hace falta, la confirmación en la mutación.
+- [ ] T105 [US2] Web del modal (hace pasar su parte de T094):
+  - **`joyeriablanco_web/src/lib/dinero.ts`**: `calcularTotales(lineas, tipo: bigint | null)`.
+  - **`joyeriablanco_web/src/features/facturas/factura-valores.ts`**: `oro_inversion` en el esquema zod, en los valores iniciales de nueva, borrador y modificar, y en los cuerpos.
+  - **`CamposFactura.tsx`**: `Casilla` «Sin IVA (oro de inversión)» antes de los totales, con el orden de foco de ui-rutas y a ancho completo en móvil.
+  - **`TotalesFactura.tsx`**: «Base exenta», «IVA 0,00 €» y la mención de `parametros.mencion_exencion_oro_inversion`, en `body-sm` `on-surface-variant`.
+  - **`FacturaModal.tsx`**: `AvisoCambioIva` solo en borradores sujetos.
+  - **`ModificarFacturaModal.tsx` y `MotivoModificacionDialog.tsx`**: se precarga la bandera, y el aviso de IVA distinto solo sale si las dos van con IVA.
+  - **`lib/facturacion.ts`**: `tipoIvaDe` devuelve `null` si es exenta.
+- [ ] T106 [US3] Web de la consulta y el listado (hace pasar su parte de T094):
+  - **`joyeriablanco_web/src/features/facturas/FacturaConsulta.tsx`**:
+    - La mención junto a los totales si `mencion_exencion` no es `null`.
+    - El bloque «Pago» con el IBAN agrupado si `emisor.iban` no es `null` (FR-053, ui-rutas).
+    - Los totales con «Base exenta».
+  - **`TablaFacturas.tsx`**: «Exenta» en la columna del IVA si `oro_inversion`. Las tarjetas de móvil no cambian.
+- [ ] T107 E2E en `joyeriablanco_web/e2e/`:
+  - **`configuracion-facturacion.spec.ts`**:
+    - IVA: 22 → aviso → diálogo → confirmar → guardado → vuelta a 21 sin diálogo. Ya no se usan las opciones del `Select`.
+    - IBAN: uno erróneo y otro válido, agrupado.
+  - **`facturas.spec.ts`**:
+    - Nueva factura de lingote «Sin IVA», con la previsualización, la emisión, la consulta con la mención y el IBAN, y el listado con «Exenta».
+    - Rectificación a exenta de una factura de lingote con IVA (US5-9).
+  - **`teclado.spec.ts`**: orden de foco con la casilla.
+  - **`responsive.spec.ts`**: modal con la casilla marcada a 360 px, sin desplazamiento horizontal.
+- [ ] T108 Documentación:
+  - `specs/002-facturas/quickstart.md`: validaciones 18 a 22 con su resultado, y la tabla «Resultado de la validación» ampliada.
+  - `README.md`, si describe la configuración de facturación: IVA libre, IBAN y oro de inversión.
+  - Marcar T084 a T108 en este `tasks.md`.
+- [ ] T109 Puertas de calidad y verificación final:
+  - Backend: `uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest`. Incluye los tests ⚖️ de numeración bajo concurrencia, que no cambian.
+  - Web: `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens` y `npx playwright test`.
+  - A mano en desarrollo (quickstart 22): con datos anteriores al ajuste, `alembic upgrade head`, `joyeria verificar-cadena` íntegra, emitir las facturas de los pasos 20 y 21, y `verificar-cadena` íntegra otra vez.
+  - Revisión de conformidad con DESIGN.md (SC-009).
+
+**Checkpoint**: ajuste de cierre completo, con todos los tests en verde.
+
 ---
 
 ## Dependencies & Execution Order
@@ -580,6 +808,10 @@ anterior al 28/10/2024 y una corrección anterior a su fecha de operación.
 - **US5 (F7)**: depende de US2. Sus marcas en el listado dependen de US3.
 - **US6 (F8)**: depende de F2. Tiene más sentido con US5, por las anulaciones en la cadena.
 - **Polish (F9)**: depende de todas.
+- **Cambio (F10)**: depende de F9.
+- **Ajuste de cierre (F11)**: depende de F10.
+  - Orden: tests T084–T094 → T095 (dominio) → T096 (migración y modelos) → T097 a T101 (servicios, API e integridad) → T102 y T103 → web T104 a T106 → T107 → T108 y T109.
+  - Los tests T084–T094 van en paralelo, y T102 en paralelo con T104–T106.
 
 ### Within Each User Story
 
