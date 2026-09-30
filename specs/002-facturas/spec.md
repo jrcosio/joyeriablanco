@@ -506,7 +506,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
     - **Aviso**: si el tipo no está entre los que las validaciones oficiales permiten en la fecha
       actual para una operación sujeta y no exenta (F-3 §15.1; hoy 0, 4, 10 y 21), el sistema lo
       avisa y NO DEBE guardarlo sin una confirmación expresa del administrador. La exigencia de
-      confirmación la aplica el servidor, no solo la pantalla.
+      confirmación la aplica el servidor, no solo la pantalla. La auditoría del cambio (FR-003)
+      deja constancia de que se confirmó un tipo fuera de la lista.
     - Emitir nunca se bloquea por el tipo (FR-013).
   - **Datos del emisor**: razón social o nombre y apellidos, NIF y domicilio completo (dirección,
     código postal, localidad y provincia), exigidos por F-6, art. 6.1.c, d y e.

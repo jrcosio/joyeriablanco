@@ -63,7 +63,9 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
   - Mientras hay una petición en curso, el botón está deshabilitado.
 - **Después de cada acción**: lo que muestra la interfaz está descrito en la spec, FR-049.
 - **IVA por defecto** (FR-001, R-20; ajuste de cierre):
-  - El campo es un `CampoDecimal` con el sufijo «%» y admite la coma decimal.
+  - El campo es un `CampoDecimal` con el sufijo «%» y admite la coma decimal. Si el valor no es un
+    porcentaje de 0 a 99,99, el propio campo muestra «Escribe un porcentaje entre 0 y 99,99, con
+    dos decimales como mucho».
   - Si el valor escrito no está en `tipos_iva_oficiales`, un aviso bajo el campo lo dice mientras
     se escribe: «22 % no está entre los tipos que admite hoy la AEAT (0, 4, 10 y 21)».
   - Al guardar, si la API responde `422 tipo-iva-sin-confirmar`, se abre el diálogo «¿Guardar un
@@ -82,12 +84,15 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
   - El aviso de cambio de IVA del borrador no se muestra si el borrador es exento.
   - En el diálogo de motivo de «Modificar», el aviso de IVA distinto solo aparece si la original y
     la corrección van con IVA.
-  - El orden de tabulación es: líneas, «Añadir línea», la casilla y los botones del pie.
+  - El orden de tabulación es: líneas, «Añadir línea», la casilla y los botones del pie. Su nombre
+    accesible es la etiqueta visible.
+  - En móvil (menos de 768 px), la casilla ocupa todo el ancho encima de los totales y la mención
+    se parte en varias líneas, sin desplazamiento horizontal (FR-040, SC-008).
 - **Consulta de una factura emitida** (FR-053):
   - Si `mencion_exencion` no es `null`, se muestra junto a los totales.
   - Si `emisor.iban` no es `null`, se muestra un bloque «Pago» con «IBAN» y el número agrupado.
 - **Listado** (FR-033): en la columna del IVA, las filas con `oro_inversion` muestran «Exenta» en
-  lugar de la cuota.
+  lugar de la cuota. Las tarjetas de móvil no muestran el IVA (FR-049), así que tampoco la marca.
 - **Rol**: un empleado no ve «Anular», «Modificar» ni la pestaña Facturación. La API decide en
   cualquier caso (FR-023, FR-025).
 - **Historial** (FR-026): una sección plegable del modal de consulta con las correcciones y los
