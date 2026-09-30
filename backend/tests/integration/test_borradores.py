@@ -1,4 +1,7 @@
-"""Borradores de factura: guardar, editar, borrar y emitir (US4; FR-011, FR-019, FR-020; R-9)."""
+"""Borradores de factura: guardar, editar, borrar y emitir (US4; FR-011, FR-019, FR-020; R-9).
+
+Ajuste de cierre: borradores de oro de inversión sin IVA (FR-052, R-21).
+"""
 
 import uuid
 from datetime import date, timedelta
@@ -17,6 +20,7 @@ from app.repositories import configuracion_facturacion
 from tests.conftest import CrearUsuario, IniciarSesion, eventos
 from tests.integration.facturacion_datos import (
     LINEAS_CAPTURA,
+    LINGOTE,
     cabeceras,
     configurar_facturacion,
     crear_cliente,
@@ -50,7 +54,9 @@ def cuerpo(
     lineas: list[dict[str, str]] | None = None,
     fecha: date | None = None,
     version: int | None = None,
+    oro_inversion: bool | None = None,
 ) -> dict[str, Any]:
+    """Al crear, `oro_inversion` es opcional; al editar o emitir (con `version`), obligatoria."""
     datos: dict[str, Any] = {
         "fecha_expedicion": (fecha or hoy()).isoformat(),
         "cliente_id": str(cliente.id) if cliente else None,
@@ -58,6 +64,9 @@ def cuerpo(
     }
     if version is not None:
         datos["version"] = version
+        datos["oro_inversion"] = bool(oro_inversion)
+    elif oro_inversion is not None:
+        datos["oro_inversion"] = oro_inversion
     return datos
 
 
@@ -238,6 +247,71 @@ async def test_sin_sesion_no_hay_borradores(client: AsyncClient) -> None:
     assert (await client.get(f"{URL}/{uuid.uuid4()}")).status_code == 401
 
 
+# ------------------------------------------------ oro de inversión exento (FR-052, R-21)
+
+
+async def test_un_borrador_de_oro_de_inversion_va_sin_cuota(
+    client: AsyncClient, csrf: dict[str, str], maria: Cliente
+) -> None:
+    creado = await _crear(client, csrf, cuerpo(maria, lineas=LINGOTE, oro_inversion=True))
+
+    assert creado["oro_inversion"] is True
+    assert creado["mencion_exencion"] == (
+        "Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)"
+    )
+    assert creado["totales_previstos"] == {
+        "desglose": [{"tipo_iva": None, "base": "7450.00", "cuota": "0.00"}],
+        "base_total": "7450.00",
+        "cuota_total": "0.00",
+        "importe_total": "7450.00",
+    }
+    sin_casilla = await _crear(client, csrf, cuerpo(maria))
+    assert sin_casilla["oro_inversion"] is False
+    assert sin_casilla["mencion_exencion"] is None
+
+
+async def test_editar_la_casilla_se_audita_y_es_obligatoria(
+    client: AsyncClient, csrf: dict[str, str], maria: Cliente, db: AsyncSession
+) -> None:
+    creado = await _crear(client, csrf, cuerpo(maria, lineas=LINGOTE))
+
+    editado = await client.put(
+        f"{URL}/{creado['id']}",
+        json=cuerpo(maria, lineas=LINGOTE, version=1, oro_inversion=True),
+        headers=csrf,
+    )
+    sin_casilla = await client.put(
+        f"{URL}/{creado['id']}",
+        json={k: v for k, v in cuerpo(maria, version=2).items() if k != "oro_inversion"},
+        headers=csrf,
+    )
+
+    assert editado.status_code == 200, editado.text
+    assert editado.json()["oro_inversion"] is True
+    assert editado.json()["totales_previstos"]["cuota_total"] == "0.00"
+    [evento] = await eventos(db, TipoEvento.BORRADOR_FACTURA_EDITADO)
+    assert evento.detalle["cambios"]["oro_inversion"] == [False, True]
+    assert sin_casilla.status_code == 422
+    assert "oro_inversion" in {e["campo"] for e in sin_casilla.json()["errores"]}
+
+
+async def test_emitir_un_borrador_de_oro_de_inversion(
+    client: AsyncClient, empleada: tuple[Usuario, str], csrf: dict[str, str], maria: Cliente
+) -> None:
+    creado = await _crear(client, csrf, cuerpo(maria, lineas=LINGOTE, oro_inversion=True))
+
+    respuesta = await _emitir(
+        client,
+        empleada[1],
+        creado,
+        cuerpo(maria, lineas=LINGOTE, version=1, oro_inversion=True),
+    )
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["oro_inversion"] is True
+    assert respuesta.json()["totales"]["importe_total"] == "7450.00"
+
+
 # ------------------------------------------------------------------------------- emisión
 
 
@@ -279,7 +353,7 @@ async def test_la_clave_de_otra_operacion_es_un_conflicto(
     clave = uuid.uuid4()
     emitida = await client.post(
         "/api/v1/facturas",
-        json={k: v for k, v in cuerpo(maria).items() if k != "version"},
+        json=cuerpo(maria),
         headers=cabeceras(empleada[1], clave),
     )
     assert emitida.status_code == 201

@@ -25,8 +25,12 @@ D = Decimal
 IVA_21 = D("21")
 
 
-def _linea(unidades: str, precio: str, tipo: str = "21") -> LineaCalculo:
-    return LineaCalculo(unidades=D(unidades), precio_unitario=D(precio), tipo_iva=D(tipo))
+def _linea(unidades: str, precio: str, tipo: str | None = "21") -> LineaCalculo:
+    return LineaCalculo(
+        unidades=D(unidades),
+        precio_unitario=D(precio),
+        tipo_iva=None if tipo is None else D(tipo),
+    )
 
 
 # ------------------------------------------------------------------------------ redondeo
@@ -141,7 +145,7 @@ def test_superar_el_importe_maximo_se_rechaza() -> None:
 def test_ningun_resultado_es_float() -> None:
     totales = compute_totals([_linea("1", "1.10")], tipo_iva_por_defecto=IVA_21)
 
-    valores = [totales.base_total, totales.cuota_total, totales.importe_total]
+    valores: list[Decimal | None] = [totales.base_total, totales.cuota_total, totales.importe_total]
     valores += [v for d in totales.desglose for v in (d.tipo_iva, d.base, d.cuota)]
     assert all(isinstance(v, Decimal) for v in valores)
 
@@ -151,7 +155,55 @@ def test_no_se_admiten_floats_de_entrada() -> None:
         line_amount(1.1, D("1"))  # type: ignore[arg-type]
 
 
-# -------------------------------------------------------------------- tipos de IVA (F-3)
+# ------------------------------------------------ factura de oro de inversión exenta (R-21)
+
+
+def test_lingote_exento_sin_tipo_ni_cuota() -> None:
+    # 1 × 7.450,00 sin IVA: la base es el total (FR-052, US2-10).
+    totales = compute_totals([_linea("1", "7450.00", None)], tipo_iva_por_defecto=None)
+
+    assert [(d.tipo_iva, d.base, d.cuota) for d in totales.desglose] == [
+        (None, D("7450.00"), D("0.00"))
+    ]
+    assert totales.base_total == D("7450.00")
+    assert totales.cuota_total == D("0.00")
+    assert totales.importe_total == D("7450.00")
+
+
+def test_exenta_redondea_solo_el_importe_de_cada_linea() -> None:
+    # Misma política que las sujetas: medio céntimo de la línea alejándose de cero (0.125 → 0.13).
+    totales = compute_totals(
+        [_linea("0.5", "0.25", None), _linea("2", "1200.00", None)], tipo_iva_por_defecto=None
+    )
+
+    assert totales.base_total == D("2400.13")
+    assert totales.cuota_total == D("0.00")
+    assert totales.importe_total == D("2400.13")
+
+
+def test_devolucion_total_exenta_da_un_detalle_exento_a_cero() -> None:
+    totales = compute_totals([], tipo_iva_por_defecto=None)
+
+    assert [(d.tipo_iva, d.base, d.cuota) for d in totales.desglose] == [
+        (None, D("0.00"), D("0.00"))
+    ]
+    assert totales.importe_total == D("0.00")
+
+
+def test_el_detalle_exento_va_despues_de_los_sujetos() -> None:
+    # La factura nunca mezcla (FR-052), pero el dominio ordena igual si se le pide.
+    totales = compute_totals(
+        [_linea("1", "10.00", None), _linea("1", "100.00", "21")], tipo_iva_por_defecto=IVA_21
+    )
+
+    assert [(d.tipo_iva, d.cuota) for d in totales.desglose] == [
+        (D("21.00"), D("21.00")),
+        (None, D("0.00")),
+    ]
+    assert totales.importe_total == D("131.00")
+
+
+# ---------------------------------------------- tipos de IVA (F-3): lista informativa (R-20)
 
 
 @pytest.mark.parametrize("tipo", ["0", "4", "10", "21", "21.00"])

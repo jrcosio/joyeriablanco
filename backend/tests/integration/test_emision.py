@@ -19,7 +19,9 @@ from app.models import Cliente, RegistroFacturacion, Usuario
 from app.services import cadena
 from tests.conftest import CrearUsuario, IniciarSesion, eventos
 from tests.integration.facturacion_datos import (
+    IBAN_DEMO,
     LINEAS_CAPTURA,
+    LINGOTE,
     cabeceras,
     configurar_facturacion,
     crear_cliente,
@@ -69,6 +71,9 @@ async def test_emitir_asigna_numero_calcula_importes_y_genera_el_registro(
     }
     assert factura["emisor"]["nif"] == "B12345674"
     assert factura["emisor"]["provincia"] == "Cantabria"
+    assert factura["emisor"]["iban"] is None  # sin IBAN en la configuración (FR-053)
+    assert factura["oro_inversion"] is False
+    assert factura["mencion_exencion"] is None
     assert factura["cliente"]["nombre"] == "María López García"
     assert factura["cliente"]["direccion"] == "Calle Serrano, 45, 2.º A"
     assert factura["descripcion_operacion"] == "; ".join(
@@ -90,6 +95,15 @@ async def test_emitir_asigna_numero_calcula_importes_y_genera_el_registro(
         "IDDestinatario": [{"NombreRazon": "María López García", "NIF": "12345678Z"}]
     }
     assert contenido["ImporteTotal"] == "1560.90"
+    assert contenido["Desglose"]["DetalleDesglose"] == [
+        {
+            "ClaveRegimen": "01",
+            "CalificacionOperacion": "S1",
+            "TipoImpositivo": "21.00",
+            "BaseImponibleOimporteNoSujeto": "1290.00",
+            "CuotaRepercutida": "270.90",
+        }
+    ]
     (evento,) = await eventos(db, TipoEvento.FACTURA_EMITIDA)
     assert evento.detalle["num_serie"] == factura["num_serie"]
     assert evento.detalle["importe_total"] == "1560.90"
@@ -225,16 +239,110 @@ async def test_la_fecha_puede_ser_de_cualquier_anio_desde_la_orden(
     assert respuesta.json()["num_serie"] == f"FAC-{fecha.year}-0001"
 
 
-async def test_tipo_de_iva_no_admitido_en_la_fecha(
-    client: AsyncClient, empleada: tuple[Usuario, str], maria: Cliente, conexion: AsyncConnection
+@pytest.mark.parametrize(("tipo", "cuota"), [("5", "64.50"), ("22", "283.80")])
+async def test_un_tipo_fuera_de_la_lista_oficial_ya_no_impide_emitir(
+    client: AsyncClient,
+    empleada: tuple[Usuario, str],
+    maria: Cliente,
+    conexion: AsyncConnection,
+    tipo: str,
+    cuota: str,
 ) -> None:
-    # La BD admite el 5 % (CHECK con la lista completa de F-3), pero solo hasta el 30/09/2024.
-    await conexion.execute(text("UPDATE configuracion_facturacion SET iva_por_defecto = 5"))
+    # R-20: la lista de F-3 §15.1 es informativa; el administrador ya confirmó el tipo al
+    # configurarlo y emitir nunca se bloquea por él (FR-001, FR-013).
+    await conexion.execute(
+        text("UPDATE configuracion_facturacion SET iva_por_defecto = :t"), {"t": tipo}
+    )
 
     respuesta = await _emitir(client, empleada[1], cuerpo_factura(maria.id))
 
-    assert respuesta.status_code == 422
-    assert respuesta.json()["type"] == "/problemas/tipo-iva-no-admitido"
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["totales"]["cuota_total"] == cuota
+
+
+# ------------------------------------------------ oro de inversión exento (FR-052, R-21)
+
+
+async def test_emitir_una_factura_de_oro_de_inversion_sin_iva(
+    client: AsyncClient,
+    empleada: tuple[Usuario, str],
+    maria: Cliente,
+    db: AsyncSession,
+    conexion: AsyncConnection,
+) -> None:
+    respuesta = await _emitir(
+        client, empleada[1], cuerpo_factura(maria.id, lineas=LINGOTE, oro_inversion=True)
+    )
+
+    assert respuesta.status_code == 201, respuesta.text
+    factura = respuesta.json()
+    assert factura["oro_inversion"] is True
+    assert factura["mencion_exencion"] == (
+        "Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)"
+    )
+    assert [linea["tipo_iva"] for linea in factura["lineas"]] == [None]
+    assert factura["totales"] == {
+        "desglose": [{"tipo_iva": None, "base": "7450.00", "cuota": "0.00"}],
+        "base_total": "7450.00",
+        "cuota_total": "0.00",
+        "importe_total": "7450.00",
+    }
+    fila = (
+        await conexion.execute(
+            text(
+                "SELECT f.clave_regimen, d.clave_regimen, d.calificacion_operacion, "
+                "d.operacion_exenta, d.tipo_iva, d.orden FROM facturas f "
+                "JOIN desgloses_factura d ON d.factura_id = f.id WHERE f.id = :id"
+            ),
+            {"id": factura["id"]},
+        )
+    ).one()
+    assert tuple(fila) == ("04", "04", None, "E6", None, 1)
+    guardado = (await db.execute(select(RegistroFacturacion))).scalar_one()
+    assert guardado.contenido["Desglose"]["DetalleDesglose"] == [
+        {"ClaveRegimen": "04", "OperacionExenta": "E6", "BaseImponibleOimporteNoSujeto": "7450.00"}
+    ]
+    assert guardado.contenido["CuotaTotal"] == "0.00"
+    assert guardado.contenido["ImporteTotal"] == "7450.00"
+    assert cadena.recompute_huella(guardado) == guardado.huella
+
+
+async def test_sin_la_casilla_la_factura_va_con_iva_como_antes(
+    client: AsyncClient, empleada: tuple[Usuario, str], maria: Cliente
+) -> None:
+    respuesta = await _emitir(
+        client, empleada[1], cuerpo_factura(maria.id, lineas=LINGOTE, oro_inversion=False)
+    )
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["oro_inversion"] is False
+    assert respuesta.json()["totales"]["cuota_total"] == "1564.50"
+
+
+# ---------------------------------------------------------------- IBAN (FR-016, FR-053)
+
+
+async def test_el_iban_se_copia_al_emitir_y_no_cambia_despues(
+    client: AsyncClient, empleada: tuple[Usuario, str], maria: Cliente, db: AsyncSession
+) -> None:
+    await configurar_facturacion(db, iban=IBAN_DEMO)
+    emitida = (await _emitir(client, empleada[1], cuerpo_factura(maria.id))).json()
+    await configurar_facturacion(db, iban="DE89370400440532013000")
+
+    detalle = (await client.get(f"{URL}/{emitida['id']}")).json()
+
+    assert emitida["emisor"]["iban"] == IBAN_DEMO
+    assert detalle["emisor"]["iban"] == IBAN_DEMO
+
+
+async def test_los_parametros_llevan_la_mencion_de_la_exencion(
+    client: AsyncClient, empleada: tuple[Usuario, str]
+) -> None:
+    respuesta = await client.get(f"{URL}/parametros")
+
+    assert respuesta.json()["mencion_exencion_oro_inversion"] == (
+        "Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)"
+    )
 
 
 @pytest.mark.parametrize(

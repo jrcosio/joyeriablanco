@@ -4,9 +4,10 @@ Todo en UNA transacción (FR-021; F-8, art. 9: registro «simultáneo» a la exp
 
 1. Cerrojo de la cadena (R-6) y búsqueda de la clave de idempotencia (R-18).
 2. Comprobación previa de la cadena (F-10, art. 7.i).
-3. Validaciones: configuración (FR-004), cliente (FR-017), fecha (FR-018), líneas (FR-012) e IVA
-   (F-3 §15.1).
-4. Cálculo con la política única de `domain/importes.py` (R-10).
+3. Validaciones: configuración (FR-004), cliente (FR-017), fecha (FR-018) y líneas (FR-012). El
+   tipo de IVA ya no se revalida contra F-3 §15.1: se confirma al configurarlo (research R-20).
+4. Cálculo con la política única de `domain/importes.py` (R-10). Con `oro_inversion`, sin IVA:
+   líneas sin tipo, detalle exento con la clave 04 y la exención E6 (FR-052, R-21).
 5. Número con el contador bajo `SELECT … FOR UPDATE` (R-7).
 6. Factura con las copias del emisor y del destinatario (FR-016), líneas, desglose y registro de
    alta con su huella (R-3).
@@ -34,10 +35,10 @@ from app.core.errors import (
     IdempotenciaConflicto,
     NoEncontrado,
     SinCambios,
-    TipoIvaNoAdmitido,
 )
 from app.core.http import Origen
 from app.core.tiempo import hoy
+from app.domain.exenciones import CLAVE_REGIMEN_ORO_INVERSION, is_oro_inversion
 from app.domain.importes import (
     MAX_LINEAS,
     MAX_PRECIO,
@@ -45,16 +46,16 @@ from app.domain.importes import (
     ImporteFueraDeRango,
     LineaCalculo,
     compute_totals,
-    is_rate_allowed,
     line_amount,
 )
 from app.domain.numeracion import format_num_serie
 from app.domain.registro import (
-    CALIFICACION_SUJETA_NO_EXENTA,
     FECHA_MINIMA_EXPEDICION,
     build_descripcion_operacion,
+    detalle_desde,
 )
 from app.domain.tipos import (
+    CLAVE_REGIMEN_GENERAL,
     CausaRectificacion,
     EstadoFactura,
     MotivoModificacion,
@@ -92,6 +93,7 @@ class DatosFactura:
     fecha_expedicion: date
     cliente_id: uuid.UUID
     lineas: tuple[DatosLinea, ...]
+    oro_inversion: bool = False  # «Sin IVA (oro de inversión)» (FR-052)
 
 
 # ------------------------------------------------------------------------ validaciones
@@ -230,14 +232,18 @@ async def create_factura(
     operacion: OperacionIdempotente,
     origen_id: uuid.UUID | None,
     rectificacion: Rectificacion | None = None,
+    oro_inversion: bool = False,
 ) -> Factura:
-    """Expide una factura y su registro de alta. Exige el cerrojo de la cadena ya tomado."""
+    """Expide una factura y su registro de alta. Exige el cerrojo de la cadena ya tomado.
+
+    Con `oro_inversion`, toda la factura va sin IVA: líneas sin tipo y un único detalle exento
+    (clave 04, exención E6). Si no, el tipo de la configuración y la clave 01 (FR-013, R-21).
+    """
     serie = Serie.RECTIFICATIVA if rectificacion else Serie.ORDINARIA
     check_fecha_expedicion(fecha_expedicion, fecha_operacion=fecha_operacion)
     check_lineas(lineas, permitir_vacio=rectificacion is not None)
-    tipo_iva = config.iva_por_defecto
-    if not is_rate_allowed(tipo_iva, fecha_operacion or fecha_expedicion):
-        raise TipoIvaNoAdmitido
+    tipo_iva = None if oro_inversion else config.iva_por_defecto
+    clave_regimen = CLAVE_REGIMEN_ORO_INVERSION if oro_inversion else CLAVE_REGIMEN_GENERAL
     try:
         totales = compute_totals(
             [LineaCalculo(linea.unidades, linea.precio_unitario, tipo_iva) for linea in lineas],
@@ -279,9 +285,10 @@ async def create_factura(
         emisor_provincia=config.emisor_provincia.nombre_visible
         if config.emisor_provincia
         else None,
+        emisor_iban=config.emisor_iban,
         cliente_id=cliente.id,
         **_destinatario(cliente),
-        clave_regimen=config.clave_regimen,
+        clave_regimen=clave_regimen,
         modalidad=config.modalidad,
         base_total=totales.base_total,
         cuota_total=totales.cuota_total,
@@ -307,13 +314,15 @@ async def create_factura(
         ],
         [
             DesgloseFactura(
-                tipo_iva=d.tipo_iva,
-                clave_regimen=config.clave_regimen,
-                calificacion_operacion=CALIFICACION_SUJETA_NO_EXENTA,
-                base=d.base,
-                cuota=d.cuota,
+                orden=orden,
+                tipo_iva=detalle.tipo_iva,
+                clave_regimen=detalle.clave_regimen,
+                calificacion_operacion=detalle.calificacion_operacion,
+                operacion_exenta=detalle.operacion_exenta,
+                base=detalle.base,
+                cuota=detalle.cuota,
             )
-            for d in totales.desglose
+            for orden, detalle in enumerate(map(detalle_desde, totales.desglose), start=1)
         ],
     )
     await cadena.create_registro_alta(db, factura, rectificada=rectificada)
@@ -355,6 +364,7 @@ async def emit_factura(
         clave=clave,
         operacion=operacion,
         origen_id=origen_id,
+        oro_inversion=datos.oro_inversion,
     )
     await record_event(
         db,
@@ -389,6 +399,7 @@ class DatosModificacion:
     lineas: tuple[DatosLinea, ...]
     # De la factura nueva (FR-018); sin ella, la de hoy.
     fecha_expedicion: date | None = None
+    oro_inversion: bool = False  # «Sin IVA (oro de inversión)» (FR-052, R-21)
 
 
 async def find_previous_correccion(
@@ -429,7 +440,10 @@ def fecha_operacion_heredada(original: Factura) -> date:
     return original.fecha_operacion or original.fecha_expedicion
 
 
-def _tipo_iva_de(factura: Factura) -> Decimal:
+def _tipo_iva_de(factura: Factura) -> Decimal | None:
+    """El tratamiento del IVA de la factura: su tipo único o `None` si es de oro de inversión."""
+    if is_oro_inversion(factura.clave_regimen):
+        return None
     tipos = {linea.tipo_iva for linea in factura.lineas} or {d.tipo_iva for d in factura.desgloses}
     if len(tipos) != 1:
         msg = f"La factura {factura.num_serie} no tiene un único tipo de IVA"
@@ -438,10 +452,11 @@ def _tipo_iva_de(factura: Factura) -> Decimal:
 
 
 def _sin_cambios(
-    original: Factura, cliente: Cliente, lineas: tuple[DatosLinea, ...], tipo_iva: Decimal
+    original: Factura, cliente: Cliente, lineas: tuple[DatosLinea, ...], tipo_iva: Decimal | None
 ) -> bool:
     """¿Sería la rectificativa idéntica a la vigente? Se comparan el destinatario tal como se
-    copiaría, las líneas normalizadas y el tipo de IVA que se aplicaría (R-9)."""
+    copiaría, las líneas normalizadas y el tratamiento del IVA que se aplicaría: el tipo, o
+    `None` si va sin IVA por oro de inversión (R-9, R-21)."""
     destinatario = _destinatario(cliente)
     mismo_destinatario = original.cliente_id == cliente.id and all(
         getattr(original, campo) == valor for campo, valor in destinatario.items()
@@ -597,7 +612,8 @@ async def modify_factura(
         )
     config = emissible_config(await configuracion_repo.get(db))
     cliente = await billable_cliente(db, datos.cliente_id)
-    if not reemision and _sin_cambios(original, cliente, datos.lineas, config.iva_por_defecto):
+    tipo_nuevo = None if datos.oro_inversion else config.iva_por_defecto
+    if not reemision and _sin_cambios(original, cliente, datos.lineas, tipo_nuevo):
         raise SinCambios
 
     async def expedir(rectificacion: Rectificacion | None) -> Factura:
@@ -615,6 +631,7 @@ async def modify_factura(
             operacion=operacion,
             origen_id=original.id,
             rectificacion=rectificacion,
+            oro_inversion=datos.oro_inversion,
         )
 
     motivo_texto = datos.motivo_texto.strip()

@@ -139,12 +139,9 @@ class EstadoFactura(StrEnum):
     RECTIFICADA = "rectificada"
 
 
-# Lista L8A de DsRegistroVeriFactu.xlsx v1.0, hoja «6) Listas» (F-1): claves de régimen cuando
-# el impuesto es el IVA. Esta feature usa la 01 («Operación de régimen general»), configurable.
-CLAVES_REGIMEN_L8A: Final = (
-    "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "14", "15", "17", "18",
-    "19", "20",
-)  # fmt: skip
+# Lista L8A de DsRegistroVeriFactu.xlsx v1.0, hoja «6) Listas» (F-1): «01 Operación de régimen
+# general». No se configura: la fija el sistema, salvo en el oro de inversión, que lleva la 04
+# (`domain/exenciones.py`; research R-21 y R-23).
 CLAVE_REGIMEN_GENERAL: Final = "01"
 
 

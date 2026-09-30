@@ -12,6 +12,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     Date,
     Integer,
     Numeric,
@@ -81,8 +82,8 @@ async def has_documentos(session: AsyncSession, cliente_id: uuid.UUID) -> bool:
 
 # --------------------------------------------------------------------------- listado (US3)
 
-# Vista de solo lectura de la migración 0005 (research R-12). Se declara con `table()` para no
-# registrarla en los metadatos del ORM.
+# Vista de solo lectura de la migración 0005, con `oro_inversion` desde la 0006 (research R-12 y
+# R-21). Se declara con `table()` para no registrarla en los metadatos del ORM.
 v_listado = table(
     "v_listado_facturas",
     column("tipo_documento", Text),
@@ -97,6 +98,7 @@ v_listado = table(
     column("total", Numeric(12, 2)),
     column("estado", Text),
     column("texto_busqueda", Text),
+    column("oro_inversion", Boolean),
 )
 
 
@@ -112,6 +114,7 @@ class FilaListado:
     cuota: Decimal
     total: Decimal
     estado: EstadoFactura
+    oro_inversion: bool
 
 
 def _filtros(*, q: str | None, anio: int | None, mes: int | None) -> list[ColumnElement[bool]]:
@@ -173,6 +176,7 @@ async def list_facturas(
             _v.cuota,
             _v.total,
             _v.estado,
+            _v.oro_inversion,
         )
         .where(*condiciones)
         .order_by(*_ORDENES[orden])
@@ -191,6 +195,7 @@ async def list_facturas(
             cuota=f.cuota,
             total=f.total,
             estado=EstadoFactura(f.estado),
+            oro_inversion=f.oro_inversion,
         )
         for f in await session.execute(stmt)
     ]

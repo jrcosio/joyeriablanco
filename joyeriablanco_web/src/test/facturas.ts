@@ -2,6 +2,9 @@ import { http, HttpResponse } from 'msw'
 import type { FacturaSalida, ParametrosFacturacionSalida } from '../api/tipos'
 import { server } from './msw'
 
+export const MENCION_ORO = 'Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)'
+export const IBAN_DEMO = 'ES9121000418450200051332'
+
 export const PARAMETROS: ParametrosFacturacionSalida = {
   iva_por_defecto: '21.00',
   emision_posible: true,
@@ -9,6 +12,7 @@ export const PARAMETROS: ParametrosFacturacionSalida = {
   proximo_numero: 'FAC-2026-0006',
   hoy: '2026-09-29',
   fecha_minima: '2024-10-28',
+  mencion_exencion_oro_inversion: MENCION_ORO,
 }
 
 /** La API responde a los parámetros del modal de factura y al listado de detrás (vacío). */
@@ -37,6 +41,7 @@ export function crearFactura(parcial: Partial<FacturaSalida> = {}): FacturaSalid
       direccion: 'Calle Mayor, 1',
       codigo_postal: '29001',
       localidad: 'Málaga',
+      iban: null,
       provincia: 'Málaga',
     },
     cliente: {
@@ -75,6 +80,8 @@ export function crearFactura(parcial: Partial<FacturaSalida> = {}): FacturaSalid
       cuota_total: '270.90',
       importe_total: '1560.90',
     },
+    oro_inversion: false,
+    mencion_exencion: null,
     descripcion_operacion: 'Anillo; Ajuste',
     rectifica_a: null,
     sustituye_a: null,
@@ -93,4 +100,33 @@ export function crearFactura(parcial: Partial<FacturaSalida> = {}): FacturaSalid
     ],
     ...parcial,
   }
+}
+
+/** Factura de oro de inversión sin IVA (FR-052): un lingote de 7.450,00 €, con el IBAN. */
+export function crearFacturaExenta(parcial: Partial<FacturaSalida> = {}): FacturaSalida {
+  const base = crearFactura()
+  return crearFactura({
+    num_serie: 'FAC-2026-0007',
+    emisor: { ...base.emisor, iban: IBAN_DEMO },
+    lineas: [
+      {
+        orden: 1,
+        unidades: '1.00',
+        descripcion: 'Lingote de oro 100 g',
+        precio_unitario: '7450.00',
+        tipo_iva: null,
+        importe: '7450.00',
+      },
+    ],
+    totales: {
+      desglose: [{ tipo_iva: null, base: '7450.00', cuota: '0.00' }],
+      base_total: '7450.00',
+      cuota_total: '0.00',
+      importe_total: '7450.00',
+    },
+    oro_inversion: true,
+    mencion_exencion: MENCION_ORO,
+    descripcion_operacion: 'Lingote de oro 100 g',
+    ...parcial,
+  })
 }

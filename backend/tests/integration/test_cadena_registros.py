@@ -103,8 +103,8 @@ async def _factura_con_desglose(conn: AsyncConnection, numero: int) -> uuid.UUID
     factura = await insertar_factura(conn, usuario, cliente, numero)
     await conn.execute(
         text(
-            "INSERT INTO desgloses_factura (factura_id, tipo_iva, clave_regimen, "
-            "calificacion_operacion, base, cuota) VALUES (:f, 21, '01', 'S1', 100, 21)"
+            "INSERT INTO desgloses_factura (factura_id, orden, tipo_iva, clave_regimen, "
+            "calificacion_operacion, base, cuota) VALUES (:f, 1, 21, '01', 'S1', 100, 21)"
         ),
         {"f": factura},
     )

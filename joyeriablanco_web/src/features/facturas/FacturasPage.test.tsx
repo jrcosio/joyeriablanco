@@ -19,6 +19,7 @@ function fila(parcial: Partial<FacturaResumenSalida> = {}): FacturaResumenSalida
     cuota: '270.90',
     total: '1560.90',
     estado: 'vigente',
+    oro_inversion: false,
     ...parcial,
   }
 }
@@ -61,6 +62,25 @@ describe('Listado de facturas (US3)', () => {
     expect(within(tabla).getByText('1.560,90 €')).toBeInTheDocument()
     expect(screen.queryByText('Estado')).toBeNull()
     expect(screen.queryByText(/Cobrada|Pendiente|Vencida/)).toBeNull()
+  })
+
+  it('en la columna del IVA, las de oro de inversión dicen «Exenta» (FR-033)', async () => {
+    conSesion(crearSesion())
+    conListado([
+      fila({
+        num_serie: 'FAC-2026-0007',
+        base: '7450.00',
+        cuota: '0.00',
+        total: '7450.00',
+        oro_inversion: true,
+      }),
+    ])
+    renderApp('/facturas')
+
+    const tabla = await screen.findByRole('table', { name: 'Listado de facturas' })
+    const filaExenta = (await within(tabla).findByText('FAC-2026-0007')).closest('tr')
+    expect(within(filaExenta as HTMLElement).getByText('Exenta')).toBeInTheDocument()
+    expect(within(filaExenta as HTMLElement).queryByText('0,00 €')).toBeNull()
   })
 
   it('marca borradores, anuladas y rectificadas junto al número', async () => {

@@ -40,19 +40,26 @@ class LineaFactura(UuidPkMixin, Base):
     unidades: Mapped[Decimal] = mapped_column(Numeric(9, 2))
     descripcion: Mapped[str] = mapped_column(String(500))
     precio_unitario: Mapped[Decimal] = mapped_column(Numeric(12, 2))
-    tipo_iva: Mapped[Decimal] = mapped_column(Numeric(5, 2))
+    # NULL en una factura de oro de inversión: exenta, sin tipo (research R-21)
+    tipo_iva: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     importe: Mapped[Decimal] = mapped_column(Numeric(12, 2))
 
 
 class DesgloseFactura(Base):
-    """Totales agregados por tipo de IVA (constitución II)."""
+    """Totales agregados por tipo de IVA (constitución II): un `DetalleDesglose` de F-1.
+
+    Sujeto (`S1`, con tipo) o exento (`OperacionExenta` `E6` y clave `04`, sin tipo y con cuota
+    0), según el CHECK `ck_desgloses_factura_calificacion` de la migración 0006 (R-21).
+    """
 
     __tablename__ = "desgloses_factura"
 
     factura_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("facturas.id"), primary_key=True)
-    tipo_iva: Mapped[Decimal] = mapped_column(Numeric(5, 2), primary_key=True)
+    orden: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    tipo_iva: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     clave_regimen: Mapped[str] = mapped_column(CHAR(2))
-    calificacion_operacion: Mapped[str] = mapped_column(CHAR(2))
+    calificacion_operacion: Mapped[str | None] = mapped_column(CHAR(2))
+    operacion_exenta: Mapped[str | None] = mapped_column(CHAR(2))
     base: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     cuota: Mapped[Decimal] = mapped_column(Numeric(12, 2))
 
@@ -80,6 +87,7 @@ class Factura(UuidPkMixin, Base):
     emisor_codigo_postal: Mapped[str] = mapped_column(CHAR(5))
     emisor_localidad: Mapped[str] = mapped_column(String(100))
     emisor_provincia: Mapped[str | None] = mapped_column(String(100))
+    emisor_iban: Mapped[str | None] = mapped_column(String(34))  # NULL antes de la 0006 (R-22)
     # Copia del destinatario al emitir (FR-016)
     cliente_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("clientes.id"))
     dest_nombre: Mapped[str] = mapped_column(String(120))
@@ -91,7 +99,7 @@ class Factura(UuidPkMixin, Base):
     dest_localidad: Mapped[str] = mapped_column(String(100))
     dest_provincia: Mapped[str | None] = mapped_column(String(100))
     dest_pais: Mapped[str] = mapped_column(CHAR(2))
-    clave_regimen: Mapped[str] = mapped_column(CHAR(2))
+    clave_regimen: Mapped[str] = mapped_column(CHAR(2))  # 01, o 04 si es de oro de inversión
     modalidad: Mapped[str] = mapped_column(String(20))
     base_total: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     cuota_total: Mapped[Decimal] = mapped_column(Numeric(12, 2))
@@ -107,6 +115,6 @@ class Factura(UuidPkMixin, Base):
         order_by=LineaFactura.orden, lazy="selectin", viewonly=True
     )
     desgloses: Mapped[list[DesgloseFactura]] = relationship(
-        order_by=DesgloseFactura.tipo_iva, lazy="selectin", viewonly=True
+        order_by=DesgloseFactura.orden, lazy="selectin", viewonly=True
     )
     emitida_por: Mapped[Usuario] = relationship(lazy="joined", viewonly=True)

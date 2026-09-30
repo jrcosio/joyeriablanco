@@ -104,10 +104,10 @@ Medición del 2026-09-29, en el equipo de desarrollo con la pila de E2E en Docke
 | Emisión de una factura (100 por la API) | mediana 7 ms, p95 9 ms, máximo 27 ms | p95 < 1000 ms (plan) |
 | `verificar-cadena` sobre 20.107 registros | íntegra, 12,6 s | — |
 
-## Resultado de la validación (2026-09-29)
+## Resultado de la validación (2026-09-29; ajuste de cierre, 2026-09-30)
 
-Las 17 validaciones de §2 se cubren con pruebas automáticas que pasan en verde; algunas se
-repitieron además a mano sobre la pila de desarrollo.
+Las 22 validaciones de §2 se cubren con pruebas automáticas que pasan en verde; algunas se
+repitieron además a mano sobre la pila de desarrollo. Las 18 a 22 son las del ajuste de cierre.
 
 | # | Cómo se ha validado |
 |---|---|
@@ -129,6 +129,11 @@ repitieron además a mano sobre la pila de desarrollo.
 | 15 | `test_emision.py` y `test_borradores.py` (`cliente-con-documentos`, con factura o con borrador) |
 | 16 | A mano en desarrollo: tras la migración 0005 y los datos de ejemplo, «Cadena íntegra (57 registros).», código 0. Automatizado en `test_verificar_cadena.py` |
 | 17 | E2E `acciones-visibles.spec.ts` (360 a 1536 px, página completa) y `responsive.spec.ts` (modal a pantalla completa en móvil) |
+| 18 | E2E `configuracion-facturacion.spec.ts`: aviso con 22, diálogo, confirmación y vuelta a 21 sin diálogo. `test_configuracion_facturacion.py`: 422 `tipo-iva-sin-confirmar` sin confirmar, `tipo_iva_fuera_de_lista` en la auditoría y sin nueva confirmación al guardar otros campos. `FacturacionPage.test.tsx`: aviso, rango y diálogo |
+| 19 | E2E `configuracion-facturacion.spec.ts` (IBAN erróneo rechazado en el campo y el bueno agrupado), `test_iban.py` (tabla ISO 13616 / MOD 97-10) y `test_configuracion_facturacion.py` (normalizado, opcional y auditado) |
+| 20 | E2E `facturas.spec.ts` («oro de inversión sin IVA»: previsualización, mención, consulta con el bloque «Pago» y «Exenta» en el listado), `test_emision.py` (`04`/`E6` en la BD y en el `contenido` del registro) y `test_registro.py` (detalle exento exacto y en el orden de F-1) |
+| 21 | E2E `facturas.spec.ts` («rectificar a exenta un lingote»: R1 exenta) y `test_correcciones.py` (sujeta ↔ exenta, reemisión exenta, devolución total exenta, «sin cambios» y casilla obligatoria) |
+| 22 | A mano el 2026-09-30. En la BD de desarrollo, con 59 registros anteriores al ajuste: `alembic upgrade head` (0005 → 0006) y `verificar-cadena` dan «Cadena íntegra (59 registros).». En la BD de E2E, tras la suite completa con 4 facturas de oro de inversión (2 de los datos demo, 1 emitida y 1 rectificativa exenta), da «Cadena íntegra (72 registros).». Automatizado en `test_verificar_cadena.py` (cadena mixta y alteraciones de una exenta) |
 
 **Inalterabilidad (SC-005)**, a mano en desarrollo: el `UPDATE` como `jb_app` da «permission
 denied for table facturas» y el `DELETE` como `jb_owner`, «Los documentos de facturación emitidos

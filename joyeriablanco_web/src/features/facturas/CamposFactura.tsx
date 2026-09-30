@@ -5,6 +5,7 @@ import { Form } from 'react-aria-components'
 import type { ParametrosFacturacionSalida } from '../../api/tipos'
 import { Button } from '../../components/ui/Button'
 import { CampoFecha } from '../../components/ui/CampoFecha'
+import { Casilla } from '../../components/ui/Casilla'
 import { calcularTotales, desdeApi } from '../../lib/dinero'
 import { fechaCorta } from '../../lib/fechas'
 import { ClienteAltaPanel } from '../clientes/ClienteAltaPanel'
@@ -43,17 +44,31 @@ function SoloLectura({
   )
 }
 
-/** Totales previstos en el navegador (R-11). Tras guardar mandan los del servidor. */
+/**
+ * Totales previstos en el navegador (R-11). Tras guardar mandan los del servidor. Con «Sin IVA
+ * (oro de inversión)», sin tipo ni cuota y con la mención de la exención (FR-052).
+ */
 function Previsualizacion({
   form,
-  tipoIva,
+  parametros,
 }: {
   form: UseFormReturn<ValoresFactura>
-  tipoIva: string
+  parametros: ParametrosFacturacionSalida
 }) {
   const lineas = useWatch({ control: form.control, name: 'lineas' })
-  const totales = calcularTotales(lineasCalculo(lineas), desdeApi(tipoIva))
-  return <TotalesFactura {...totales} tipoIva={tipoIva} />
+  const exenta = useWatch({ control: form.control, name: 'oro_inversion' })
+  const tipoIva = exenta ? null : parametros.iva_por_defecto
+  const totales = calcularTotales(
+    lineasCalculo(lineas),
+    tipoIva === null ? null : desdeApi(tipoIva),
+  )
+  return (
+    <TotalesFactura
+      {...totales}
+      tipoIva={tipoIva}
+      mencion={exenta ? parametros.mencion_exencion_oro_inversion : null}
+    />
+  )
 }
 
 /**
@@ -178,7 +193,22 @@ export function CamposFactura({
           />
         </Seccion>
 
-        <Previsualizacion form={form} tipoIva={parametros.iva_por_defecto} />
+        <div className="flex flex-col gap-4">
+          <Controller
+            control={control}
+            name="oro_inversion"
+            render={({ field }) => (
+              <Casilla
+                isSelected={field.value}
+                onChange={field.onChange}
+                className="w-full md:ml-auto md:max-w-sm"
+              >
+                Sin IVA (oro de inversión)
+              </Casilla>
+            )}
+          />
+          <Previsualizacion form={form} parametros={parametros} />
+        </div>
         {despues}
       </Form>
 

@@ -171,7 +171,9 @@ export function FacturaDetalle({ factura }: { factura: FacturaSalida }) {
         base={desdeApi(factura.totales.base_total)}
         cuota={desdeApi(factura.totales.cuota_total)}
         total={desdeApi(factura.totales.importe_total)}
-        tipoIva={desglose?.tipo_iva ?? '0.00'}
+        tipoIva={factura.oro_inversion ? null : (desglose?.tipo_iva ?? '0.00')}
+        mencion={factura.mencion_exencion}
+        iban={factura.emisor.iban}
       />
       <HistorialFactura factura={factura} />
     </div>

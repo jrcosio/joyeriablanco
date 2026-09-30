@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Response, status
 
 from app.api.deps import CurrentSession, DbDep, OrigenDep, get_current_session
 from app.api.v1.facturas import REPETICION, ClaveIdempotencia, datos_lineas, factura_salida
+from app.domain.exenciones import MENCION_EXENCION_ORO_INVERSION
 from app.domain.importes import line_amount
 from app.models.borrador_factura import BorradorFactura
 from app.schemas.borrador import (
@@ -32,6 +33,7 @@ def _datos(entrada: BorradorEntrada) -> servicio.DatosBorrador:
         fecha_expedicion=entrada.fecha_expedicion,
         cliente_id=entrada.cliente_id,
         lineas=datos_lineas(entrada.lineas),
+        oro_inversion=entrada.oro_inversion,
     )
 
 
@@ -69,10 +71,12 @@ def _salida(borrador: BorradorFactura) -> BorradorSalida:
             )
             for linea in borrador.lineas
         ],
+        oro_inversion=borrador.oro_inversion,
+        mencion_exencion=MENCION_EXENCION_ORO_INVERSION if borrador.oro_inversion else None,
         totales_previstos=TotalesSalida(
             desglose=[
                 DesgloseSalida(
-                    tipo_iva=borrador.tipo_iva_previsto,
+                    tipo_iva=None if borrador.oro_inversion else borrador.tipo_iva_previsto,
                     base=borrador.base_prevista,
                     cuota=borrador.cuota_prevista,
                 )

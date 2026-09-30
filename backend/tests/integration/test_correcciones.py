@@ -20,7 +20,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.core.errors import FacturaNoModificable, TipoIvaNoAdmitido
+from app.core.errors import FacturaNoModificable
 from app.core.http import Origen
 from app.core.security import hash_password
 from app.core.tiempo import hoy
@@ -37,6 +37,7 @@ from app.services import cadena, emision
 from tests.conftest import CrearUsuario, IniciarSesion, eventos
 from tests.integration.facturacion_datos import (
     LINEAS_CAPTURA,
+    LINGOTE,
     cabeceras,
     configurar_facturacion,
     crear_cliente,
@@ -72,10 +73,18 @@ async def maria(db: AsyncSession, admin: tuple[Usuario, str]) -> Cliente:
 
 
 async def _emitir(
-    client: AsyncClient, csrf: str, cliente: Cliente, *, fecha: date | None = None
+    client: AsyncClient,
+    csrf: str,
+    cliente: Cliente,
+    *,
+    fecha: date | None = None,
+    lineas: list[dict[str, str]] | None = None,
+    oro_inversion: bool | None = None,
 ) -> dict[str, Any]:
     respuesta = await client.post(
-        URL, json=cuerpo_factura(cliente.id, fecha=fecha), headers=cabeceras(csrf)
+        URL,
+        json=cuerpo_factura(cliente.id, fecha=fecha, lineas=lineas, oro_inversion=oro_inversion),
+        headers=cabeceras(csrf),
     )
     assert respuesta.status_code == 201, respuesta.text
     return dict(respuesta.json())
@@ -108,6 +117,7 @@ async def _modificar(
     lineas: list[dict[str, str]] | None = None,
     clave: uuid.UUID | None = None,
     fecha: date | None = None,
+    oro_inversion: bool = False,
 ) -> Any:
     cuerpo: dict[str, Any] = {
         "motivo": motivo,
@@ -115,6 +125,7 @@ async def _modificar(
         "motivo_texto": "El cliente pidió otra talla",
         "cliente_id": str(cliente.id),
         "lineas": LINEAS_CAPTURA if lineas is None else lineas,
+        "oro_inversion": oro_inversion,  # obligatoria al modificar (R-21)
     }
     if fecha is not None:
         cuerpo["fecha_expedicion"] = fecha.isoformat()
@@ -465,32 +476,187 @@ async def test_la_rectificativa_valida_causa_y_lineas(
     assert respuesta.json()["errores"][0]["campo"] == campo
 
 
-async def test_el_iva_se_valida_con_la_fecha_de_operacion(
+async def test_el_iva_ya_no_se_revalida_con_la_fecha_de_operacion(
     admin: tuple[Usuario, str], maria: Cliente, db: AsyncSession
 ) -> None:
-    """F-3 §15.1: el tipo se valida con FechaOperacion, que en una corrección es la heredada. El
-    7,5 % solo valía del 01/10/2024 al 31/12/2024."""
+    """R-20: la lista de F-3 §15.1 es informativa. Un 7,5 % confirmado en la configuración se
+    aplica aunque la fecha de la operación no esté en su ventana (01/10/2024–31/12/2024)."""
     config = await configuracion_facturacion.get(db, for_update=True)
     config.iva_por_defecto = Decimal("7.50")
     await db.flush()
     await db.refresh(maria, ["provincia"])  # en la API lo carga `billable_cliente`
     await registros.lock_chain(db)
-    comunes: dict[str, Any] = {
-        "config": config,
-        "cliente": maria,
-        "fecha_expedicion": hoy(),
-        "lineas": (emision.DatosLinea(Decimal(1), "Anillo", Decimal(100)),),
-        "actor": admin[0],
-        "operacion": OperacionIdempotente.MODIFICAR,
-        "origen_id": None,
+
+    factura = await emision.create_factura(
+        db,
+        config=config,
+        cliente=maria,
+        fecha_expedicion=hoy(),
+        fecha_operacion=None,
+        lineas=(emision.DatosLinea(Decimal(1), "Anillo", Decimal(100)),),
+        actor=admin[0],
+        clave=uuid.uuid4(),
+        operacion=OperacionIdempotente.MODIFICAR,
+        origen_id=None,
+    )
+
+    assert factura.cuota_total == Decimal("7.50")
+
+
+# --------------------------------------------- oro de inversión exento (FR-052, R-4, R-21)
+
+
+async def test_rectificar_a_exenta_un_lingote_facturado_con_iva(
+    client: AsyncClient, csrf: str, maria: Cliente, db: AsyncSession
+) -> None:
+    # US5-9: el lingote se facturó con IVA por error; R1 «IVA mal aplicado», ahora exenta.
+    original = await _emitir(client, csrf, maria, lineas=LINGOTE)
+    assert original["totales"]["importe_total"] == "9014.50"
+
+    respuesta = await _modificar(
+        client,
+        csrf,
+        original,
+        maria,
+        motivo="factura_entregada",
+        causa="devolucion_o_precio",
+        lineas=LINGOTE,
+        oro_inversion=True,
+    )
+
+    assert respuesta.status_code == 201, respuesta.text
+    rec = respuesta.json()
+    assert rec["num_serie"] == f"REC-{ANIO}-0001"
+    assert rec["tipo_factura"] == "R1"
+    assert rec["oro_inversion"] is True
+    assert rec["totales"]["desglose"] == [{"tipo_iva": None, "base": "7450.00", "cuota": "0.00"}]
+    assert rec["totales"]["importe_total"] == "7450.00"
+    assert rec["rectifica_a"]["base_rectificada"] == "7450.00"
+    assert rec["rectifica_a"]["cuota_rectificada"] == "1564.50"
+    assert (await _detalle(client, original))["estado"] == "rectificada"
+    alta = (await _cadena(db))[-1]
+    assert alta.contenido["Desglose"]["DetalleDesglose"] == [
+        {"ClaveRegimen": "04", "OperacionExenta": "E6", "BaseImponibleOimporteNoSujeto": "7450.00"}
+    ]
+
+
+async def test_rectificar_a_sujeta_una_factura_exenta(
+    client: AsyncClient, csrf: str, maria: Cliente
+) -> None:
+    original = await _emitir(client, csrf, maria, lineas=LINGOTE, oro_inversion=True)
+
+    respuesta = await _modificar(
+        client,
+        csrf,
+        original,
+        maria,
+        motivo="factura_entregada",
+        causa="error_datos",
+        lineas=LINGOTE,
+        oro_inversion=False,
+    )
+
+    assert respuesta.status_code == 201, respuesta.text
+    rec = respuesta.json()
+    assert rec["oro_inversion"] is False
+    assert rec["totales"]["desglose"] == [
+        {"tipo_iva": "21.00", "base": "7450.00", "cuota": "1564.50"}
+    ]
+    assert rec["rectifica_a"]["cuota_rectificada"] == "0.00"
+
+
+async def test_reemitir_como_exenta(client: AsyncClient, csrf: str, maria: Cliente) -> None:
+    original = await _emitir(client, csrf, maria, lineas=LINGOTE)
+
+    respuesta = await _modificar(
+        client,
+        csrf,
+        original,
+        maria,
+        motivo="no_debio_emitirse",
+        lineas=LINGOTE,
+        oro_inversion=True,
+    )
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["num_serie"].startswith(f"FAC-{ANIO}-")
+    assert respuesta.json()["oro_inversion"] is True
+    assert (await _detalle(client, original))["estado"] == "anulada"
+
+
+async def test_la_casilla_cuenta_como_cambio_pero_la_misma_exenta_no(
+    client: AsyncClient, csrf: str, maria: Cliente
+) -> None:
+    exenta = await _emitir(client, csrf, maria, lineas=LINGOTE, oro_inversion=True)
+
+    identica = await _modificar(
+        client,
+        csrf,
+        exenta,
+        maria,
+        motivo="factura_entregada",
+        causa="error_datos",
+        lineas=LINGOTE,
+        oro_inversion=True,
+    )
+    solo_la_casilla = await _modificar(
+        client,
+        csrf,
+        exenta,
+        maria,
+        motivo="factura_entregada",
+        causa="devolucion_o_precio",
+        lineas=LINGOTE,
+        oro_inversion=False,
+    )
+
+    assert identica.status_code == 422
+    assert identica.json()["type"] == "/problemas/sin-cambios"
+    assert solo_la_casilla.status_code == 201, solo_la_casilla.text
+
+
+async def test_devolucion_total_de_una_factura_exenta(
+    client: AsyncClient, csrf: str, maria: Cliente
+) -> None:
+    exenta = await _emitir(client, csrf, maria, lineas=LINGOTE, oro_inversion=True)
+
+    respuesta = await _modificar(
+        client,
+        csrf,
+        exenta,
+        maria,
+        motivo="factura_entregada",
+        causa="devolucion_o_precio",
+        lineas=[],
+        oro_inversion=True,
+    )
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["totales"] == {
+        "desglose": [{"tipo_iva": None, "base": "0.00", "cuota": "0.00"}],
+        "base_total": "0.00",
+        "cuota_total": "0.00",
+        "importe_total": "0.00",
     }
 
-    with pytest.raises(TipoIvaNoAdmitido):
-        await emision.create_factura(db, fecha_operacion=None, clave=uuid.uuid4(), **comunes)
-    factura = await emision.create_factura(
-        db, fecha_operacion=date(2024, 11, 15), clave=uuid.uuid4(), **comunes
+
+async def test_modificar_exige_la_casilla(client: AsyncClient, csrf: str, maria: Cliente) -> None:
+    original = await _emitir(client, csrf, maria)
+
+    respuesta = await client.post(
+        f"{URL}/{original['id']}/modificacion",
+        json={
+            "motivo": "factura_entregada",
+            "causa": "error_datos",
+            "motivo_texto": "Sin la casilla",
+            "cliente_id": str(maria.id),
+            "lineas": OTRAS_LINEAS,
+        },
+        headers=cabeceras(csrf),
     )
-    assert factura.cuota_total == Decimal("7.50")
+
+    assert respuesta.status_code == 422
+    assert "oro_inversion" in {e["campo"] for e in respuesta.json()["errores"]}
 
 
 # -------------------------------------------------------------------- sobre rectificativas

@@ -37,7 +37,7 @@ actual:
 | **Clientes** | ✅ | Búsqueda sin tildes, filtros, indicadores y NIF validado según las reglas oficiales de la AEAT |
 | **Usuarios y roles** | ✅ | Administrador y empleado; alta con contraseña temporal; desactivación y eliminación |
 | **Auditoría** | ✅ | Registro inalterable de accesos y cambios, que se puede consultar desde la aplicación |
-| **Facturas y registro Verifactu** | ✅ | Borradores y emisión en un modal, numeración correlativa sin huecos, registro de alta con huella SHA-256 encadenada e inalterable, anulación y rectificativas trazables, y comprobación de la cadena |
+| **Facturas y registro Verifactu** | ✅ | Borradores y emisión en un modal, numeración correlativa sin huecos, registro de alta con huella SHA-256 encadenada e inalterable, anulación y rectificativas trazables, y comprobación de la cadena. IVA por defecto configurable a cualquier tipo, venta de oro de inversión sin IVA e IBAN del emisor en la factura |
 | **PDF con QR y remisión a la AEAT** | 🔜 | PDF de la factura con el QR de cotejo (003) y envío o firma de los registros (004) |
 | **Presupuestos** | 🔜 | Presupuestos con conversión a factura |
 

@@ -43,8 +43,9 @@ export function MotivoModificacionDialog({
   esRectificativa: boolean
   /** Número previsto de la factura que sustituye en una reemisión. */
   proximoNumero: string
-  ivaOriginal: string | undefined
-  ivaVigente: string
+  /** Tipo de la original y de la corrección; `null` si van sin IVA por oro de inversión. */
+  ivaOriginal: string | null
+  ivaVigente: string | null
   enviando: boolean
   onConfirmar: (elegido: MotivoElegido) => void
 }) {
@@ -125,7 +126,7 @@ export function MotivoModificacionDialog({
               : `Se emitirá una factura rectificativa de la serie REC que sustituye a ${numSerie}, que quedará rectificada.`}
           </p>
         ) : null}
-        {ivaOriginal && ivaOriginal !== ivaVigente ? (
+        {ivaOriginal !== null && ivaVigente !== null && ivaOriginal !== ivaVigente ? (
           <p className="flex items-start gap-3 border border-warning/40 bg-warning/8 px-4 py-3 body-md text-on-surface">
             <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
             <span>

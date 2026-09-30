@@ -494,7 +494,11 @@ export interface components {
             /** Motivo Texto */
             motivo_texto: string;
         };
-        /** BorradorEdicionEntrada */
+        /**
+         * BorradorEdicionEntrada
+         * @description Editar y emitir: la casilla es obligatoria, para que omitirla no convierta en sujeto un
+         *     borrador exento (research R-21).
+         */
         BorradorEdicionEntrada: {
             /**
              * Fecha Expedicion
@@ -505,6 +509,11 @@ export interface components {
             cliente_id?: string | null;
             /** Lineas */
             lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             */
+            oro_inversion: boolean;
             /** Version */
             version: number;
         };
@@ -522,6 +531,12 @@ export interface components {
             cliente_id?: string | null;
             /** Lineas */
             lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             * @default false
+             */
+            oro_inversion: boolean;
         };
         /** BorradorSalida */
         BorradorSalida: {
@@ -540,6 +555,13 @@ export interface components {
             cliente: components["schemas"]["ClienteFacturaSalida"] | null;
             /** Lineas */
             lineas: components["schemas"]["LineaBorradorSalida"][];
+            /** Oro Inversion */
+            oro_inversion: boolean;
+            /**
+             * Mencion Exencion
+             * @description Mención de F-6, art. 6.1.j (FR-052)
+             */
+            mencion_exencion: string | null;
             totales_previstos: components["schemas"]["TotalesSalida"];
             /**
              * Tipo Iva Previsto
@@ -762,7 +784,10 @@ export interface components {
             actualizado_en: string;
             actualizado_por: components["schemas"]["UsuarioReferencia"];
         };
-        /** ConfiguracionFacturacionEntrada */
+        /**
+         * ConfiguracionFacturacionEntrada
+         * @description Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23).
+         */
         ConfiguracionFacturacionEntrada: {
             /** Version */
             version: number;
@@ -771,8 +796,11 @@ export interface components {
              * @example 21.00
              */
             iva_por_defecto: string;
-            /** Clave Regimen */
-            clave_regimen: string;
+            /**
+             * Confirmar Tipo Iva
+             * @default false
+             */
+            confirmar_tipo_iva: boolean;
             modalidad: components["schemas"]["Modalidad"] | null;
             emisor: components["schemas"]["DatosEmisorEntrada"];
         };
@@ -785,8 +813,6 @@ export interface components {
              * @example 21.00
              */
             iva_por_defecto: string;
-            /** Clave Regimen */
-            clave_regimen: string;
             modalidad: components["schemas"]["Modalidad"] | null;
             emisor: components["schemas"]["DatosEmisorSalida"];
             /** Emision Posible */
@@ -797,8 +823,11 @@ export interface components {
             proximo_numero: string;
             /** Modalidad Bloqueada */
             modalidad_bloqueada: boolean;
-            /** Tipos Iva Admitidos */
-            tipos_iva_admitidos: string[];
+            /**
+             * Tipos Iva Oficiales
+             * @description Lista de F-3 §15.1 para hoy. Solo para el aviso (research R-20)
+             */
+            tipos_iva_oficiales: string[];
             /**
              * Actualizado En
              * Format: date-time
@@ -841,6 +870,8 @@ export interface components {
             codigo_postal?: string | null;
             /** Localidad */
             localidad?: string | null;
+            /** Iban */
+            iban?: string | null;
         };
         /** DatosEmisorSalida */
         DatosEmisorSalida: {
@@ -854,16 +885,15 @@ export interface components {
             codigo_postal: string | null;
             /** Localidad */
             localidad: string | null;
+            /** Iban */
+            iban: string | null;
             /** Provincia */
             provincia: string | null;
         };
         /** DesgloseSalida */
         DesgloseSalida: {
-            /**
-             * Tipo Iva
-             * @example 21.00
-             */
-            tipo_iva: string;
+            /** Tipo Iva */
+            tipo_iva: string | null;
             /**
              * Base
              * @example 1290.00
@@ -923,6 +953,12 @@ export interface components {
             cliente_id: string;
             /** Lineas */
             lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             * @default false
+             */
+            oro_inversion: boolean;
         };
         /** FacturaReferencia */
         FacturaReferencia: {
@@ -976,6 +1012,8 @@ export interface components {
              */
             total: string;
             estado: components["schemas"]["EstadoFactura"];
+            /** Oro Inversion */
+            oro_inversion: boolean;
         };
         /** FacturaSalida */
         FacturaSalida: {
@@ -1002,6 +1040,13 @@ export interface components {
             /** Lineas */
             lineas: components["schemas"]["LineaSalida"][];
             totales: components["schemas"]["TotalesSalida"];
+            /** Oro Inversion */
+            oro_inversion: boolean;
+            /**
+             * Mencion Exencion
+             * @description Mención de F-6, art. 6.1.j (FR-052, FR-053)
+             */
+            mencion_exencion: string | null;
             /** Descripcion Operacion */
             descripcion_operacion: string;
             rectifica_a: components["schemas"]["RectificaA"] | null;
@@ -1084,11 +1129,8 @@ export interface components {
              * @example 1290.00
              */
             precio_unitario: string;
-            /**
-             * Tipo Iva
-             * @example 21.00
-             */
-            tipo_iva: string;
+            /** Tipo Iva */
+            tipo_iva: string | null;
             /**
              * Importe
              * @example 1290.00
@@ -1114,6 +1156,11 @@ export interface components {
             cliente_id: string;
             /** Lineas */
             lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             */
+            oro_inversion: boolean;
             /** Fecha Expedicion */
             fecha_expedicion?: string | null;
         };
@@ -1176,6 +1223,8 @@ export interface components {
             hoy: string;
             /** Fecha Minima */
             fecha_minima: string | null;
+            /** Mencion Exencion Oro Inversion */
+            mencion_exencion_oro_inversion: string;
         };
         /** ProvinciaSalida */
         ProvinciaSalida: {

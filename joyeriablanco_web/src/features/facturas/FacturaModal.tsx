@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { ApiError } from '../../api/client'
 import {
   borradorQuery,
@@ -114,6 +114,8 @@ function FormularioFactura({
     defaultValues: borrador ? valoresDelBorrador(borrador) : valoresIniciales(parametros.hoy),
   })
   const { formState, setError: marcar } = form
+  // Un borrador de oro de inversión no lleva IVA: el aviso de cambio de tipo no aplica (FR-052).
+  const oroInversion = useWatch({ control: form.control, name: 'oro_inversion' })
   // Se lee al renderizar para que react-hook-form lo mantenga al día (su `formState` es un proxy).
   const sucio = formState.isDirty
   const ocupado =
@@ -285,7 +287,7 @@ function FormularioFactura({
         onNombreCliente={setNombreCliente}
         onSubmit={() => void pedirEmision()}
         antes={
-          tipoIvaPrevisto && tipoIvaPrevisto !== parametros.iva_por_defecto ? (
+          !oroInversion && tipoIvaPrevisto && tipoIvaPrevisto !== parametros.iva_por_defecto ? (
             <AvisoCambioIva previsto={tipoIvaPrevisto} vigente={parametros.iva_por_defecto} />
           ) : null
         }

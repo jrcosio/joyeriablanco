@@ -29,6 +29,13 @@ from app.schemas.importes import (
 from app.schemas.usuario import UsuarioReferencia
 
 Descripcion = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+OroInversion = Annotated[
+    bool,
+    Field(
+        description="«Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis "
+        "LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)"
+    ),
+]
 MotivoTexto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 
 
@@ -42,6 +49,7 @@ class FacturaEntrada(EntradaBase):
     fecha_expedicion: date
     cliente_id: uuid.UUID
     lineas: Annotated[list[LineaEntrada], Field(min_length=1, max_length=100)]
+    oro_inversion: OroInversion = False
 
 
 class AnulacionEntrada(EntradaBase):
@@ -56,6 +64,8 @@ class ModificacionEntrada(EntradaBase):
     motivo_texto: MotivoTexto
     cliente_id: uuid.UUID
     lineas: Annotated[list[LineaEntrada], Field(max_length=100)]
+    # Obligatoria: omitirla no puede convertir en sujeta una factura exenta (research R-21).
+    oro_inversion: OroInversion
     # De la factura nueva (FR-018). Sin ella, la de hoy.
     fecha_expedicion: date | None = None
 
@@ -68,12 +78,12 @@ class LineaSalida(SalidaBase):
     unidades: CantidadSalida
     descripcion: str
     precio_unitario: ImporteSalida
-    tipo_iva: TipoIvaSalida
+    tipo_iva: TipoIvaSalida | None  # null en una factura de oro de inversión (R-21)
     importe: ImporteSalida
 
 
 class DesgloseSalida(SalidaBase):
-    tipo_iva: TipoIvaSalida
+    tipo_iva: TipoIvaSalida | None  # null en el detalle exento (R-21)
     base: ImporteSalida
     cuota: ImporteSalida
 
@@ -141,6 +151,10 @@ class FacturaSalida(SalidaBase):
     cliente: ClienteFacturaSalida
     lineas: list[LineaSalida]
     totales: TotalesSalida
+    oro_inversion: bool
+    mencion_exencion: Annotated[
+        str | None, Field(description="Mención de F-6, art. 6.1.j (FR-052, FR-053)")
+    ]
     descripcion_operacion: str
     rectifica_a: RectificaA | None
     sustituye_a: FacturaReferencia | None
@@ -164,3 +178,4 @@ class FacturaResumenSalida(SalidaBase):
     cuota: ImporteSalida
     total: ImporteSalida
     estado: EstadoFactura
+    oro_inversion: bool  # la web muestra «Exenta» en la columna del IVA (FR-033)

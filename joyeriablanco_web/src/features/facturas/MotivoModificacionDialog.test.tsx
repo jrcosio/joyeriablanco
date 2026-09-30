@@ -106,4 +106,17 @@ describe('Motivo de la modificación (FR-024)', () => {
       within(dialogo).getByText(/tiene un IVA del 10 %; la factura nueva se emitirá con el 21 %/),
     ).toBeInTheDocument()
   })
+
+  it.each([
+    [null, '21.00'],
+    ['21.00', null],
+    [null, null],
+  ])(
+    'no avisa del IVA si alguna va sin IVA por oro de inversión (%s → %s)',
+    (original, vigente) => {
+      const { dialogo } = abrir({ ivaOriginal: original, ivaVigente: vigente })
+
+      expect(within(dialogo).queryByText(/tiene un IVA del/)).toBeNull()
+    },
+  )
 })

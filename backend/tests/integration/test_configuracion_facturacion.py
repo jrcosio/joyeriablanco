@@ -1,4 +1,7 @@
-"""US1 — Configuración de facturación (FR-001 a FR-004, FR-010, FR-050; research R-5, R-7, R-19)."""
+"""US1 — Configuración de facturación (FR-001 a FR-004, FR-010, FR-050; research R-5, R-7, R-19).
+
+Ajuste de cierre: IVA libre con confirmación (R-20), IBAN (R-22) y sin clave de régimen (R-23).
+"""
 
 from typing import Any
 
@@ -38,9 +41,8 @@ def _cuerpo(actual: dict[str, Any], **cambios: Any) -> dict[str, Any]:
     cuerpo = {
         "version": actual["version"],
         "iva_por_defecto": actual["iva_por_defecto"],
-        "clave_regimen": actual["clave_regimen"],
         "modalidad": actual["modalidad"],
-        "emisor": {k: actual["emisor"][k] for k in EMISOR},
+        "emisor": {k: actual["emisor"][k] for k in (*EMISOR, "iban")},
     }
     cuerpo.update(cambios)
     return cuerpo
@@ -56,7 +58,7 @@ async def test_valores_iniciales_y_faltan_los_datos_del_emisor(
     assert respuesta.status_code == 200, respuesta.text
     datos = respuesta.json()
     assert datos["iva_por_defecto"] == "21.00"
-    assert datos["clave_regimen"] == "01"
+    assert "clave_regimen" not in datos  # la fija el sistema (R-23)
     assert datos["modalidad"] is None
     assert all(v is None for k, v in datos["emisor"].items())
     assert datos["emision_posible"] is False
@@ -68,7 +70,7 @@ async def test_valores_iniciales_y_faltan_los_datos_del_emisor(
         "emisor.codigo_postal",
         "emisor.localidad",
     }
-    assert datos["tipos_iva_admitidos"] == ["0.00", "4.00", "10.00", "21.00"]
+    assert datos["tipos_iva_oficiales"] == ["0.00", "4.00", "10.00", "21.00"]
     assert datos["modalidad_bloqueada"] is False
     assert datos["proximo_numero"] == f"FAC-{hoy().year}-0001"
 
@@ -120,10 +122,12 @@ async def test_guardar_la_configuracion_completa_y_auditarla(
 @pytest.mark.parametrize(
     ("cambio", "tipo", "campo"),
     [
-        ({"iva_por_defecto": "22"}, "tipo-iva-no-admitido", None),
-        ({"iva_por_defecto": "5"}, "tipo-iva-no-admitido", None),  # solo hasta 30/09/2024
         ({"iva_por_defecto": 21}, "validacion", "iva_por_defecto"),  # número JSON
-        ({"clave_regimen": "12"}, "validacion", "clave_regimen"),  # no está en L8A
+        ({"iva_por_defecto": "100"}, "validacion", "iva_por_defecto"),  # de 0 a 99,99
+        ({"iva_por_defecto": "22.555"}, "validacion", "iva_por_defecto"),
+        ({"clave_regimen": "01"}, "validacion", "clave_regimen"),  # ya no se admite (R-23)
+        ({"emisor": {**EMISOR, "iban": "ES9121000418450200051333"}}, "validacion", "emisor.iban"),
+        ({"emisor": {**EMISOR, "iban": "ES91210004184502"}}, "validacion", "emisor.iban"),
         ({"modalidad": "otra"}, "validacion", "modalidad"),
         ({"emisor": {**EMISOR, "nif": "12345678A"}}, "validacion", "emisor.nif"),
         ({"emisor": {**EMISOR, "codigo_postal": "53000"}}, "validacion", "emisor.codigo_postal"),
@@ -190,6 +194,108 @@ async def test_la_modalidad_se_bloquea_cuando_ya_hay_registros(
     assert cambio.status_code == 409
     assert cambio.json()["type"] == "/problemas/modalidad-bloqueada"
     assert otro_campo.status_code == 200  # el resto sí se puede cambiar
+
+
+# ------------------------------------------- IVA libre con confirmación (R-20, SC-012)
+
+
+@pytest.mark.parametrize(("tipo", "guardado"), [("22", "22.00"), ("5", "5.00"), ("12.5", "12.50")])
+async def test_un_tipo_fuera_de_la_lista_oficial_exige_confirmacion(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+    tipo: str,
+    guardado: str,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+
+    sin_confirmar = await client.put(
+        URL, json=_cuerpo(actual, iva_por_defecto=tipo), headers=cabeceras
+    )
+
+    assert sin_confirmar.status_code == 422, sin_confirmar.text
+    problema = sin_confirmar.json()
+    assert problema["type"] == "/problemas/tipo-iva-sin-confirmar"
+    assert problema["tipos_oficiales"] == ["0.00", "4.00", "10.00", "21.00"]
+    assert (await client.get(URL)).json()["iva_por_defecto"] == "21.00"  # nada guardado
+
+    confirmado = await client.put(
+        URL,
+        json=_cuerpo(actual, iva_por_defecto=tipo, confirmar_tipo_iva=True),
+        headers=cabeceras,
+    )
+
+    assert confirmado.status_code == 200, confirmado.text
+    assert confirmado.json()["iva_por_defecto"] == guardado
+    (evento,) = await eventos(db, TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA)
+    assert evento.detalle["cambios"]["iva_por_defecto"][0] == "21.00"
+    assert evento.detalle["tipo_iva_fuera_de_lista"] is True
+
+
+async def test_la_confirmacion_solo_se_pide_si_el_tipo_cambia(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+    con_22 = (
+        await client.put(
+            URL,
+            json=_cuerpo(actual, iva_por_defecto="22", confirmar_tipo_iva=True),
+            headers=cabeceras,
+        )
+    ).json()
+
+    otro_campo = await client.put(URL, json=_cuerpo(con_22, emisor=EMISOR), headers=cabeceras)
+    vuelta_a_21 = await client.put(
+        URL, json=_cuerpo(otro_campo.json(), iva_por_defecto="21"), headers=cabeceras
+    )
+
+    assert otro_campo.status_code == 200, otro_campo.text
+    assert vuelta_a_21.status_code == 200, vuelta_a_21.text
+    ultimo = (await eventos(db, TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA))[-1]
+    assert "tipo_iva_fuera_de_lista" not in ultimo.detalle
+
+
+# ----------------------------------------------------------------------------- IBAN (R-22)
+
+
+async def test_iban_opcional_normalizado_y_auditado(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+    assert actual["emisor"]["iban"] is None
+
+    con_iban = await client.put(
+        URL,
+        json=_cuerpo(
+            actual,
+            modalidad="verifactu",
+            emisor={**EMISOR, "iban": " es91 2100 0418 4502 0005 1332 "},
+        ),
+        headers=cabeceras,
+    )
+    vacio = await client.put(
+        URL, json=_cuerpo(con_iban.json(), emisor={**EMISOR, "iban": ""}), headers=cabeceras
+    )
+
+    assert con_iban.status_code == 200, con_iban.text
+    assert con_iban.json()["emisor"]["iban"] == "ES9121000418450200051332"
+    assert con_iban.json()["faltan"] == []
+    assert vacio.status_code == 200, vacio.text
+    assert vacio.json()["emisor"]["iban"] is None
+    assert vacio.json()["faltan"] == []  # el IBAN nunca impide emitir (FR-004)
+    primero, segundo = await eventos(db, TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA)
+    assert primero.detalle["cambios"]["emisor_iban"] == [None, "ES9121000418450200051332"]
+    assert segundo.detalle["cambios"]["emisor_iban"] == ["ES9121000418450200051332", None]
 
 
 # ---------------------------------------------------------------------- contador (FR-010)
@@ -323,4 +429,7 @@ async def test_parametros_para_cualquier_usuario(
         "proximo_numero": f"FAC-{hoy().year}-0001",
         "hoy": hoy().isoformat(),
         "fecha_minima": "2024-10-28",  # F-3 §3.1.3.1 (FR-018)
+        "mencion_exencion_oro_inversion": (
+            "Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)"
+        ),
     }

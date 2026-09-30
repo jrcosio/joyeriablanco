@@ -17,6 +17,8 @@ from app.core.logging import RedactionFilter
 from app.domain.tipos import Rol
 from tests.conftest import CrearUsuario, IniciarSesion
 from tests.integration.facturacion_datos import (
+    IBAN_DEMO,
+    LINGOTE,
     NIF_MARIA,
     cabeceras,
     configurar_facturacion,
@@ -42,6 +44,10 @@ PROHIBIDOS = (
     "1.560",
     "1100",
     "1331",
+    # IBAN del emisor (R-22), completo y agrupado, y el importe del lingote exento.
+    IBAN_DEMO,
+    "ES91 2100",
+    "7450",
 )
 
 
@@ -73,8 +79,14 @@ async def test_emitir_corregir_y_buscar_no_deja_datos_personales_ni_importes(
 ) -> None:
     admin = await crear_usuario("admin.logs", rol=Rol.ADMINISTRADOR)
     csrf = await iniciar_sesion(client, "admin.logs")
-    await configurar_facturacion(db)
+    await configurar_facturacion(db, iban=IBAN_DEMO)
     maria = await crear_cliente(db, admin.id)
+    exenta = await client.post(
+        URL,
+        json=cuerpo_factura(maria.id, lineas=LINGOTE, oro_inversion=True),
+        headers=cabeceras(csrf),
+    )
+    assert exenta.status_code == 201, exenta.text
 
     emitida = (
         await client.post(URL, json=cuerpo_factura(maria.id), headers=cabeceras(csrf))
@@ -93,6 +105,7 @@ async def test_emitir_corregir_y_buscar_no_deja_datos_personales_ni_importes(
             "motivo_texto": "María pidió otra talla",
             "cliente_id": str(maria.id),
             "lineas": [{"unidades": "1", "descripcion": "Anillo", "precio_unitario": "1100"}],
+            "oro_inversion": False,
         },
         headers=cabeceras(csrf),
     )

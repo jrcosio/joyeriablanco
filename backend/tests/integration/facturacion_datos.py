@@ -18,12 +18,20 @@ from app.repositories import configuracion_facturacion
 NIF_MARIA = "12345678Z"
 
 
+IBAN_DEMO = "ES9121000418450200051332"
+
+
 async def configurar_facturacion(
-    db: AsyncSession, *, iva: str = "21", modalidad: str | None = "verifactu"
+    db: AsyncSession,
+    *,
+    iva: str = "21",
+    modalidad: str | None = "verifactu",
+    iban: str | None = None,
 ) -> None:
     config = await configuracion_facturacion.get(db, for_update=True)
     config.iva_por_defecto = Decimal(iva)
     config.modalidad = modalidad
+    config.emisor_iban = iban
     config.emisor_nombre = "Joyería Blanco, S.L."
     config.emisor_nif = "B12345674"
     config.emisor_direccion = "Calle Mayor, 1"
@@ -83,12 +91,22 @@ def cuerpo_factura(
     *,
     fecha: date | None = None,
     lineas: list[dict[str, Any]] | None = None,
+    oro_inversion: bool | None = None,
 ) -> dict[str, Any]:
-    return {
+    """Sin `oro_inversion`, el cuerpo es el de antes del ajuste de cierre (por defecto `false`)."""
+    cuerpo: dict[str, Any] = {
         "fecha_expedicion": (fecha or hoy()).isoformat(),
         "cliente_id": str(cliente_id),
         "lineas": LINEAS_CAPTURA if lineas is None else lineas,
     }
+    if oro_inversion is not None:
+        cuerpo["oro_inversion"] = oro_inversion
+    return cuerpo
+
+
+LINGOTE: list[dict[str, str]] = [
+    {"unidades": "1", "descripcion": "Lingote de oro 100 g", "precio_unitario": "7450.00"}
+]
 
 
 def cabeceras(csrf: str, clave: uuid.UUID | None = None) -> dict[str, str]:
@@ -127,7 +145,7 @@ async def limpiar_facturacion_confirmada(
             await conn.execute(text(f"ALTER TABLE {tabla} ENABLE TRIGGER USER"))
         await conn.execute(
             text(
-                "UPDATE configuracion_facturacion SET iva_por_defecto = 21, clave_regimen = '01', "
+                "UPDATE configuracion_facturacion SET iva_por_defecto = 21, emisor_iban = NULL, "
                 "modalidad = NULL, emisor_nombre = NULL, emisor_nif = NULL, "
                 "emisor_direccion = NULL, emisor_codigo_postal = NULL, emisor_localidad = NULL, "
                 "emisor_provincia_codigo = NULL"

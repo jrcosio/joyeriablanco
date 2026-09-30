@@ -13,9 +13,13 @@ XML se repiten (destinatarios, desglose, facturas rectificadas) van como listas.
 Campos opcionales que esta feature no informa (R-3): RefExterna, Subsanacion, RechazoPrevio,
 FacturaSimplificadaArt7273, FacturaSinIdentifDestinatarioArt61d, Macrodato,
 EmitidaPorTerceroODestinatario, Tercero, Cupon, Impuesto (su ausencia equivale a IVA, F-3 §15.1),
-OperacionExenta, BaseImponibleACoste, recargo de equivalencia, NumRegistroAcuerdoFacturacion,
+BaseImponibleACoste, recargo de equivalencia, NumRegistroAcuerdoFacturacion,
 IdAcuerdoSistemaInformatico y Signature (no VERI*FACTU: feature 004). En la anulación:
 SinRegistroPrevio, RechazoPrevio y GeneradoPor (R-4b).
+
+`CalificacionOperacion` y `OperacionExenta` son «obligatorios y alternativos» (F-1): el detalle
+sujeto lleva `S1`; el de oro de inversión, `ClaveRegimen 04` y `OperacionExenta E6`, sin
+`TipoImpositivo` ni `CuotaRepercutida` (F-3 §15.5 y §15.6.3; research R-21).
 """
 
 from collections.abc import Sequence
@@ -24,9 +28,10 @@ from datetime import date
 from decimal import Decimal
 from typing import Final
 
+from app.domain.exenciones import CLAVE_REGIMEN_ORO_INVERSION, OPERACION_EXENTA_OTROS
 from app.domain.huella import format_amount, format_date
 from app.domain.importes import DesgloseTipo
-from app.domain.tipos import TipoFactura, TipoIdentificacion
+from app.domain.tipos import CLAVE_REGIMEN_GENERAL, TipoFactura, TipoIdentificacion
 
 ID_VERSION: Final = "1.0"  # L15
 TIPO_HUELLA_SHA256: Final = "01"  # L12
@@ -130,6 +135,39 @@ class FacturaRectificada:
 
 
 @dataclass(frozen=True, slots=True)
+class DetalleDesglose:
+    """Un `DetalleDesglose` de F-1 (filas 39–45): sujeto (`S1`, con tipo y cuota) o exento
+    (`OperacionExenta`, sin tipo y con cuota 0). Es lo que guarda cada fila de
+    `desgloses_factura`."""
+
+    clave_regimen: str
+    base: Decimal
+    cuota: Decimal
+    tipo_iva: Decimal | None = None
+    calificacion_operacion: str | None = None
+    operacion_exenta: str | None = None
+
+
+def detalle_desde(desglose: DesgloseTipo) -> DetalleDesglose:
+    """Clave, calificación y exención de un detalle calculado: sin tipo, oro de inversión (R-21);
+    con tipo, régimen general y sujeta no exenta (R-3, R-23)."""
+    if desglose.tipo_iva is None:
+        return DetalleDesglose(
+            clave_regimen=CLAVE_REGIMEN_ORO_INVERSION,
+            base=desglose.base,
+            cuota=desglose.cuota,
+            operacion_exenta=OPERACION_EXENTA_OTROS,
+        )
+    return DetalleDesglose(
+        clave_regimen=CLAVE_REGIMEN_GENERAL,
+        base=desglose.base,
+        cuota=desglose.cuota,
+        tipo_iva=desglose.tipo_iva,
+        calificacion_operacion=CALIFICACION_SUJETA_NO_EXENTA,
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class DatosAlta:
     emisor: Emisor
     num_serie: str
@@ -138,8 +176,7 @@ class DatosAlta:
     fecha_operacion: date | None
     descripcion: str
     destinatario: Destinatario
-    clave_regimen: str
-    desglose: tuple[DesgloseTipo, ...]
+    desglose: tuple[DetalleDesglose, ...]
     cuota_total: Decimal
     importe_total: Decimal
     rectificada: FacturaRectificada | None
@@ -158,13 +195,24 @@ def _encadenamiento(anterior: RegistroAnterior | None) -> Contenido:
     }
 
 
-def _detalle(desglose: DesgloseTipo, clave_regimen: str) -> Contenido:
+def _detalle(detalle: DetalleDesglose) -> Contenido:
+    """En el orden de F-1: ClaveRegimen, CalificacionOperacion u OperacionExenta,
+    TipoImpositivo, BaseImponibleOimporteNoSujeto y CuotaRepercutida."""
+    if detalle.operacion_exenta is not None:
+        return {
+            "ClaveRegimen": detalle.clave_regimen,
+            "OperacionExenta": detalle.operacion_exenta,
+            "BaseImponibleOimporteNoSujeto": format_amount(detalle.base),
+        }
+    if detalle.calificacion_operacion is None or detalle.tipo_iva is None:
+        msg = "Un detalle sujeto necesita su calificación y su tipo"
+        raise ValueError(msg)
     return {
-        "ClaveRegimen": clave_regimen,
-        "CalificacionOperacion": CALIFICACION_SUJETA_NO_EXENTA,
-        "TipoImpositivo": format_amount(desglose.tipo_iva),
-        "BaseImponibleOimporteNoSujeto": format_amount(desglose.base),
-        "CuotaRepercutida": format_amount(desglose.cuota),
+        "ClaveRegimen": detalle.clave_regimen,
+        "CalificacionOperacion": detalle.calificacion_operacion,
+        "TipoImpositivo": format_amount(detalle.tipo_iva),
+        "BaseImponibleOimporteNoSujeto": format_amount(detalle.base),
+        "CuotaRepercutida": format_amount(detalle.cuota),
     }
 
 
@@ -208,7 +256,7 @@ def build_contenido_alta(
     contenido |= {
         "DescripcionOperacion": datos.descripcion,
         "Destinatarios": {"IDDestinatario": [datos.destinatario.bloque()]},
-        "Desglose": {"DetalleDesglose": [_detalle(d, datos.clave_regimen) for d in datos.desglose]},
+        "Desglose": {"DetalleDesglose": [_detalle(d) for d in datos.desglose]},
         "CuotaTotal": format_amount(datos.cuota_total),
         "ImporteTotal": format_amount(datos.importe_total),
         "Encadenamiento": _encadenamiento(anterior),

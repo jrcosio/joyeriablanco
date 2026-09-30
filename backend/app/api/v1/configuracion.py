@@ -25,7 +25,6 @@ def _salida(estado: servicio.EstadoConfiguracion) -> ConfiguracionFacturacionSal
     return ConfiguracionFacturacionSalida(
         version=config.version,
         iva_por_defecto=config.iva_por_defecto,
-        clave_regimen=config.clave_regimen,
         modalidad=config.modalidad,  # type: ignore[arg-type]
         emisor=DatosEmisorSalida(
             nombre=config.emisor_nombre,
@@ -33,13 +32,14 @@ def _salida(estado: servicio.EstadoConfiguracion) -> ConfiguracionFacturacionSal
             direccion=config.emisor_direccion,
             codigo_postal=config.emisor_codigo_postal,
             localidad=config.emisor_localidad,
+            iban=config.emisor_iban,
             provincia=config.emisor_provincia.nombre_visible if config.emisor_provincia else None,
         ),
         emision_posible=not estado.faltan,
         faltan=estado.faltan,
         proximo_numero=estado.proximo_numero,
         modalidad_bloqueada=estado.modalidad_bloqueada,
-        tipos_iva_admitidos=list(estado.tipos_iva_admitidos),
+        tipos_iva_oficiales=list(estado.tipos_iva_oficiales),
         actualizado_en=config.actualizado_en,
         actualizado_por=(
             UsuarioReferencia.from_model(config.actualizado_por) if config.actualizado_por else None

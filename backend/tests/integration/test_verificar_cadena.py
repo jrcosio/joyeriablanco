@@ -43,11 +43,15 @@ async def db_owner(conexion_owner: AsyncConnection) -> AsyncIterator[AsyncSessio
 
 @dataclass(frozen=True, slots=True)
 class Cadena:
-    """Registros: 1 alta de A, 2 alta de B, 3 anulación de A, 4 alta de la REC de B."""
+    """Registros: 1 alta de A, 2 alta de B, 3 anulación de A, 4 alta de la REC de B, 5 alta de
+    la exenta (oro de inversión, R-21), 6 alta de A2, con IVA, y 7 alta de su REC exenta
+    (US5-9). Mezcla facturas sujetas y exentas (SC-013)."""
 
     a: Factura
     b: Factura
     rec: Factura
+    exenta: Factura
+    rec_exenta: Factura
 
 
 @pytest.fixture
@@ -65,7 +69,7 @@ async def cadena_generada(db_owner: AsyncSession) -> Cadena:
     cliente = await crear_cliente(db_owner, admin.id)
     await db_owner.refresh(cliente, ["provincia"])
 
-    async def emitir(precio: str) -> Factura:
+    async def emitir(precio: str, *, oro_inversion: bool = False) -> Factura:
         factura, _ = await emision.emit_factura(
             db_owner,
             emision.DatosFactura(
@@ -75,6 +79,7 @@ async def cadena_generada(db_owner: AsyncSession) -> Cadena:
                     emision.DatosLinea(Decimal(1), "Anillo", Decimal(precio)),
                     emision.DatosLinea(Decimal(2), "Ajuste", Decimal(45)),
                 ),
+                oro_inversion=oro_inversion,
             ),
             actor=admin,
             origen=ORIGEN,
@@ -101,7 +106,24 @@ async def cadena_generada(db_owner: AsyncSession) -> Cadena:
         origen=ORIGEN,
         clave=uuid.uuid4(),
     )
-    return Cadena(a=a, b=b, rec=rec)
+    exenta = await emitir("7450", oro_inversion=True)
+    a2 = await emitir("3700")
+    rec_exenta, _ = await emision.modify_factura(
+        db_owner,
+        a2.id,
+        emision.DatosModificacion(
+            motivo=MotivoModificacion.FACTURA_ENTREGADA,
+            causa=CausaRectificacion.DEVOLUCION_O_PRECIO,
+            motivo_texto="IVA mal aplicado: oro de inversión",
+            cliente_id=cliente.id,
+            lineas=(emision.DatosLinea(Decimal(1), "Lingote de oro 50 g", Decimal(3700)),),
+            oro_inversion=True,
+        ),
+        actor=admin,
+        origen=ORIGEN,
+        clave=uuid.uuid4(),
+    )
+    return Cadena(a=a, b=b, rec=rec, exenta=exenta, rec_exenta=rec_exenta)
 
 
 async def _alterar(conn: AsyncConnection, tabla: str, sentencia: str, **params: object) -> None:
@@ -117,9 +139,9 @@ async def test_una_cadena_sin_alterar_es_integra(
     resultado = await integridad.verify_chain(db_owner)
 
     assert resultado.integra
-    assert resultado.registros == 4
+    assert resultado.registros == 7
     [evento] = await eventos(db_owner, TipoEvento.CADENA_VERIFICADA)
-    assert evento.detalle == {"registros": 4}
+    assert evento.detalle == {"registros": 7}
     assert evento.actor_nombre_usuario == "consola"
 
 
@@ -175,6 +197,65 @@ async def test_una_cadena_sin_alterar_es_integra(
     ids=["campo-de-la-huella", "linea", "desglose", "contenido", "destinatario", "total"],
 )
 async def test_cada_alteracion_se_detecta_y_se_senala_el_registro(
+    conexion_owner: AsyncConnection,
+    db_owner: AsyncSession,
+    cadena_generada: Cadena,
+    tabla: str,
+    sentencia: str,
+    factura: str,
+    secuencia: int,
+    motivo: str,
+) -> None:
+    await _alteracion_detectada(
+        conexion_owner, db_owner, cadena_generada, tabla, sentencia, factura, secuencia, motivo
+    )
+
+
+@pytest.mark.parametrize(
+    ("tabla", "sentencia", "factura", "secuencia", "motivo"),
+    [
+        (
+            "desgloses_factura",
+            "UPDATE desgloses_factura SET base = base + 1 WHERE factura_id = :f",
+            "exenta",
+            5,
+            "contenido",
+        ),
+        (
+            # Convertir el detalle exento en sujeto: el contenido del registro deja de cuadrar.
+            "desgloses_factura",
+            "UPDATE desgloses_factura SET operacion_exenta = NULL, calificacion_operacion = 'S1', "
+            "tipo_iva = 0, clave_regimen = '01' WHERE factura_id = :f",
+            "exenta",
+            5,
+            "contenido",
+        ),
+        (
+            "lineas_factura",
+            "UPDATE lineas_factura SET tipo_iva = 21 WHERE factura_id = :f AND orden = 1",
+            "rec_exenta",
+            7,
+            "tipo",
+        ),
+    ],
+    ids=["base-exenta", "exento-a-sujeto", "linea-exenta-con-tipo"],
+)
+async def test_las_alteraciones_de_una_factura_exenta_se_detectan(
+    conexion_owner: AsyncConnection,
+    db_owner: AsyncSession,
+    cadena_generada: Cadena,
+    tabla: str,
+    sentencia: str,
+    factura: str,
+    secuencia: int,
+    motivo: str,
+) -> None:
+    await _alteracion_detectada(
+        conexion_owner, db_owner, cadena_generada, tabla, sentencia, factura, secuencia, motivo
+    )
+
+
+async def _alteracion_detectada(
     conexion_owner: AsyncConnection,
     db_owner: AsyncSession,
     cadena_generada: Cadena,

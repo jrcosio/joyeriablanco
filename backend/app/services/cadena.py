@@ -31,10 +31,10 @@ from app.domain.huella import (
     format_date,
     format_timestamp,
 )
-from app.domain.importes import DesgloseTipo
 from app.domain.registro import (
     DatosAlta,
     Destinatario,
+    DetalleDesglose,
     Emisor,
     FacturaRectificada,
     RegistroAnterior,
@@ -179,9 +179,18 @@ def datos_alta(factura: Factura, rectificada: Factura | None = None) -> DatosAlt
             identificacion_tipo=factura.dest_identificacion_tipo,
             identificacion_numero=factura.dest_identificacion_numero,
         ),
-        clave_regimen=factura.clave_regimen,
+        # Clave, calificación y exención de cada fila del desglose, no de la cabecera (R-21): en
+        # las facturas anteriores al ajuste coinciden, así que el contenido se reconstruye igual.
         desglose=tuple(
-            DesgloseTipo(tipo_iva=d.tipo_iva, base=d.base, cuota=d.cuota) for d in factura.desgloses
+            DetalleDesglose(
+                clave_regimen=d.clave_regimen,
+                base=d.base,
+                cuota=d.cuota,
+                tipo_iva=d.tipo_iva,
+                calificacion_operacion=d.calificacion_operacion,
+                operacion_exenta=d.operacion_exenta,
+            )
+            for d in factura.desgloses
         ),
         cuota_total=factura.cuota_total,
         importe_total=factura.importe_total,

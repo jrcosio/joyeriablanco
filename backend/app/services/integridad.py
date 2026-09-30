@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.http import Origen
+from app.domain.exenciones import is_oro_inversion
 from app.domain.huella import format_date
 from app.domain.importes import LineaCalculo, compute_totals, line_amount
 from app.domain.registro import (
@@ -61,15 +62,18 @@ def _problema_de_totales(factura: Factura) -> str | None:
     for linea in factura.lineas:
         if linea.importe != line_amount(linea.unidades, linea.precio_unitario):
             return f"el importe de la línea {linea.orden} no resulta de sus unidades y su precio"
-    tipos = {d.tipo_iva for d in factura.desgloses}
-    if not tipos:
+    if not factura.desgloses:
         return "la factura no tiene desglose"
+    # Oro de inversión (R-21): todas las líneas sin tipo si y solo si la factura lleva la clave 04.
+    exenta = is_oro_inversion(factura.clave_regimen)
+    if any((linea.tipo_iva is None) != exenta for linea in factura.lineas):
+        return "el tipo de IVA de las líneas no corresponde al de la factura"
     totales = compute_totals(
         [LineaCalculo(li.unidades, li.precio_unitario, li.tipo_iva) for li in factura.lineas],
-        tipo_iva_por_defecto=min(tipos),
+        tipo_iva_por_defecto=factura.desgloses[0].tipo_iva,
     )
     esperado = [(d.tipo_iva, d.base, d.cuota) for d in totales.desglose]
-    guardado = sorted((d.tipo_iva, d.base, d.cuota) for d in factura.desgloses)
+    guardado = [(d.tipo_iva, d.base, d.cuota) for d in factura.desgloses]
     if guardado != esperado:
         return "el desglose no resulta de las líneas"
     if (factura.base_total, factura.cuota_total, factura.importe_total) != (

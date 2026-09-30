@@ -59,6 +59,7 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
     assert estado.faltan == []
     assert estado.config.modalidad == "verifactu"
     assert estado.config.emisor_nombre == "Joyería Blanco (demo)"
+    assert estado.config.emisor_iban == "ES9121000418450200051332"  # R-22
 
     todas = list(
         (
@@ -77,6 +78,11 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
         assert hoy_madrid - timedelta(days=182) < factura.fecha_expedicion <= hoy_madrid
         assert factura.importe_total > 0
         assert factura.dest_direccion is not None
+        assert factura.emisor_iban == "ES9121000418450200051332"
+    # Una de cada 25 es de oro de inversión, sin IVA (R-21): con 50, dos.
+    exentas = [f for f in todas if f.clave_regimen == "04"]
+    assert len(exentas) >= 2
+    assert all(f.cuota_total == 0 and f.importe_total == f.base_total for f in exentas)
 
     # T069: anulación, reemisión, R4, devolución total R1 y rectificativa anulada.
     assert resumen.correcciones == 6
@@ -102,6 +108,8 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
     assert len(borradores) == 5
     assert sum(b.cliente_id is None for b in borradores) >= 1
     assert all(b.lineas and b.total_previsto > 0 for b in borradores)
+    (exento,) = [b for b in borradores if b.oro_inversion]
+    assert exento.cuota_prevista == 0
 
 
 async def test_sobre_datos_de_001_anade_solo_la_facturacion(db: AsyncSession) -> None:

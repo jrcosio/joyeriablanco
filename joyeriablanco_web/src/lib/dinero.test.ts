@@ -102,4 +102,16 @@ describe('calcularTotales', () => {
   it('sin líneas todo es cero', () => {
     expect(calcularTotales([], 2100n)).toEqual({ base: 0n, cuota: 0n, total: 0n })
   })
+
+  it('sin tipo (oro de inversión, FR-052) no hay cuota y el total es la base', () => {
+    expect(
+      calcularTotales(
+        [
+          { unidades: 100n, precio: 745000n },
+          { unidades: 50n, precio: 25n },
+        ],
+        null,
+      ),
+    ).toEqual({ base: 745013n, cuota: 0n, total: 745013n })
+  })
 })

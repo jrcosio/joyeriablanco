@@ -26,8 +26,15 @@ async function nuevoClienteDesdeElModal(page: Page, modal: Locator, prefijo: str
   return { nombre, numero }
 }
 
-/** Emite por la API, con la sesión del navegador, una factura de dos líneas a un cliente nuevo. */
-async function emitirPorLaApi(page: Page): Promise<FacturaCreada & { cliente: string }> {
+/** Emite por la API, con la sesión del navegador, una factura a un cliente nuevo: por defecto,
+ * de dos líneas con IVA. */
+async function emitirPorLaApi(
+  page: Page,
+  lineas: { unidades: string; descripcion: string; precio_unitario: string }[] = [
+    { unidades: '1', descripcion: 'Anillo', precio_unitario: '1200.00' },
+    { unidades: '2', descripcion: 'Ajuste', precio_unitario: '45.00' },
+  ],
+): Promise<FacturaCreada & { cliente: string }> {
   const sesion = (await (await page.request.get('/api/v1/sesion')).json()) as {
     csrf_token: string
   }
@@ -59,10 +66,7 @@ async function emitirPorLaApi(page: Page): Promise<FacturaCreada & { cliente: st
         new Date(),
       ),
       cliente_id: id,
-      lineas: [
-        { unidades: '1', descripcion: 'Anillo', precio_unitario: '1200.00' },
-        { unidades: '2', descripcion: 'Ajuste', precio_unitario: '45.00' },
-      ],
+      lineas,
     },
   })
   expect(factura.status()).toBe(201)
@@ -278,6 +282,89 @@ test.describe('Facturas', () => {
     await expect(page.getByText(`Factura ${reemitida} anulada`)).toBeVisible()
     await expect(modal.getByText('Anulada', { exact: true })).toBeVisible()
     await expect(modal.getByRole('button', { name: 'Anular' })).toHaveCount(0)
+  })
+
+  test('oro de inversión sin IVA: previsualizar, emitir, consultar con la mención y el IBAN, y verla «Exenta» (FR-052, FR-053)', async ({
+    page,
+  }) => {
+    await iniciarSesion(page, 'empleado.demo')
+    await page.goto('/facturas/nueva')
+    const nueva = page.getByRole('dialog', { name: 'Nueva factura' })
+    await expect(nueva.getByText('Se asigna al emitir')).toBeVisible()
+    const { nombre } = await nuevoClienteDesdeElModal(page, nueva, 'Cliente Lingote')
+    await nueva
+      .getByRole('textbox', { name: 'Descripción de la línea 1' })
+      .fill('Lingote de oro 100 g')
+    await nueva
+      .getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' })
+      .fill('7.450')
+    await nueva.locator('label', { hasText: 'Sin IVA (oro de inversión)' }).click()
+    const mencion = 'Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)'
+    await expect(nueva.getByText('Base exenta')).toBeVisible()
+    await expect(nueva.getByText('IVA', { exact: true })).toBeVisible()
+    await expect(nueva.getByText('IVA (21 %)')).toHaveCount(0)
+    await expect(nueva.getByText(mencion)).toBeVisible()
+
+    const respuesta = page.waitForResponse(
+      (r) => r.url().endsWith('/api/v1/facturas') && r.request().method() === 'POST',
+    )
+    await nueva.getByRole('button', { name: 'Emitir factura' }).click()
+    await page
+      .getByRole('alertdialog', { name: '¿Emitir la factura?' })
+      .getByRole('button', { name: 'Emitir factura' })
+      .click()
+    const creada = (await (await respuesta).json()) as FacturaCreada & {
+      oro_inversion: boolean
+      totales: { importe_total: string }
+    }
+    expect(creada.oro_inversion).toBe(true)
+    expect(creada.totales.importe_total).toBe('7450.00')
+
+    // Consulta: la mención del ROF art. 6.1.j y el IBAN del emisor (datos demo).
+    await page.goto(`/facturas/${creada.id}`)
+    const detalle = page.getByRole('dialog', { name: `Factura ${creada.num_serie}` })
+    await expect(detalle.getByText(mencion)).toBeVisible()
+    await expect(detalle.getByRole('group', { name: 'Pago' })).toContainText(
+      'ES91 2100 0418 4502 0005 1332',
+    )
+    await detalle.getByRole('button', { name: 'Cerrar', exact: true }).click()
+
+    // Listado: «Exenta» en la columna del IVA (visible desde 1440 px).
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.getByPlaceholder('Buscar número, cliente o NIF').fill(nombre)
+    const tabla = page.getByRole('table', { name: 'Listado de facturas' })
+    await expect(tabla.getByRole('row')).toHaveCount(2)
+    await expect(tabla.getByRole('cell', { name: 'Exenta' })).toBeVisible()
+  })
+
+  test('rectificar a exenta un lingote facturado con IVA por error (US5-9)', async ({ page }) => {
+    await iniciarSesion(page, 'admin.demo')
+    const original = await emitirPorLaApi(page, [
+      { unidades: '1', descripcion: 'Lingote de oro 100 g', precio_unitario: '7450.00' },
+    ])
+
+    await page.goto(`/facturas/${original.id}/modificar`)
+    const modificar = page.getByRole('dialog', { name: `Modificar factura ${original.num_serie}` })
+    const casilla = modificar.getByRole('checkbox', { name: 'Sin IVA (oro de inversión)' })
+    await expect(casilla).not.toBeChecked()
+    await modificar.locator('label', { hasText: 'Sin IVA (oro de inversión)' }).click()
+    await expect(casilla).toBeChecked()
+    await modificar.getByRole('button', { name: 'Guardar' }).click()
+    const motivo = page.getByRole('alertdialog', { name: 'Motivo de la modificación' })
+    await motivo.locator('label', { hasText: /ya entregada/ }).click()
+    await motivo.locator('label', { hasText: /IVA mal aplicado/ }).click()
+    await motivo.getByRole('textbox', { name: /Explica el motivo/ }).fill('Oro de inversión')
+    await motivo.getByRole('button', { name: 'Confirmar' }).click()
+
+    await expect(
+      page.getByText(new RegExp(`${original.num_serie} queda rectificada`)),
+    ).toBeVisible()
+    const rec = page.getByRole('dialog', { name: /^Factura REC-/ })
+    await expect(rec.getByText('Rectificativa R1')).toBeVisible()
+    await expect(rec.getByText('Base exenta')).toBeVisible()
+    await expect(
+      rec.getByText('Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)'),
+    ).toBeVisible()
   })
 
   test('un empleado consulta una factura sin acciones de corrección (US5, FR-023)', async ({

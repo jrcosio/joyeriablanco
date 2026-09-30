@@ -1,7 +1,9 @@
 """Configuración de facturación y ajuste del contador (US1; FR-001 a FR-004, FR-010, FR-050).
 
-- El IVA solo admite los tipos de F-3 §15.1 vigentes hoy (research R-10) y la clave de régimen,
-  la lista L8A de F-1.
+- El IVA admite cualquier tipo de 0 a 99,99. Si el tipo cambia a uno que no está en la lista de
+  F-3 §15.1 de hoy, exige confirmarlo, y la auditoría lo deja anotado (research R-20).
+- No hay clave de régimen: la fija el sistema en cada factura (R-23). El IBAN es opcional y se
+  valida con `domain/iban.py` (R-22).
 - Emitir exige emisor completo y modalidad (FR-004). El productor del sistema lo exige `Settings`
   al arrancar en producción (research R-5), así que no figura en `faltan`.
 - La modalidad se bloquea en cuanto existe un registro (FR-050, research R-19).
@@ -24,16 +26,18 @@ from app.core.errors import (
     ContadorNoAjustable,
     DatosNoValidos,
     ModalidadBloqueada,
-    TipoIvaNoAdmitido,
+    TipoIvaSinConfirmar,
 )
 from app.core.http import Origen
 from app.core.tiempo import hoy
 from app.domain.codigos_postales import provincia_from_codigo_postal
+from app.domain.exenciones import MENCION_EXENCION_ORO_INVERSION
+from app.domain.iban import normalize_iban, validate_iban
 from app.domain.identificacion import normalize_identificacion, validate_nif
 from app.domain.importes import allowed_rates, is_rate_allowed
 from app.domain.numeracion import format_num_serie
 from app.domain.registro import FECHA_MINIMA_EXPEDICION
-from app.domain.tipos import CLAVES_REGIMEN_L8A, Serie, TipoEvento
+from app.domain.tipos import Serie, TipoEvento
 from app.models.configuracion_facturacion import ConfiguracionFacturacion
 from app.models.usuario import Usuario
 from app.repositories import configuracion_facturacion as repo
@@ -54,7 +58,6 @@ CAMPOS_EMISION: Final = (
 )
 CAMPOS_AUDITADOS: Final = (
     "iva_por_defecto",
-    "clave_regimen",
     "modalidad",
     "emisor_nombre",
     "emisor_nif",
@@ -62,6 +65,7 @@ CAMPOS_AUDITADOS: Final = (
     "emisor_codigo_postal",
     "emisor_localidad",
     "emisor_provincia_codigo",
+    "emisor_iban",
 )
 
 
@@ -75,7 +79,7 @@ class EstadoConfiguracion:
     faltan: list[str]
     proximo_numero: str
     modalidad_bloqueada: bool
-    tipos_iva_admitidos: tuple[Decimal, ...]
+    tipos_iva_oficiales: tuple[Decimal, ...]
 
 
 async def next_num_serie(db: AsyncSession) -> str:
@@ -93,14 +97,13 @@ async def get_config(db: AsyncSession) -> EstadoConfiguracion:
         faltan=missing_for_emission(config),
         proximo_numero=await next_num_serie(db),
         modalidad_bloqueada=await registros.exists_any(db),
-        tipos_iva_admitidos=allowed_rates(hoy()),
+        tipos_iva_oficiales=allowed_rates(hoy()),
     )
 
 
 @dataclass(frozen=True, slots=True)
 class _DatosNormalizados:
     iva_por_defecto: Decimal
-    clave_regimen: str
     modalidad: str | None
     emisor_nombre: str | None
     emisor_nif: str | None
@@ -108,6 +111,7 @@ class _DatosNormalizados:
     emisor_codigo_postal: str | None
     emisor_localidad: str | None
     emisor_provincia_codigo: str | None
+    emisor_iban: str | None
 
     def como_dict(self) -> Mapping[str, object]:
         return {campo: getattr(self, campo) for campo in CAMPOS_AUDITADOS}
@@ -117,12 +121,28 @@ def _vacio(valor: str | None) -> str | None:
     return valor or None
 
 
-def _normalizar(entrada: ConfiguracionFacturacionEntrada) -> _DatosNormalizados:
-    if not is_rate_allowed(entrada.iva_por_defecto, hoy()):
-        raise TipoIvaNoAdmitido
+def _tipo_iva(entrada: ConfiguracionFacturacionEntrada, actual: Decimal) -> tuple[Decimal, bool]:
+    """El tipo normalizado y si queda fuera de la lista oficial de hoy (R-20).
+
+    Solo exige la confirmación si el tipo cambia: guardar otros campos con un tipo ya confirmado
+    no la vuelve a pedir.
+    """
+    tipo = entrada.iva_por_defecto.quantize(Decimal("0.01"))
+    if tipo == actual or is_rate_allowed(tipo, hoy()):
+        return tipo, False
+    if not entrada.confirmar_tipo_iva:
+        raise TipoIvaSinConfirmar(
+            extra={
+                "tipos_oficiales": [
+                    format(t.quantize(Decimal("0.01")), "f") for t in allowed_rates(hoy())
+                ]
+            }
+        )
+    return tipo, True
+
+
+def _normalizar(entrada: ConfiguracionFacturacionEntrada, tipo_iva: Decimal) -> _DatosNormalizados:
     errores: list[CampoError] = []
-    if entrada.clave_regimen not in CLAVES_REGIMEN_L8A:
-        errores.append(CampoError("clave_regimen", "Clave de régimen no admitida (lista L8A)."))
     nif = _vacio(entrada.emisor.nif)
     if nif is not None:
         nif = normalize_identificacion(nif)
@@ -135,11 +155,15 @@ def _normalizar(entrada: ConfiguracionFacturacionEntrada) -> _DatosNormalizados:
             provincia = provincia_from_codigo_postal(codigo_postal)
         except ValueError as exc:
             errores.append(CampoError("emisor.codigo_postal", str(exc)))
+    iban = _vacio(entrada.emisor.iban)
+    if iban is not None:
+        iban = normalize_iban(iban)
+        if motivo := validate_iban(iban):
+            errores.append(CampoError("emisor.iban", motivo))
     if errores:
         raise DatosNoValidos(errores=errores)
     return _DatosNormalizados(
-        iva_por_defecto=entrada.iva_por_defecto.quantize(Decimal("0.01")),
-        clave_regimen=entrada.clave_regimen,
+        iva_por_defecto=tipo_iva,
         modalidad=entrada.modalidad.value if entrada.modalidad else None,
         emisor_nombre=_vacio(entrada.emisor.nombre),
         emisor_nif=nif,
@@ -147,6 +171,7 @@ def _normalizar(entrada: ConfiguracionFacturacionEntrada) -> _DatosNormalizados:
         emisor_codigo_postal=codigo_postal,
         emisor_localidad=_vacio(entrada.emisor.localidad),
         emisor_provincia_codigo=provincia,
+        emisor_iban=iban,
     )
 
 
@@ -160,7 +185,8 @@ async def update_config(
     config = await repo.get(db, for_update=True)
     if config.version != entrada.version:
         raise ConflictoVersion("La configuración ha cambiado desde que la abriste.")
-    datos = _normalizar(entrada)
+    tipo_iva, fuera_de_lista = _tipo_iva(entrada, config.iva_por_defecto)
+    datos = _normalizar(entrada, tipo_iva)
     if datos.modalidad != config.modalidad and await registros.exists_any(db):
         raise ModalidadBloqueada
     antes = {campo: getattr(config, campo) for campo in CAMPOS_AUDITADOS}
@@ -179,7 +205,11 @@ async def update_config(
             TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA,
             origen=origen,
             actor=actor,
-            detalle={"cambios": cambios},
+            detalle={
+                "cambios": cambios,
+                # Constancia de que se aceptó el aviso de F-3 §15.1 (FR-001, research R-20).
+                **({"tipo_iva_fuera_de_lista": True} if fuera_de_lista else {}),
+            },
         )
     return await get_config(db)
 
@@ -237,6 +267,7 @@ class Parametros:
     proximo_numero: str
     hoy: date
     fecha_minima: date | None
+    mencion_exencion_oro_inversion: str = MENCION_EXENCION_ORO_INVERSION
 
 
 async def get_parametros(db: AsyncSession) -> Parametros:

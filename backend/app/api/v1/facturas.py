@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response, status
 from pydantic import Field
 
 from app.api.deps import AdminSession, CurrentSession, DbDep, OrigenDep, get_current_session
+from app.domain.exenciones import is_oro_inversion, mencion_exencion
 from app.domain.tipos import CausaRectificacion, MotivoModificacion, TipoCorreccion, TipoFactura
 from app.models.factura import Factura
 from app.schemas.comunes import Pagina
@@ -115,6 +116,7 @@ def factura_salida(detalle: DetalleFactura) -> FacturaSalida:
             direccion=f.emisor_direccion,
             codigo_postal=f.emisor_codigo_postal,
             localidad=f.emisor_localidad,
+            iban=f.emisor_iban,
             provincia=f.emisor_provincia,
         ),
         cliente=ClienteFacturaSalida(
@@ -148,6 +150,8 @@ def factura_salida(detalle: DetalleFactura) -> FacturaSalida:
             cuota_total=f.cuota_total,
             importe_total=f.importe_total,
         ),
+        oro_inversion=is_oro_inversion(f.clave_regimen),
+        mencion_exencion=mencion_exencion(f.clave_regimen),
         descripcion_operacion=f.descripcion_operacion,
         rectifica_a=_rectifica_a(detalle),
         sustituye_a=_referencia(detalle.sustituye_a),
@@ -202,6 +206,7 @@ async def listar_facturas(
                 cuota=f.cuota,
                 total=f.total,
                 estado=f.estado,
+                oro_inversion=f.oro_inversion,
             )
             for f in filas
         ],
@@ -221,6 +226,7 @@ async def obtener_parametros(db: DbDep) -> ParametrosFacturacionSalida:
         proximo_numero=parametros.proximo_numero,
         hoy=parametros.hoy,
         fecha_minima=parametros.fecha_minima,
+        mencion_exencion_oro_inversion=parametros.mencion_exencion_oro_inversion,
     )
 
 
@@ -239,6 +245,7 @@ async def emitir_factura(
             fecha_expedicion=datos.fecha_expedicion,
             cliente_id=datos.cliente_id,
             lineas=datos_lineas(datos.lineas),
+            oro_inversion=datos.oro_inversion,
         ),
         actor=sesion.usuario,
         origen=origen,
@@ -297,6 +304,7 @@ async def modificar_factura(
             motivo_texto=datos.motivo_texto,
             cliente_id=datos.cliente_id,
             lineas=datos_lineas(datos.lineas),
+            oro_inversion=datos.oro_inversion,
             fecha_expedicion=datos.fecha_expedicion,
         ),
         actor=sesion.usuario,

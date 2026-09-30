@@ -10,6 +10,8 @@ export interface CampoDecimalProps {
   onBlur?: () => void
   /** Muestra el símbolo € de ancho fijo (DESIGN.md §Monetary Inputs). */
   moneda?: boolean
+  /** Otro símbolo fijo en el mismo sitio que el €, p. ej. «%» en un tipo de IVA. */
+  sufijo?: string
   /** Etiqueta solo para lectores de pantalla (p. ej. en las celdas de la tabla de líneas). */
   etiquetaOculta?: boolean
   error?: string | undefined
@@ -20,12 +22,14 @@ export interface CampoDecimalProps {
 }
 
 /** Campo de cifra con coma decimal, cifras tabulares y, si es un importe, el símbolo €. */
+
 export function CampoDecimal({
   label,
   value,
   onChange,
   onBlur,
   moneda = false,
+  sufijo,
   etiquetaOculta = false,
   error,
   description,
@@ -33,6 +37,7 @@ export function CampoDecimal({
   isDisabled = false,
   className,
 }: CampoDecimalProps) {
+  const simbolo = moneda ? '€' : sufijo
   return (
     <AriaTextField
       value={value}
@@ -50,15 +55,15 @@ export function CampoDecimal({
         {isRequired && !etiquetaOculta ? <span aria-hidden="true"> *</span> : null}
       </Label>
       <div className="relative">
-        {moneda ? (
+        {simbolo ? (
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-y-0 right-3 flex w-4 items-center justify-center body-md text-primary-container"
           >
-            €
+            {simbolo}
           </span>
         ) : null}
-        <Input className={cx(campoCaja, 'text-right tabular-nums', moneda && 'pr-9')} />
+        <Input className={cx(campoCaja, 'text-right tabular-nums', simbolo && 'pr-9')} />
       </div>
       {description && !error ? (
         <Text slot="description" className={campoAyuda}>

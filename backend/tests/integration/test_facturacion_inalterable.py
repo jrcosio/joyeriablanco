@@ -45,8 +45,8 @@ async def _documentos(conn: AsyncConnection) -> uuid.UUID:
     )
     await conn.execute(
         text(
-            "INSERT INTO desgloses_factura (factura_id, tipo_iva, clave_regimen, "
-            "calificacion_operacion, base, cuota) VALUES (:f, 21, '01', 'S1', 100, 21)"
+            "INSERT INTO desgloses_factura (factura_id, orden, tipo_iva, clave_regimen, "
+            "calificacion_operacion, base, cuota) VALUES (:f, 1, 21, '01', 'S1', 100, 21)"
         ),
         {"f": factura},
     )
@@ -80,6 +80,8 @@ MODIFICACIONES = [
     "UPDATE lineas_factura SET importe = 0",
     "DELETE FROM lineas_factura",
     "UPDATE desgloses_factura SET cuota = 0",
+    "UPDATE desgloses_factura SET operacion_exenta = 'E6'",  # columna de la 0006
+    "UPDATE facturas SET emisor_iban = 'ES9121000418450200051332'",  # ídem
     "DELETE FROM desgloses_factura",
     "UPDATE registros_facturacion SET estado_remision = 'pendiente'",
     "DELETE FROM registros_facturacion",
@@ -177,3 +179,102 @@ async def test_ni_el_propietario_puede_borrar_el_contador(conexion_owner: AsyncC
     error = await _falla(conexion_owner, "DELETE FROM contadores_factura")
 
     assert MENSAJE in str(error.orig)
+
+
+# ------------------------------------------- restricciones de la migración 0006 (R-20, R-21)
+
+
+async def _factura_sin_desglose(conn: AsyncConnection) -> uuid.UUID:
+    usuario, cliente = await insertar_usuario_y_cliente(conn)
+    return await insertar_factura(conn, usuario, cliente, 1)
+
+
+DESGLOSE = (
+    "INSERT INTO desgloses_factura (factura_id, orden, tipo_iva, clave_regimen, "
+    "calificacion_operacion, operacion_exenta, base, cuota) VALUES "
+)
+
+
+@pytest.mark.parametrize(
+    "valores",
+    [
+        "(:f, 1, NULL, '04', NULL, 'E6', 100, 1)",  # exento con cuota
+        "(:f, 1, NULL, '01', NULL, 'E6', 100, 0)",  # exento con la clave 01
+        "(:f, 1, 21, '01', 'S1', 'E6', 100, 21)",  # S1 y exención a la vez
+        "(:f, 1, NULL, '01', 'S1', NULL, 100, 0)",  # S1 sin tipo
+        "(:f, 1, NULL, '04', NULL, NULL, 100, 0)",  # ni calificación ni exención
+        "(:f, 1, 21, '04', NULL, 'E6', 100, 0)",  # exento con tipo
+        "(:f, 13, 21, '01', 'S1', NULL, 100, 21)",  # F-1 admite de 1 a 12 detalles
+        "(:f, 1, 100, '01', 'S1', NULL, 100, 100)",  # tipo fuera de rango
+    ],
+    ids=[
+        "exento-con-cuota",
+        "exento-clave-01",
+        "s1-y-e6",
+        "s1-sin-tipo",
+        "sin-calificacion-ni-exencion",
+        "exento-con-tipo",
+        "orden-13",
+        "tipo-100",
+    ],
+)
+async def test_el_desglose_es_sujeto_o_exento_y_nada_mas(
+    conexion: AsyncConnection, valores: str
+) -> None:
+    factura = await _factura_sin_desglose(conexion)
+
+    with pytest.raises(DBAPIError) as info:
+        async with conexion.begin_nested():
+            await conexion.execute(text(DESGLOSE + valores), {"f": factura})
+
+    assert _sqlstate(info.value) == "23514"  # check_violation
+
+
+async def test_el_detalle_exento_valido_y_solo_uno_por_factura(conexion: AsyncConnection) -> None:
+    factura = await _factura_sin_desglose(conexion)
+    exento = "(:f, :o, NULL, '04', NULL, 'E6', 100, 0)"
+
+    await conexion.execute(text(DESGLOSE + exento), {"f": factura, "o": 1})
+    with pytest.raises(DBAPIError) as info:
+        async with conexion.begin_nested():
+            await conexion.execute(text(DESGLOSE + exento), {"f": factura, "o": 2})
+
+    assert _sqlstate(info.value) == "23505"  # uq_desgloses_factura_tipo, NULLS NOT DISTINCT
+
+
+async def test_la_linea_exenta_no_lleva_tipo(conexion: AsyncConnection) -> None:
+    factura = await _factura_sin_desglose(conexion)
+
+    await conexion.execute(
+        text(
+            "INSERT INTO lineas_factura (factura_id, orden, unidades, descripcion, "
+            "precio_unitario, tipo_iva, importe) VALUES (:f, 1, 1, 'Lingote', 7450, NULL, 7450)"
+        ),
+        {"f": factura},
+    )
+
+
+@pytest.mark.parametrize("tipo", ["-1", "100"])
+async def test_el_iva_por_defecto_va_de_0_a_99_99(conexion: AsyncConnection, tipo: str) -> None:
+    with pytest.raises(DBAPIError) as info:
+        async with conexion.begin_nested():
+            await conexion.execute(
+                text("UPDATE configuracion_facturacion SET iva_por_defecto = :t"), {"t": tipo}
+            )
+
+    assert _sqlstate(info.value) == "23514"
+
+
+async def test_el_iban_guardado_tiene_la_estructura_de_iso_13616(
+    conexion: AsyncConnection,
+) -> None:
+    await conexion.execute(
+        text("UPDATE configuracion_facturacion SET emisor_iban = 'ES9121000418450200051332'")
+    )
+    with pytest.raises(DBAPIError) as info:
+        async with conexion.begin_nested():
+            await conexion.execute(
+                text("UPDATE configuracion_facturacion SET emisor_iban = 'es91 2100'")
+            )
+
+    assert _sqlstate(info.value) == "23514"

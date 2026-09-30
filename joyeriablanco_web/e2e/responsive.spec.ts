@@ -60,6 +60,10 @@ for (const ancho of ANCHOS) {
     const modal = page.getByRole('dialog', { name: 'Nueva factura' })
     await expect(modal.getByText('Se asigna al emitir')).toBeVisible()
     await sinDesplazamientoHorizontal(page)
+    // Con la casilla de oro de inversión y su mención, tampoco (FR-040, FR-052).
+    await modal.locator('label', { hasText: 'Sin IVA (oro de inversión)' }).click()
+    await expect(modal.getByText(/Operación exenta de IVA/)).toBeVisible()
+    await sinDesplazamientoHorizontal(page)
     const caja = await modal.boundingBox()
     expect(caja).not.toBeNull()
     if (ancho < 768) {

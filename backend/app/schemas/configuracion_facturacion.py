@@ -19,12 +19,17 @@ class DatosEmisorEntrada(EntradaBase):
     direccion: Annotated[TextoOpcional, Field(max_length=200)] | None = None
     codigo_postal: Annotated[TextoOpcional, Field(max_length=10)] | None = None
     localidad: Annotated[TextoOpcional, Field(max_length=100)] | None = None
+    # Opcional (research R-22). Admite espacios: se normaliza en el servicio.
+    iban: Annotated[TextoOpcional, Field(max_length=42)] | None = None
 
 
 class ConfiguracionFacturacionEntrada(EntradaBase):
+    """Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23)."""
+
     version: Annotated[int, Field(ge=1)]
     iva_por_defecto: TipoIvaEntrada
-    clave_regimen: Annotated[str, Field(pattern=r"^[0-9]{2}$")]
+    # Confirma un tipo nuevo fuera de la lista oficial de hoy (research R-20).
+    confirmar_tipo_iva: bool = False
     modalidad: Modalidad | None
     emisor: DatosEmisorEntrada
 
@@ -35,20 +40,23 @@ class DatosEmisorSalida(SalidaBase):
     direccion: str | None
     codigo_postal: str | None
     localidad: str | None
+    iban: str | None
     provincia: str | None
 
 
 class ConfiguracionFacturacionSalida(SalidaBase):
     version: int
     iva_por_defecto: TipoIvaSalida
-    clave_regimen: str
     modalidad: Modalidad | None
     emisor: DatosEmisorSalida
     emision_posible: bool
     faltan: list[str]
     proximo_numero: str
     modalidad_bloqueada: bool
-    tipos_iva_admitidos: list[TipoIvaSalida]
+    tipos_iva_oficiales: Annotated[
+        list[TipoIvaSalida],
+        Field(description="Lista de F-3 §15.1 para hoy. Solo para el aviso (research R-20)"),
+    ]
     actualizado_en: datetime
     actualizado_por: UsuarioReferencia | None
 
@@ -75,3 +83,4 @@ class ParametrosFacturacionSalida(SalidaBase):
     proximo_numero: str
     hoy: date
     fecha_minima: date | None
+    mencion_exencion_oro_inversion: str

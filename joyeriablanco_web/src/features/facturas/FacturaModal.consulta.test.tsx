@@ -11,7 +11,13 @@ import {
   problema,
   renderApp,
 } from '../../test/app'
-import { conFacturacion, crearFactura, PARAMETROS } from '../../test/facturas'
+import {
+  conFacturacion,
+  crearFactura,
+  crearFacturaExenta,
+  MENCION_ORO,
+  PARAMETROS,
+} from '../../test/facturas'
 import { server } from '../../test/msw'
 
 const admin = crearSesion({ rol: 'administrador', nombre: 'Luis Martín' })
@@ -126,6 +132,52 @@ describe('Consulta de una factura emitida (US5)', () => {
     )
   })
 
+  it('una de oro de inversión muestra la mención, «Base exenta» y el bloque de pago (FR-053)', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    conFactura([crearFacturaExenta()])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0007' })
+    expect(within(modal).getByText(MENCION_ORO)).toBeInTheDocument()
+    expect(within(modal).getByText('Base exenta')).toBeInTheDocument()
+    const pago = within(modal).getByRole('group', { name: 'Pago' })
+    expect(within(pago).getByText('ES91 2100 0418 4502 0005 1332')).toBeInTheDocument()
+  })
+
+  it('sin IBAN no hay bloque de pago ni mención', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    conFactura([crearFactura()])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0005' })
+    expect(within(modal).queryByRole('group', { name: 'Pago' })).toBeNull()
+    expect(within(modal).queryByText(MENCION_ORO)).toBeNull()
+  })
+
+  it('«Modificar» precarga la casilla de la original y la envía (US5-9)', async () => {
+    conSesion(admin)
+    const peticiones = conFactura([crearFacturaExenta()], { [ID_REC]: rectificativa })
+    renderApp(`/facturas/${ID}/modificar`)
+    const user = userEvent.setup()
+
+    const modal = await screen.findByRole('dialog', { name: 'Modificar factura FAC-2026-0007' })
+    const casilla = within(modal).getByRole('checkbox', { name: 'Sin IVA (oro de inversión)' })
+    expect(casilla).toBeChecked()
+    await user.click(casilla)
+    await user.click(within(modal).getByRole('button', { name: 'Guardar' }))
+    const motivo = await screen.findByRole('alertdialog', { name: 'Motivo de la modificación' })
+    expect(within(motivo).queryByText(/IVA/)).toBeNull() // la original no llevaba IVA
+    await user.click(within(motivo).getByRole('radio', { name: /ya entregada/ }))
+    await user.click(within(motivo).getByRole('radio', { name: /IVA mal aplicado/ }))
+    await user.type(within(motivo).getByRole('textbox', { name: /Explica el motivo/ }), 'IVA')
+    await user.click(within(motivo).getByRole('button', { name: 'Confirmar' }))
+
+    await waitFor(() => {
+      expect(peticiones).toHaveLength(1)
+    })
+    expect((peticiones[0]?.cuerpo as { oro_inversion: boolean }).oro_inversion).toBe(false)
+  })
+
   it('una anulada muestra la marca, el enlace a la vigente y el historial, sin acciones', async () => {
     conSesion(admin)
     conFactura([anulada])
@@ -237,6 +289,7 @@ describe('Modificar una factura emitida (US5)', () => {
             { unidades: '1.00', descripcion: 'Anillo', precio_unitario: '1100.00' },
             { unidades: '2.00', descripcion: 'Ajuste', precio_unitario: '45.00' },
           ],
+          oro_inversion: false,
         },
       },
     ])

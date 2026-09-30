@@ -153,7 +153,8 @@ export function TablaFacturas({
                   {euros(fila.base)}
                 </td>
                 <td className={`${celda} ${importe} hidden min-[1440px]:table-cell`}>
-                  {euros(fila.cuota)}
+                  {/* Oro de inversión: sin IVA (FR-033, FR-052). */}
+                  {fila.oro_inversion ? 'Exenta' : euros(fila.cuota)}
                 </td>
                 <td className={`${celda} ${importe}`}>{euros(fila.total)}</td>
                 <td className={`${celda} ${accionesCelda} text-right`}>

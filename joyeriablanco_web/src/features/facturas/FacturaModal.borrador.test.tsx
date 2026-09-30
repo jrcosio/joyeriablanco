@@ -11,7 +11,7 @@ import {
   problema,
   renderApp,
 } from '../../test/app'
-import { conFacturacion, crearFactura, PARAMETROS } from '../../test/facturas'
+import { conFacturacion, crearFactura, MENCION_ORO, PARAMETROS } from '../../test/facturas'
 import { server } from '../../test/msw'
 
 const ID = '0192f0c0-0000-7000-8000-0000000b0001'
@@ -51,6 +51,8 @@ function crearBorrador(parcial: Partial<BorradorSalida> = {}): BorradorSalida {
       importe_total: '1452.00',
     },
     tipo_iva_previsto: '21.00',
+    oro_inversion: false,
+    mencion_exencion: null,
     creado_en: '2026-09-28T08:00:00Z',
     creado_por: { id: 'u1', nombre: 'Ana García', eliminado: false },
     actualizado_en: '2026-09-28T08:00:00Z',
@@ -157,6 +159,7 @@ describe('Modal en modo borrador (US4)', () => {
       fecha_expedicion: '2026-09-28',
       cliente_id: maria.id,
       lineas: [{ unidades: '1.00', descripcion: 'Anillo oro', precio_unitario: '1200.00' }],
+      oro_inversion: false,
       version: 3,
     })
     expect((peticiones[1]?.cuerpo as { version: number }).version).toBe(4)
@@ -256,6 +259,35 @@ describe('Modal en modo borrador (US4)', () => {
     expect(screen.getByText('IVA (21 %)')).toBeInTheDocument()
   })
 
+  it('un borrador de oro de inversión se abre sin IVA ni aviso de cambio y lo guarda', async () => {
+    const peticiones = conBorrador([
+      () =>
+        HttpResponse.json(
+          crearBorrador({
+            tipo_iva_previsto: '10.00',
+            oro_inversion: true,
+            mencion_exencion: MENCION_ORO,
+            totales_previstos: {
+              desglose: [{ tipo_iva: null, base: '1200.00', cuota: '0.00' }],
+              base_total: '1200.00',
+              cuota_total: '0.00',
+              importe_total: '1200.00',
+            },
+          }),
+        ),
+    ])
+    const { user } = await abrir()
+
+    expect(screen.getByRole('checkbox', { name: 'Sin IVA (oro de inversión)' })).toBeChecked()
+    expect(screen.queryByText(/El IVA por defecto ha cambiado/)).not.toBeInTheDocument()
+    expect(screen.getByText('Base exenta')).toBeInTheDocument()
+    expect(screen.getByText(MENCION_ORO)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+    expect(await screen.findByText('Borrador guardado')).toBeInTheDocument()
+    expect((peticiones[0]?.cuerpo as { oro_inversion: boolean }).oro_inversion).toBe(true)
+  })
+
   it('un borrador que ya no existe se explica al abrirlo', async () => {
     conBorrador([() => problema(404, 'no-encontrado', 'Este borrador ya no existe.')])
     renderApp(`/facturas/borradores/${ID}`)
@@ -297,6 +329,7 @@ describe('«Guardar borrador» en una factura nueva (FR-049)', () => {
         fecha_expedicion: PARAMETROS.hoy,
         cliente_id: null,
         lineas: [{ unidades: '1.00', descripcion: 'Anillo', precio_unitario: '1200.00' }],
+        oro_inversion: false,
       },
     ])
     await waitFor(() => {

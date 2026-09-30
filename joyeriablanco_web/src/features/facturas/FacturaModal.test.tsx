@@ -11,7 +11,7 @@ import {
   problema,
   renderApp,
 } from '../../test/app'
-import { conFacturacion, crearFactura, PARAMETROS } from '../../test/facturas'
+import { conFacturacion, crearFactura, MENCION_ORO, PARAMETROS } from '../../test/facturas'
 import { server } from '../../test/msw'
 
 const maria = crearCliente({ direccion: 'Calle Serrano, 45', localidad: 'Madrid' })
@@ -115,6 +115,32 @@ describe('Modal «Nueva factura» (US2)', () => {
     expect(within(totales as HTMLElement).getByText('1.560,90 €')).toBeInTheDocument()
   })
 
+  it('«Sin IVA (oro de inversión)» quita el IVA de toda la factura y lo envía (FR-052)', async () => {
+    conSesion(crearSesion())
+    conFacturacion()
+    const emisiones = conEmision()
+    renderApp('/facturas/nueva')
+    const user = userEvent.setup()
+
+    await elegirCliente(user)
+    await escribirLineas(user)
+    const casilla = screen.getByRole('checkbox', { name: 'Sin IVA (oro de inversión)' })
+    expect(casilla).not.toBeChecked()
+    await user.click(casilla)
+
+    const totales = screen.getByText('Total factura').closest('dl') as HTMLElement
+    expect(within(totales).getByText('Base exenta')).toBeInTheDocument()
+    expect(within(totales).getByText('IVA')).toBeInTheDocument()
+    expect(within(totales).getByText('0,00 €')).toBeInTheDocument()
+    expect(within(totales).getAllByText('1.290,00 €')).toHaveLength(2) // base y total
+    expect(screen.getByText(MENCION_ORO)).toBeInTheDocument()
+    expect(screen.queryByText('IVA (21 %)')).not.toBeInTheDocument()
+
+    await emitir(user)
+    expect(await screen.findByText('Factura FAC-2026-0006 emitida')).toBeInTheDocument()
+    expect((emisiones[0]?.cuerpo as { oro_inversion: boolean }).oro_inversion).toBe(true)
+  })
+
   it('emite tras confirmar, sin enviar importes calculados y con clave de operación', async () => {
     conSesion(crearSesion())
     conFacturacion()
@@ -135,6 +161,7 @@ describe('Modal «Nueva factura» (US2)', () => {
         { unidades: '1.00', descripcion: 'Anillo', precio_unitario: '1200.00' },
         { unidades: '2.00', descripcion: 'Ajuste', precio_unitario: '45.00' },
       ],
+      oro_inversion: false,
     })
     expect(emisiones[0]?.clave).toMatch(/^[0-9a-f-]{36}$/)
     await waitFor(() => {

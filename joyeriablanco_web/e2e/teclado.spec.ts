@@ -102,6 +102,14 @@ test('modal de factura solo con teclado: dos capas, Escape y foco devuelto (FR-0
     await page.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null),
   ).toBe(true)
 
+  // Tras «Añadir línea» llega la casilla «Sin IVA (oro de inversión)» (ui-rutas); se marca con la
+  // barra espaciadora.
+  await tabularHastaNombre(page, /^Añadir línea$/, 10)
+  await tabularHastaNombre(page, /^Sin IVA \(oro de inversión\)$/, 3)
+  await page.keyboard.press('Space')
+  await expect(modal.getByRole('checkbox', { name: 'Sin IVA (oro de inversión)' })).toBeChecked()
+  await expect(modal.getByText('Base exenta')).toBeVisible()
+
   // Escape con cambios pide confirmación; se descarta con el teclado y el foco vuelve al botón.
   await page.keyboard.press('Escape')
   const descartar = page.getByRole('alertdialog', { name: '¿Descartar los cambios?' })

@@ -24,7 +24,6 @@ from app.core.http import Origen
 from app.core.security import hash_password
 from app.core.tiempo import ahora, hoy
 from app.domain.tipos import (
-    CLAVE_REGIMEN_GENERAL,
     CausaRectificacion,
     Modalidad,
     MotivoModificacion,
@@ -105,6 +104,7 @@ EMISOR_DEMO: Final = DatosEmisorEntrada(
     direccion="Calle Reyes Católicos, 1",
     codigo_postal="18001",
     localidad="Granada",
+    iban="ES91 2100 0418 4502 0005 1332",  # IBAN de ejemplo con dígito de control válido (R-22)
 )
 DIAS_FACTURAS: Final = 182  # unos 6 meses (R-16)
 
@@ -123,6 +123,12 @@ ARTICULOS: Final = (
     ("Cambio de pila de reloj", 8, 20),
     ("Reparación de cierre", 15, 50),
 )
+# Oro de inversión (F-11, art. 140): van en facturas sin IVA (FR-052, R-21).
+ARTICULOS_ORO_INVERSION: Final = (
+    ("Lingote de oro de 50 g, ley 999,9", 3500, 4200),
+    ("Moneda de oro Krugerrand de 1 oz", 2300, 2900),
+)
+CADA_ORO_INVERSION: Final = 25  # una de cada 25 facturas de ejemplo
 
 
 @dataclass(slots=True)
@@ -246,7 +252,7 @@ async def _crear_usuarios(
 
 
 async def _configurar_facturacion(db: AsyncSession, admin: Usuario) -> None:
-    """Configuración demo (R-16): IVA general, emisor ficticio y modalidad VERI*FACTU."""
+    """Configuración demo (R-16): IVA general, emisor ficticio con IBAN y modalidad VERI*FACTU."""
     config = await configuracion_repo.get(db)
     await configuracion_facturacion.update_config(
         db,
@@ -254,7 +260,6 @@ async def _configurar_facturacion(db: AsyncSession, admin: Usuario) -> None:
             {
                 "version": config.version,
                 "iva_por_defecto": "21.00",
-                "clave_regimen": CLAVE_REGIMEN_GENERAL,
                 "modalidad": Modalidad.VERIFACTU,
                 "emisor": EMISOR_DEMO,
             }
@@ -278,6 +283,20 @@ def _lineas(rng: random.Random) -> tuple[emision.DatosLinea, ...]:
     return tuple(lineas)
 
 
+def _lineas_oro(rng: random.Random) -> tuple[emision.DatosLinea, ...]:
+    descripcion, minimo, maximo = rng.choice(ARTICULOS_ORO_INVERSION)
+    centimos = rng.randrange(minimo * 100, maximo * 100 + 1)
+    return (
+        emision.DatosLinea(
+            unidades=Decimal(1), descripcion=descripcion, precio_unitario=Decimal(centimos) / 100
+        ),
+    )
+
+
+def _es_oro(indice: int) -> bool:
+    return indice % CADA_ORO_INVERSION == CADA_ORO_INVERSION // 2
+
+
 async def _emitir_facturas(
     db: AsyncSession,
     rng: random.Random,
@@ -286,7 +305,8 @@ async def _emitir_facturas(
     emisores: list[Usuario],
     clientes: list[Cliente],
 ) -> list[Factura]:
-    """Emite `cantidad` facturas de los últimos meses, en orden de fecha (FR-018)."""
+    """Emite `cantidad` facturas de los últimos meses, en orden de fecha (FR-018). Una de cada 25
+    es de oro de inversión, sin IVA (R-21)."""
     facturables = [c for c in clientes if c.activo and c.direccion and c.localidad]
     if not facturables or cantidad == 0:
         return []
@@ -295,13 +315,15 @@ async def _emitir_facturas(
         hoy_madrid - timedelta(days=rng.randrange(0, DIAS_FACTURAS)) for _ in range(cantidad)
     )
     emitidas: list[Factura] = []
-    for fecha in fechas:
+    for indice, fecha in enumerate(fechas):
+        oro = _es_oro(indice)
         factura, _ = await emision.emit_factura(
             db,
             emision.DatosFactura(
                 fecha_expedicion=fecha,
                 cliente_id=rng.choice(facturables).id,
-                lineas=_lineas(rng),
+                lineas=_lineas_oro(rng) if oro else _lineas(rng),
+                oro_inversion=oro,
             ),
             actor=rng.choice(emisores),
             origen=ORIGEN,
@@ -379,16 +401,18 @@ async def _crear_borradores(
     autores: list[Usuario],
     clientes: list[Cliente],
 ) -> int:
-    """Borradores de hoy, el primero sin cliente (T061): se guardan con el servicio, que calcula
-    sus totales previstos y los audita."""
+    """Borradores de hoy, el primero sin cliente (T061) y, si hay más de uno, el último de oro de
+    inversión (R-21): se guardan con el servicio, que calcula sus totales previstos y los audita."""
     activos = [c for c in clientes if c.activo]
     for indice in range(cantidad):
+        oro = cantidad > 1 and indice == cantidad - 1
         await borradores_srv.create_borrador(
             db,
             borradores_srv.DatosBorrador(
                 fecha_expedicion=hoy(),
                 cliente_id=None if indice == 0 or not activos else rng.choice(activos).id,
-                lineas=_lineas(rng),
+                lineas=_lineas_oro(rng) if oro else _lineas(rng),
+                oro_inversion=oro,
             ),
             actor=rng.choice(autores),
             origen=ORIGEN,

@@ -17,58 +17,83 @@ import type {
 import { Alerta } from '../../components/forms/Alerta'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+import { CampoDecimal } from '../../components/ui/CampoDecimal'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { Select } from '../../components/ui/Select'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { TextField } from '../../components/ui/TextField'
 import { toast } from '../../components/ui/toast-store'
-import { CLAVES_REGIMEN, MODALIDADES, textoFalta, textoTipoIva } from '../../lib/facturacion'
+import { aApi, parsearEntrada } from '../../lib/dinero'
+import {
+  formatearIban,
+  listaTiposIva,
+  MODALIDADES,
+  normalizarIban,
+  textoFalta,
+  textoTipoIva,
+  tipoIvaATexto,
+} from '../../lib/facturacion'
 import { AjusteContadorDialog } from './AjusteContadorDialog'
 
+/** De 0 a 99,99, con dos decimales como mucho (FR-001, research R-20): en centésimas. */
+const IVA_MAXIMO = 9999n
+const ERROR_IVA = 'Escribe un porcentaje entre 0 y 99,99, con dos decimales como mucho.'
+
+/** El tipo escrito, como lo espera la API («22.00»), o `null` si no es válido. */
+function tipoEscrito(texto: string): string | null {
+  const valor = parsearEntrada(texto)
+  return valor === null || valor > IVA_MAXIMO ? null : aApi(valor)
+}
+
 const esquema = z.object({
-  iva_por_defecto: z.string().min(1, 'Campo obligatorio.'),
-  clave_regimen: z.string().regex(/^\d{2}$/, 'Campo obligatorio.'),
+  iva_por_defecto: z.string().refine((v) => tipoEscrito(v) !== null, ERROR_IVA),
   modalidad: z.enum(['', 'verifactu', 'no_verifactu']),
   nombre: z.string().max(120),
   nif: z.string().max(20),
   direccion: z.string().max(200),
   codigo_postal: z.string().max(10),
   localidad: z.string().max(100),
+  iban: z.string().max(42),
 })
 type Valores = z.infer<typeof esquema>
 type CampoFormulario = keyof Valores
 
 const CAMPO_DEL_SERVIDOR: Record<string, CampoFormulario> = {
   iva_por_defecto: 'iva_por_defecto',
-  clave_regimen: 'clave_regimen',
   modalidad: 'modalidad',
   'emisor.nombre': 'nombre',
   'emisor.nif': 'nif',
   'emisor.direccion': 'direccion',
   'emisor.codigo_postal': 'codigo_postal',
   'emisor.localidad': 'localidad',
+  'emisor.iban': 'iban',
 }
 
 function valoresIniciales(config: ConfiguracionFacturacionSalida): Valores {
   return {
-    iva_por_defecto: config.iva_por_defecto,
-    clave_regimen: config.clave_regimen,
+    iva_por_defecto: tipoIvaATexto(config.iva_por_defecto),
     modalidad: config.modalidad ?? '',
     nombre: config.emisor.nombre ?? '',
     nif: config.emisor.nif ?? '',
     direccion: config.emisor.direccion ?? '',
     codigo_postal: config.emisor.codigo_postal ?? '',
     localidad: config.emisor.localidad ?? '',
+    iban: formatearIban(config.emisor.iban ?? ''),
   }
 }
 
 const vacioANulo = (valor: string) => (valor.trim() === '' ? null : valor.trim())
 
-function aCuerpo(valores: Valores, version: number): ConfiguracionFacturacionEntrada {
+function aCuerpo(
+  valores: Valores,
+  version: number,
+  confirmarTipoIva: boolean,
+): ConfiguracionFacturacionEntrada {
   return {
     version,
-    iva_por_defecto: valores.iva_por_defecto,
-    clave_regimen: valores.clave_regimen,
+    iva_por_defecto: tipoEscrito(valores.iva_por_defecto) ?? valores.iva_por_defecto,
+    confirmar_tipo_iva: confirmarTipoIva,
     modalidad: valores.modalidad === '' ? null : valores.modalidad,
     emisor: {
       nombre: vacioANulo(valores.nombre),
@@ -76,8 +101,21 @@ function aCuerpo(valores: Valores, version: number): ConfiguracionFacturacionEnt
       direccion: vacioANulo(valores.direccion),
       codigo_postal: vacioANulo(valores.codigo_postal),
       localidad: vacioANulo(valores.localidad),
+      iban: vacioANulo(normalizarIban(valores.iban)),
     },
   }
+}
+
+/** Aviso, mientras se escribe, de un tipo que no está en la lista oficial de hoy (R-20). */
+function AvisoTipoIva({ texto, oficiales }: { texto: string; oficiales: readonly string[] }) {
+  const tipo = tipoEscrito(texto)
+  if (tipo === null || oficiales.includes(tipo)) return null
+  return (
+    <p role="status" className="body-sm text-warning">
+      {textoTipoIva(tipo)} no está entre los tipos que admite hoy la AEAT (
+      {listaTiposIva(oficiales)}).
+    </p>
+  )
 }
 
 function AvisoEmision({ faltan }: { faltan: readonly string[] }) {
@@ -104,6 +142,8 @@ function AvisoEmision({ faltan }: { faltan: readonly string[] }) {
 function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
   const guardar = useGuardarConfiguracionFacturacion()
   const [error, setError] = useState<string | null>(null)
+  // Valores pendientes de confirmar por un tipo fuera de la lista oficial (R-20).
+  const [porConfirmar, setPorConfirmar] = useState<Valores | null>(null)
   const {
     control,
     handleSubmit,
@@ -113,10 +153,10 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
     defaultValues: valoresIniciales(config),
   })
 
-  const enviar = handleSubmit(async (valores) => {
+  const guardarValores = async (valores: Valores, confirmarTipoIva: boolean) => {
     setError(null)
     try {
-      await guardar.mutateAsync(aCuerpo(valores, config.version))
+      await guardar.mutateAsync(aCuerpo(valores, config.version, confirmarTipoIva))
       toast('Configuración de facturación guardada')
     } catch (e) {
       if (e instanceof ApiError && e.tipo === 'validacion' && e.problema.errores?.length) {
@@ -125,13 +165,16 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
           if (destino) marcar(destino, { message: mensaje })
           else setError(mensaje)
         }
-      } else if (e instanceof ApiError && e.tipo === 'tipo-iva-no-admitido') {
-        marcar('iva_por_defecto', { message: e.message })
+      } else if (e instanceof ApiError && e.tipo === 'tipo-iva-sin-confirmar') {
+        setPorConfirmar(valores)
       } else {
         setError(e instanceof ApiError ? e.message : 'No se ha podido guardar la configuración.')
       }
     }
-  })
+  }
+
+  const enviar = handleSubmit((valores) => guardarValores(valores, false))
+  const tipoPendiente = porConfirmar ? tipoEscrito(porConfirmar.iva_por_defecto) : null
 
   const texto = (
     name: 'nombre' | 'nif' | 'direccion' | 'codigo_postal' | 'localidad',
@@ -170,33 +213,18 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
             control={control}
             name="iva_por_defecto"
             render={({ field, fieldState }) => (
-              <Select
-                label="IVA por defecto"
-                isRequired
-                options={config.tipos_iva_admitidos.map((t) => ({ id: t, label: textoTipoIva(t) }))}
-                value={field.value}
-                onChange={(v) => {
-                  if (v) field.onChange(v)
-                }}
-                error={fieldState.error?.message}
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="clave_regimen"
-            render={({ field, fieldState }) => (
-              <Select
-                label="Clave de régimen del IVA"
-                isRequired
-                options={CLAVES_REGIMEN}
-                value={field.value}
-                onChange={(v) => {
-                  if (v) field.onChange(v)
-                }}
-                error={fieldState.error?.message}
-                className="md:col-span-2"
-              />
+              <div className="flex flex-col gap-1.5">
+                <CampoDecimal
+                  label="IVA por defecto"
+                  sufijo="%"
+                  isRequired
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  error={fieldState.error?.message}
+                />
+                <AvisoTipoIva texto={field.value} oficiales={config.tipos_iva_oficiales} />
+              </div>
             )}
           />
           <Controller
@@ -227,8 +255,8 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
           />
         </div>
         <p className="body-sm text-on-surface-variant">
-          El IVA se aplica a todas las líneas de las facturas nuevas. Cambiarlo no altera las ya
-          emitidas.
+          El IVA se aplica a todas las líneas de las facturas nuevas, salvo en las de oro de
+          inversión, que van sin IVA. Cambiarlo no altera las ya emitidas.
         </p>
       </fieldset>
 
@@ -246,6 +274,25 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
               {config.emisor.provincia ?? 'Se deduce del código postal'}
             </span>
           </div>
+          <Controller
+            control={control}
+            name="iban"
+            render={({ field, fieldState }) => (
+              <TextField
+                label="IBAN"
+                description="Opcional. Sale en las facturas para que el cliente pueda pagar por transferencia."
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={() => {
+                  field.onChange(formatearIban(field.value))
+                  field.onBlur()
+                }}
+                error={fieldState.error?.message}
+                autoComplete="off"
+                className="md:col-span-2"
+              />
+            )}
+          />
         </div>
       </fieldset>
 
@@ -255,6 +302,27 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
           {guardar.isPending ? 'Guardando…' : 'Guardar configuración'}
         </Button>
       </div>
+      <ConfirmDialog
+        title="¿Guardar un tipo de IVA que la AEAT no admite hoy?"
+        isOpen={porConfirmar !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) setPorConfirmar(null)
+        }}
+        confirmLabel="Guardar igualmente"
+        isPending={guardar.isPending}
+        onConfirm={() => {
+          const valores = porConfirmar
+          setPorConfirmar(null)
+          if (valores) void guardarValores(valores, true)
+        }}
+      >
+        <p>
+          {tipoPendiente ? textoTipoIva(tipoPendiente) : 'Ese tipo'} no está entre los tipos que
+          admite hoy la AEAT ({listaTiposIva(config.tipos_iva_oficiales)}). Guárdalo solo si ha
+          cambiado la ley: hasta que la AEAT lo admita, podría rechazar los registros de las
+          facturas.
+        </p>
+      </ConfirmDialog>
     </Form>
   )
 }

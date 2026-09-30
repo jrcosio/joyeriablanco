@@ -27,6 +27,8 @@ export interface ValoresFactura {
   fecha_expedicion: string
   cliente_id: string | null
   lineas: ValorLinea[]
+  /** «Sin IVA (oro de inversión)»: toda la factura exenta (FR-052). */
+  oro_inversion: boolean
 }
 
 export const lineaVacia = (): ValorLinea => ({
@@ -36,7 +38,7 @@ export const lineaVacia = (): ValorLinea => ({
 })
 
 export function valoresIniciales(hoy: string): ValoresFactura {
-  return { fecha_expedicion: hoy, cliente_id: null, lineas: [lineaVacia()] }
+  return { fecha_expedicion: hoy, cliente_id: null, lineas: [lineaVacia()], oro_inversion: false }
 }
 
 /** Valores del formulario a partir de un borrador guardado, con las cifras en formato español. */
@@ -49,6 +51,7 @@ export function valoresDelBorrador(borrador: BorradorSalida): ValoresFactura {
       descripcion: l.descripcion,
       precio_unitario: formatearCantidad(desdeApi(l.precio_unitario)),
     })),
+    oro_inversion: borrador.oro_inversion,
   }
 }
 
@@ -76,6 +79,7 @@ export const esquema = z.object({
   fecha_expedicion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha no válida.'),
   cliente_id: z.string().nullable(),
   lineas: z.array(linea).max(MAX_LINEAS, `Como máximo ${MAX_LINEAS.toString()} líneas.`),
+  oro_inversion: z.boolean(),
 })
 
 /** Requisitos que solo se exigen al emitir, no al guardar un borrador (FR-011). */
@@ -98,12 +102,18 @@ export function lineasCuerpo(lineas: readonly ValorLinea[]): FacturaEntrada['lin
   }))
 }
 
-/** Cuerpo de un borrador: puede ir sin cliente o sin líneas (FR-011). Nunca lleva totales. */
-export function aCuerpoBorrador(valores: ValoresFactura): BorradorEntrada {
+/**
+ * Cuerpo de un borrador: puede ir sin cliente o sin líneas (FR-011). Nunca lleva totales. La
+ * casilla va siempre, porque al editar o emitir es obligatoria (research R-21).
+ */
+export function aCuerpoBorrador(
+  valores: ValoresFactura,
+): BorradorEntrada & { oro_inversion: boolean } {
   return {
     fecha_expedicion: valores.fecha_expedicion,
     cliente_id: valores.cliente_id,
     lineas: lineasCuerpo(valores.lineas),
+    oro_inversion: valores.oro_inversion,
   }
 }
 
@@ -113,6 +123,7 @@ export function aCuerpo(valores: ValoresFactura): FacturaEntrada {
     fecha_expedicion: valores.fecha_expedicion,
     cliente_id: valores.cliente_id,
     lineas: lineasCuerpo(valores.lineas),
+    oro_inversion: valores.oro_inversion,
   }
 }
 

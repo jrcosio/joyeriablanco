@@ -14,7 +14,6 @@ function crearConfiguracion(
   return {
     version: 1,
     iva_por_defecto: '21.00',
-    clave_regimen: '01',
     modalidad: null,
     emisor: {
       nombre: null,
@@ -22,13 +21,14 @@ function crearConfiguracion(
       direccion: null,
       codigo_postal: null,
       localidad: null,
+      iban: null,
       provincia: null,
     },
     emision_posible: false,
     faltan: ['modalidad', 'emisor.nombre', 'emisor.nif'],
     proximo_numero: 'FAC-2026-0006',
     modalidad_bloqueada: false,
-    tipos_iva_admitidos: ['0.00', '4.00', '10.00', '21.00'],
+    tipos_iva_oficiales: ['0.00', '4.00', '10.00', '21.00'],
     actualizado_en: '2026-09-29T08:00:00Z',
     actualizado_por: null,
     ...parcial,
@@ -48,19 +48,137 @@ function conConfiguracion(config: ConfiguracionFacturacionSalida) {
 }
 
 describe('Configuración → Facturación (US1)', () => {
-  it('avisa de lo que falta para emitir y solo ofrece los tipos de IVA admitidos', async () => {
+  it('avisa de lo que falta para emitir, sin clave de régimen ni IBAN obligatorio', async () => {
+    conSesion(admin)
+    conConfiguracion(crearConfiguracion())
+    renderApp('/configuracion/facturacion')
+
+    const aviso = await screen.findByRole('status', { name: /no se puede emitir/i })
+    expect(within(aviso).getByText(/modalidad/i)).toBeInTheDocument()
+    expect(within(aviso).getByText(/nombre o razón social del emisor/i)).toBeInTheDocument()
+    expect(screen.queryByText(/clave de régimen/i)).not.toBeInTheDocument() // R-23
+    expect(screen.getByRole('textbox', { name: /IVA por defecto/ })).toHaveValue('21')
+    expect(screen.getByRole('textbox', { name: /^IBAN/ })).not.toBeRequired()
+  })
+
+  it('avisa mientras se escribe un IVA fuera de la lista y valida el rango (R-20)', async () => {
     conSesion(admin)
     conConfiguracion(crearConfiguracion())
     renderApp('/configuracion/facturacion')
     const user = userEvent.setup()
 
-    const aviso = await screen.findByRole('status', { name: /no se puede emitir/i })
-    expect(within(aviso).getByText(/modalidad/i)).toBeInTheDocument()
-    expect(within(aviso).getByText(/nombre o razón social del emisor/i)).toBeInTheDocument()
+    const iva = await screen.findByRole('textbox', { name: /IVA por defecto/ })
+    await user.clear(iva)
+    await user.type(iva, '22')
+    expect(
+      screen.getByText('22 % no está entre los tipos que admite hoy la AEAT (0, 4, 10 y 21).'),
+    ).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /IVA por defecto/ }))
-    const opciones = (await screen.findAllByRole('option')).map((o) => o.textContent)
-    expect(opciones).toEqual(['0 %', '4 %', '10 %', '21 %'])
+    await user.clear(iva)
+    await user.type(iva, '10')
+    expect(screen.queryByText(/no está entre los tipos/)).not.toBeInTheDocument()
+
+    await user.clear(iva)
+    await user.type(iva, '100')
+    await user.click(screen.getByRole('button', { name: 'Guardar configuración' }))
+    expect(
+      await screen.findByText(
+        'Escribe un porcentaje entre 0 y 99,99, con dos decimales como mucho.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('pide confirmación si la API rechaza el tipo y reenvía al confirmar', async () => {
+    conSesion(admin)
+    conConfiguracion(crearConfiguracion())
+    const enviados: { iva_por_defecto: string; confirmar_tipo_iva: boolean }[] = []
+    server.use(
+      http.put('*/api/v1/configuracion/facturacion', async ({ request }) => {
+        const cuerpo = (await request.json()) as (typeof enviados)[number]
+        enviados.push(cuerpo)
+        if (!cuerpo.confirmar_tipo_iva) {
+          return HttpResponse.json(
+            {
+              type: '/problemas/tipo-iva-sin-confirmar',
+              title: 'Confirma el tipo de IVA',
+              status: 422,
+              detail: 'Ese tipo de IVA no está entre los que la AEAT admite hoy.',
+              tipos_oficiales: ['0.00', '4.00', '10.00', '21.00'],
+            },
+            { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+          )
+        }
+        return HttpResponse.json(crearConfiguracion({ version: 2, iva_por_defecto: '22.00' }))
+      }),
+    )
+    renderApp('/configuracion/facturacion')
+    const user = userEvent.setup()
+
+    const iva = await screen.findByRole('textbox', { name: /IVA por defecto/ })
+    await user.clear(iva)
+    await user.type(iva, '22')
+    await user.click(screen.getByRole('button', { name: 'Guardar configuración' }))
+
+    const dialogo = await screen.findByRole('alertdialog', {
+      name: '¿Guardar un tipo de IVA que la AEAT no admite hoy?',
+    })
+    expect(within(dialogo).getByText(/rechazar los registros/)).toBeInTheDocument()
+    await user.click(within(dialogo).getByRole('button', { name: 'Guardar igualmente' }))
+
+    expect(await screen.findByText('Configuración de facturación guardada')).toBeInTheDocument()
+    expect(enviados.map((c) => [c.iva_por_defecto, c.confirmar_tipo_iva])).toEqual([
+      ['22.00', false],
+      ['22.00', true],
+    ])
+  })
+
+  it('cancelar la confirmación no reenvía nada', async () => {
+    conSesion(admin)
+    conConfiguracion(crearConfiguracion())
+    let llamadas = 0
+    server.use(
+      http.put('*/api/v1/configuracion/facturacion', () => {
+        llamadas += 1
+        return problema(422, 'tipo-iva-sin-confirmar', 'Ese tipo no está en la lista.')
+      }),
+    )
+    renderApp('/configuracion/facturacion')
+    const user = userEvent.setup()
+
+    const iva = await screen.findByRole('textbox', { name: /IVA por defecto/ })
+    await user.clear(iva)
+    await user.type(iva, '12,5')
+    await user.click(screen.getByRole('button', { name: 'Guardar configuración' }))
+    const dialogo = await screen.findByRole('alertdialog')
+    await user.click(within(dialogo).getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(llamadas).toBe(1)
+    expect(iva).toHaveValue('12,5')
+  })
+
+  it('agrupa el IBAN de cuatro en cuatro y lo envía normalizado (R-22)', async () => {
+    conSesion(admin)
+    const enviados = conConfiguracion(
+      crearConfiguracion({
+        emisor: { ...crearConfiguracion().emisor, iban: 'DE89370400440532013000' },
+      }),
+    )
+    renderApp('/configuracion/facturacion')
+    const user = userEvent.setup()
+
+    const iban = await screen.findByRole('textbox', { name: /^IBAN/ })
+    expect(iban).toHaveValue('DE89 3704 0044 0532 0130 00')
+    await user.clear(iban)
+    await user.type(iban, 'es9121000418450200051332')
+    await user.tab()
+    expect(iban).toHaveValue('ES91 2100 0418 4502 0005 1332')
+    await user.click(screen.getByRole('button', { name: 'Guardar configuración' }))
+
+    expect(await screen.findByText('Configuración de facturación guardada')).toBeInTheDocument()
+    expect((enviados[0] as { emisor: { iban: string } }).emisor.iban).toBe(
+      'ES9121000418450200051332',
+    )
   })
 
   it('ofrece la modalidad «Sin decidir» y la bloquea con su explicación si ya hay registros', async () => {
@@ -91,7 +209,7 @@ describe('Configuración → Facturación (US1)', () => {
       {
         version: 1,
         iva_por_defecto: '21.00',
-        clave_regimen: '01',
+        confirmar_tipo_iva: false,
         modalidad: null,
         emisor: {
           nombre: 'Joyería Blanco, S.L.',
@@ -99,6 +217,7 @@ describe('Configuración → Facturación (US1)', () => {
           direccion: null,
           codigo_postal: null,
           localidad: null,
+          iban: null,
         },
       },
     ])
@@ -114,7 +233,10 @@ describe('Configuración → Facturación (US1)', () => {
             type: '/problemas/validacion',
             title: 'Datos no válidos',
             status: 422,
-            errores: [{ campo: 'emisor.nif', mensaje: 'La letra del NIF no es correcta.' }],
+            errores: [
+              { campo: 'emisor.nif', mensaje: 'La letra del NIF no es correcta.' },
+              { campo: 'emisor.iban', mensaje: 'El dígito de control del IBAN no es correcto.' },
+            ],
           },
           { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
         ),
@@ -127,6 +249,7 @@ describe('Configuración → Facturación (US1)', () => {
     await user.click(screen.getByRole('button', { name: 'Guardar configuración' }))
 
     expect(await screen.findByText('La letra del NIF no es correcta.')).toBeInTheDocument()
+    expect(screen.getByText('El dígito de control del IBAN no es correcto.')).toBeInTheDocument()
   })
 
   it('ajusta el contador tras mostrar cuántos números quedarán sin usar', async () => {

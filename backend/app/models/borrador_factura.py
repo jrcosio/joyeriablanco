@@ -9,7 +9,17 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Integer, Numeric, SmallInteger, String, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    ForeignKey,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    false,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UuidPkMixin
@@ -35,6 +45,7 @@ class BorradorFactura(UuidPkMixin, Base):
     cliente_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("clientes.id"))
     fecha_expedicion: Mapped[date] = mapped_column(Date)
     tipo_iva_previsto: Mapped[Decimal] = mapped_column(Numeric(5, 2))
+    oro_inversion: Mapped[bool] = mapped_column(Boolean, server_default=false())  # R-21
     base_prevista: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     cuota_prevista: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     total_previsto: Mapped[Decimal] = mapped_column(Numeric(12, 2))

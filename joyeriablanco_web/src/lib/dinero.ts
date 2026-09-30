@@ -105,9 +105,15 @@ export interface TotalesCalculo {
   total: bigint
 }
 
-/** Totales de un único tipo de IVA (FR-013): `tipoIva` en centésimas de punto (21 % = 2100n). */
-export function calcularTotales(lineas: readonly LineaCalculo[], tipoIva: bigint): TotalesCalculo {
+/**
+ * Totales de un único tipo de IVA (FR-013): `tipoIva` en centésimas de punto (21 % = 2100n), o
+ * `null` en una factura de oro de inversión, sin IVA (FR-052).
+ */
+export function calcularTotales(
+  lineas: readonly LineaCalculo[],
+  tipoIva: bigint | null,
+): TotalesCalculo {
   const base = lineas.reduce((suma, l) => suma + importeLinea(l.unidades, l.precio), 0n)
-  const cuota = dividirRedondeando(base * tipoIva, 10_000n)
+  const cuota = tipoIva === null ? 0n : dividirRedondeando(base * tipoIva, 10_000n)
   return { base, cuota, total: base + cuota }
 }

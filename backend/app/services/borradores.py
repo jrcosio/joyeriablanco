@@ -4,6 +4,9 @@ Un borrador no es una factura expedida (constitución III): se guarda incompleto
 concurrencia optimista y se borra sin consumir número ni generar registro. Al guardarlo se
 calculan con `domain/importes.py` el IVA y los totales PREVISTOS, que solo sirven para el listado
 y para avisar si el IVA cambia; al emitir, `emision` lo recalcula todo con el IVA vigente.
+
+Un borrador de oro de inversión (`oro_inversion`, research R-21) prevé los totales sin cuota. El
+IVA previsto sigue siendo el vigente al guardarlo, por si se desmarca la casilla.
 """
 
 import uuid
@@ -43,6 +46,7 @@ class DatosBorrador:
     fecha_expedicion: date
     cliente_id: uuid.UUID | None
     lineas: tuple[emision.DatosLinea, ...]
+    oro_inversion: bool = False
 
 
 # --------------------------------------------------------------------------- validaciones
@@ -75,7 +79,8 @@ def _normalizar(lineas: tuple[emision.DatosLinea, ...]) -> tuple[emision.DatosLi
     )
 
 
-def _previstos(lineas: tuple[emision.DatosLinea, ...], tipo_iva: Decimal) -> Totales:
+def _previstos(lineas: tuple[emision.DatosLinea, ...], tipo_iva: Decimal | None) -> Totales:
+    """`tipo_iva=None`: borrador de oro de inversión, sin IVA (R-21)."""
     emision.check_lineas(lineas, permitir_vacio=True)
     try:
         return compute_totals(
@@ -103,6 +108,7 @@ def _contenido(borrador: BorradorFactura) -> dict[str, object]:
         "fecha_expedicion": borrador.fecha_expedicion,
         "cliente_id": borrador.cliente_id,
         "lineas": _lineas_json(borrador.lineas),
+        "oro_inversion": borrador.oro_inversion,
         "tipo_iva_previsto": borrador.tipo_iva_previsto,
     }
 
@@ -114,6 +120,7 @@ def _contenido_nuevo(
         "fecha_expedicion": datos.fecha_expedicion,
         "cliente_id": datos.cliente_id,
         "lineas": _lineas_json(lineas),
+        "oro_inversion": datos.oro_inversion,
         "tipo_iva_previsto": tipo_iva,
     }
 
@@ -124,8 +131,9 @@ def _aplicar(
     lineas: tuple[emision.DatosLinea, ...],
     tipo_iva: Decimal,
 ) -> None:
-    totales = _previstos(lineas, tipo_iva)
+    totales = _previstos(lineas, None if datos.oro_inversion else tipo_iva)
     borrador.fecha_expedicion = datos.fecha_expedicion
+    borrador.oro_inversion = datos.oro_inversion
     borrador.cliente_id = datos.cliente_id
     borrador.lineas = [
         LineaBorrador(
@@ -186,7 +194,7 @@ async def update_borrador(
     await _check_cliente(db, datos.cliente_id, actual=borrador.cliente_id)
     lineas = _normalizar(datos.lineas)
     tipo_iva = (await configuracion_repo.get(db)).iva_por_defecto
-    _previstos(lineas, tipo_iva)  # valida antes de comparar
+    _previstos(lineas, None if datos.oro_inversion else tipo_iva)  # valida antes de comparar
     # Si el IVA vigente ha cambiado, volver a guardar actualiza el previsto (y su aviso).
     cambios = diff(_contenido(borrador), _contenido_nuevo(datos, lineas, tipo_iva))
     if not cambios:
@@ -264,6 +272,7 @@ async def emit_borrador(
             fecha_expedicion=datos.fecha_expedicion,
             cliente_id=datos.cliente_id,
             lineas=_normalizar(datos.lineas),
+            oro_inversion=datos.oro_inversion,
         ),
         actor=actor,
         origen=origen,

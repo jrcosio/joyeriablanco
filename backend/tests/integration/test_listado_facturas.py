@@ -143,12 +143,53 @@ async def test_las_filas_llevan_los_campos_del_contrato_con_importes_en_texto(
         "cuota": "42.00",
         "total": "242.00",
         "estado": "borrador",
+        "oro_inversion": False,
     }
     assert filas[str(datos.borrador_sin_cliente)]["cliente_nombre"] is None
     factura = next(f for f in filas.values() if f["num_serie"] == f"FAC-{datos.anio}-0001")
     assert (factura["base"], factura["cuota"], factura["total"]) == ("1290.00", "270.90", "1560.90")
     assert factura["estado"] == "vigente"
     assert factura["identificacion"] == "12345678Z"
+    assert factura["oro_inversion"] is False
+
+
+async def test_las_filas_de_oro_de_inversion_se_marcan(
+    client: AsyncClient, db: AsyncSession, datos: Datos
+) -> None:
+    # FR-033: la web muestra «Exenta» en la columna del IVA (R-21).
+    actor = (await db.get(Cliente, datos.maria.id)).creado_por_id  # type: ignore[union-attr]
+    usuario = await db.get(Usuario, actor)
+    assert usuario is not None
+    await emision.emit_factura(
+        db,
+        emision.DatosFactura(
+            fecha_expedicion=hoy(),
+            cliente_id=datos.maria.id,
+            lineas=(emision.DatosLinea(Decimal(1), "Lingote de oro 50 g", Decimal("3700")),),
+            oro_inversion=True,
+        ),
+        actor=usuario,
+        origen=ORIGEN,
+        clave=uuid.uuid4(),
+    )
+    exento = _borrador(usuario, datos.maria, "100")
+    exento.oro_inversion = True
+    exento.cuota_prevista = Decimal("0.00")
+    exento.total_previsto = Decimal("100.00")
+    db.add(exento)
+    await db.commit()
+
+    filas = (await _listar(client)).json()["elementos"]
+
+    factura = next(f for f in filas if f["num_serie"] == f"FAC-{datos.anio}-0004")
+    assert (factura["oro_inversion"], factura["cuota"], factura["total"]) == (
+        True,
+        "0.00",
+        "3700.00",
+    )
+    borrador = next(f for f in filas if f["id"] == str(exento.id))
+    assert borrador["oro_inversion"] is True
+    assert sum(f["oro_inversion"] for f in filas) == 2
 
 
 @pytest.mark.parametrize(

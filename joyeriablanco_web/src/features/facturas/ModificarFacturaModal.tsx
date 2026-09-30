@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { ApiError } from '../../api/client'
 import { parametrosFacturacionQuery } from '../../api/queries/configuracionFacturacion'
 import { facturaQuery, useModificarFactura } from '../../api/queries/facturas'
@@ -35,6 +35,8 @@ function valoresDe(factura: FacturaSalida, hoy: string): ValoresFactura {
       descripcion: l.descripcion,
       precio_unitario: formatearCantidad(desdeApi(l.precio_unitario)),
     })),
+    // Se parte de la original y se puede cambiar, p. ej. para un IVA mal aplicado (US5-9).
+    oro_inversion: factura.oro_inversion,
   }
 }
 
@@ -62,6 +64,7 @@ function FormularioModificacion({
     defaultValues: valoresDe(factura, parametros.hoy),
   })
   const sucio = form.formState.isDirty
+  const oroInversion = useWatch({ control: form.control, name: 'oro_inversion' })
 
   const intentarCerrar = () => {
     if (sucio) setDescartando(true)
@@ -91,6 +94,7 @@ function FormularioModificacion({
           cliente_id: valores.cliente_id,
           fecha_expedicion: valores.fecha_expedicion,
           lineas: lineasCuerpo(valores.lineas),
+          oro_inversion: valores.oro_inversion,
         },
         clave,
       })
@@ -158,7 +162,7 @@ function FormularioModificacion({
         esRectificativa={factura.rectifica_a !== null}
         proximoNumero={parametros.proximo_numero}
         ivaOriginal={tipoIvaDe(factura)}
-        ivaVigente={parametros.iva_por_defecto}
+        ivaVigente={oroInversion ? null : parametros.iva_por_defecto}
         enviando={modificar.isPending}
         onConfirmar={(elegido) => void guardar(elegido)}
       />

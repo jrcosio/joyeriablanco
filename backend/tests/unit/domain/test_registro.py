@@ -9,10 +9,17 @@ from decimal import Decimal
 
 import pytest
 
+from app.domain.exenciones import (
+    CLAVE_REGIMEN_ORO_INVERSION,
+    MENCION_EXENCION_ORO_INVERSION,
+    OPERACION_EXENTA_OTROS,
+    mencion_exencion,
+)
 from app.domain.importes import DesgloseTipo
 from app.domain.registro import (
     DatosAlta,
     Destinatario,
+    DetalleDesglose,
     Emisor,
     FacturaRectificada,
     RegistroAnterior,
@@ -20,8 +27,9 @@ from app.domain.registro import (
     build_contenido_alta,
     build_contenido_anulacion,
     build_descripcion_operacion,
+    detalle_desde,
 )
-from app.domain.tipos import TipoFactura
+from app.domain.tipos import CLAVE_REGIMEN_GENERAL, TipoFactura
 
 D = Decimal
 EMISOR = Emisor(nif="B12345674", nombre="Joyería Blanco (demo)")
@@ -43,6 +51,14 @@ HORA = "2026-09-29T10:15:00+02:00"
 HUELLA = "A" * 64
 
 
+def _sujeto(tipo: str, base: str, cuota: str) -> DetalleDesglose:
+    return detalle_desde(DesgloseTipo(tipo_iva=D(tipo), base=D(base), cuota=D(cuota)))
+
+
+def _exento(base: str) -> DetalleDesglose:
+    return detalle_desde(DesgloseTipo(tipo_iva=None, base=D(base), cuota=D("0.00")))
+
+
 def _datos(**cambios: object) -> DatosAlta:
     base: dict[str, object] = {
         "emisor": EMISOR,
@@ -52,8 +68,7 @@ def _datos(**cambios: object) -> DatosAlta:
         "fecha_operacion": None,
         "descripcion": "Anillo de oro blanco; Ajuste de pulsera",
         "destinatario": MARIA,
-        "clave_regimen": "01",
-        "desglose": (DesgloseTipo(tipo_iva=D("21.00"), base=D("1290.00"), cuota=D("270.90")),),
+        "desglose": (_sujeto("21.00", "1290.00", "270.90"),),
         "cuota_total": D("270.90"),
         "importe_total": D("1560.90"),
         "rectificada": None,
@@ -126,6 +141,72 @@ def test_no_se_informan_impuesto_ni_opcionales_excluidos() -> None:
     assert "FechaOperacion" not in contenido
 
 
+def test_detalle_sujeto_en_el_orden_de_f1() -> None:
+    # Regresión (R-21): el detalle S1 es idéntico al de antes del ajuste de cierre, para que
+    # verificar-cadena siga reconstruyendo igual los registros ya generados.
+    detalle = _alta(_datos())["Desglose"]["DetalleDesglose"][0]  # type: ignore[index]
+
+    assert list(detalle) == [
+        "ClaveRegimen",
+        "CalificacionOperacion",
+        "TipoImpositivo",
+        "BaseImponibleOimporteNoSujeto",
+        "CuotaRepercutida",
+    ]
+    assert _sujeto("21", "1", "0.21") == DetalleDesglose(
+        clave_regimen=CLAVE_REGIMEN_GENERAL,
+        base=D("1"),
+        cuota=D("0.21"),
+        tipo_iva=D("21"),
+        calificacion_operacion="S1",
+        operacion_exenta=None,
+    )
+
+
+def test_alta_de_oro_de_inversion_exenta() -> None:
+    # F-1: CalificacionOperacion y OperacionExenta son «obligatorios y alternativos»; F-3 §15.5:
+    # con OperacionExenta no se informan TipoImpositivo ni CuotaRepercutida; F-3 §15.6.3: la
+    # clave 04 admite OperacionExenta (research R-21).
+    contenido = _alta(
+        _datos(
+            descripcion="Lingote de oro 100 g",
+            desglose=(_exento("7450.00"),),
+            cuota_total=D("0.00"),
+            importe_total=D("7450.00"),
+        )
+    )
+
+    detalles = contenido["Desglose"]["DetalleDesglose"]  # type: ignore[index]
+    assert detalles == [
+        {"ClaveRegimen": "04", "OperacionExenta": "E6", "BaseImponibleOimporteNoSujeto": "7450.00"}
+    ]
+    assert list(detalles[0]) == ["ClaveRegimen", "OperacionExenta", "BaseImponibleOimporteNoSujeto"]
+    assert contenido["CuotaTotal"] == "0.00"
+    assert contenido["ImporteTotal"] == "7450.00"
+
+
+def test_detalle_exento_desde_el_desglose_sin_tipo() -> None:
+    assert _exento("10.00") == DetalleDesglose(
+        clave_regimen=CLAVE_REGIMEN_ORO_INVERSION,
+        base=D("10.00"),
+        cuota=D("0.00"),
+        tipo_iva=None,
+        calificacion_operacion=None,
+        operacion_exenta=OPERACION_EXENTA_OTROS,
+    )
+
+
+def test_claves_y_mencion_del_oro_de_inversion() -> None:
+    # L8A «04 Régimen especial del oro de inversión»; L10 «E6 Exenta por otros» (F-1);
+    # mención del ROF art. 6.1.j (F-6) con el precepto de F-11 (art. 140 bis.Uno.1.º LIVA).
+    assert (CLAVE_REGIMEN_ORO_INVERSION, OPERACION_EXENTA_OTROS) == ("04", "E6")
+    assert MENCION_EXENCION_ORO_INVERSION == (
+        "Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)"
+    )
+    assert mencion_exencion("04") == MENCION_EXENCION_ORO_INVERSION
+    assert mencion_exencion("01") is None
+
+
 def test_alta_encadenada_con_el_registro_anterior() -> None:
     anterior = RegistroAnterior(
         id_emisor="B12345674",
@@ -185,7 +266,7 @@ def test_rectificativa_por_sustitucion(tipo: TipoFactura) -> None:
         tipo_factura=tipo,
         fecha_operacion=date(2026, 9, 1),
         rectificada=rectificada,
-        desglose=(DesgloseTipo(tipo_iva=D("21.00"), base=D("800.00"), cuota=D("168.00")),),
+        desglose=(_sujeto("21.00", "800.00", "168.00"),),
         cuota_total=D("168.00"),
         importe_total=D("968.00"),
     )
@@ -229,7 +310,7 @@ def test_devolucion_total_con_un_detalle_a_cero() -> None:
             base=D("100.00"),
             cuota=D("21.00"),
         ),
-        desglose=(DesgloseTipo(tipo_iva=D("21.00"), base=D("0.00"), cuota=D("0.00")),),
+        desglose=(_sujeto("21.00", "0.00", "0.00"),),
         cuota_total=D("0.00"),
         importe_total=D("0.00"),
     )

@@ -153,9 +153,15 @@ class FechaExpedicionNoValida(ProblemaError):
     status, tipo, titulo = 422, "fecha-expedicion", "Fecha de expedición no válida"
 
 
-class TipoIvaNoAdmitido(ProblemaError):
-    status, tipo, titulo = 422, "tipo-iva-no-admitido", "Tipo de IVA no admitido"
-    detalle_por_defecto = "Ese tipo de IVA no está admitido para una operación en esa fecha."
+class TipoIvaSinConfirmar(ProblemaError):
+    """IVA por defecto fuera de la lista oficial de hoy sin confirmar (research R-20).
+    `extra={"tipos_oficiales": [...]}`."""
+
+    status, tipo, titulo = 422, "tipo-iva-sin-confirmar", "Confirma el tipo de IVA"
+    detalle_por_defecto = (
+        "Ese tipo de IVA no está entre los que la AEAT admite hoy. Guárdalo solo si ha cambiado "
+        "la ley: la AEAT podría rechazar los registros de las facturas hasta que lo admita."
+    )
 
 
 class FacturaNoModificable(ProblemaError):
