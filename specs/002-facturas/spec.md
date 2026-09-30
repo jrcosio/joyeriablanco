@@ -18,6 +18,13 @@ estaría bien que también se pudiera editar, ya que si hay errores se puedan su
 lógicamente con control para evitar duplicidad. En el ejemplo el menú está a la derecha y es a la
 izquierda."
 
+**Ajustes de cierre** (2026-09-30), pedidos por el responsable tras probar la facturación: "si
+mañana le suben al 22 o le bajan al 20 […] no puedo ponerlo y eso es un fallo ya que esa era la
+finalidad" (FR-001). "Lo de Clave de Régimen del IVA eso no lo quiero […] la joyería siempre es
+régimen general" (FR-001). "Falta el número de cuenta bancaria IBAN para que salga en las
+facturas" (FR-001, FR-016, FR-053). Y "si se vende un lingote de oro de inversión es sin IVA, por lo
+tanto quiero desactivarlo para que no tenga IVA y ya está" (FR-052).
+
 **Referencias**:
 - Mockups orientativos:
   - [`assets/mockup-facturas.png`](assets/mockup-facturas.png) (listado).
@@ -45,7 +52,8 @@ izquierda."
 - Q: ¿Se usan borradores? → A: Sí, con los botones «Guardar borrador» y «Emitir factura», como en la
   captura.
 - Q: ¿Cómo se elige el IVA en la factura? → A: Siempre es el tipo por defecto de Configuración. En la
-  factura no hay selector.
+  factura no hay selector. *Desde el ajuste de cierre, una factura de oro de inversión va sin IVA:
+  ver la sesión del 2026-09-30.*
 - Q: ¿Indicadores y estado de cobro? → A: Ninguno de los dos. El listado no tiene KPI ni columna de
   estado (Cobrada, Pendiente o Vencida).
 
@@ -79,7 +87,8 @@ izquierda."
 
 - Q: ¿En qué régimen de IVA factura la joyería sus ventas? → A: Todas en régimen general, clave
   01 de la lista L8A (F-1), al tipo de Configuración. La clave queda en Configuración para que la
-  asesoría la confirme o la cambie antes de producción (FR-001).
+  asesoría la confirme o la cambie antes de producción (FR-001). *En el ajuste de cierre la clave
+  sale de Configuración y la fija el sistema: ver la sesión del 2026-09-30.*
 - Q: ¿Quién puede anular o modificar una factura ya emitida? → A: Solo los administradores. Los
   empleados crean borradores y emiten (FR-023, FR-025).
 - Q: ¿Cómo se rellena la descripción del objeto de la factura que exige el registro? → A: Se
@@ -139,13 +148,47 @@ se emiten a final de semana o de mes.
   uno más de la AEAT: no puede ser anterior a su fecha de la operación, que es la heredada de la
   original (F-3 §3.1.3.1, error 1146).
 
+### Session 2026-09-30 (ajuste de cierre)
+
+El responsable pide cuatro cambios tras probar la facturación (cabecera, «Ajustes de cierre»).
+Antes de responder se le informó de lo que dicen las fuentes oficiales:
+- La AEAT solo admite hoy los tipos 0, 4, 10 y 21 en una operación sujeta y no exenta (F-3 §15.1).
+- La entrega de oro de inversión está exenta (F-11, art. 140 bis) y pertenece al «Régimen especial
+  del oro de inversión» (F-11, capítulo V del título IX). El registro la identifica con la clave
+  de régimen `04` de la lista L8A y con la causa de exención `E6`, «Exenta por otros», de la lista
+  L10 (F-1; F-3 §15.6.3).
+
+- Q: El IVA por defecto va a admitir cualquier tipo. ¿Cómo se evita un error de tecleo (12 en vez
+  de 21)? → A: Se admite cualquier tipo de 0 a 99,99 %. Si no es uno de los que la AEAT admite en
+  la fecha actual, se avisa y se pide confirmación antes de guardar. Emitir nunca se bloquea por el
+  tipo (FR-001).
+- Q: ¿Qué pasa con la clave de régimen de Configuración? → A: Se retira. La joyería factura en
+  régimen general, y la clave del registro la fija el sistema: `01` en toda factura, salvo `04` en
+  las de oro de inversión (FR-001, FR-052).
+- Q: ¿Dónde se quita el IVA en «Nueva factura»? → A: Con un único interruptor para toda la factura,
+  «Sin IVA (oro de inversión)», junto al IVA. No hay selector por línea. Una venta mixta, como un
+  lingote y una joya, se documenta en dos facturas (FR-052).
+- Q: ¿El «sin IVA» sirve para otras exenciones? → A: No, solo para el oro de inversión. El sistema
+  pone solo en el registro la clave `04` y la exención `E6`, y en la factura la mención legal de la
+  exención (F-6, art. 6.1.j). La asesoría confirma las claves y la mención antes de producción
+  (research R-17, Q-10).
+- Q: ¿El IBAN es obligatorio? → A: No, es opcional y no impide emitir. Si está, se valida su
+  dígito de control, se copia en cada factura al emitirla y sale en ella: hoy en la consulta y,
+  cuando exista, en el PDF de la feature 003 (FR-001, FR-016, FR-053).
+- Q: ¿Quién puede marcar «Sin IVA (oro de inversión)»? → A: Todos los que facturan, empleados y
+  administradores, igual que para emitir. La factura guarda quién la emitió y la emisión queda en
+  la auditoría (FR-052).
+- Q: ¿La joyería fabrica oro de inversión o transforma oro en oro de inversión? → A: No, solo lo
+  vende. Toda venta de oro de inversión es exenta, y la renuncia a la exención (F-11, art. 140 ter)
+  queda fuera de alcance (Assumptions).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Configurar la facturación (Priority: P1)
 
 Antes de facturar, el administrador abre Configuración → Facturación. Allí fija el tipo de IVA por
-defecto, que viene al 21 %, y los datos de la joyería como emisora de las facturas. Si un día
-cambia el tipo general, lo actualiza en esa misma pantalla.
+defecto, que viene al 21 %, y los datos de la joyería como emisora de las facturas, incluido el
+IBAN en el que cobra. Si un día cambia el tipo general, escribe el nuevo en esa misma pantalla.
 
 **Why this priority**: sin los datos del emisor no se puede expedir una factura válida (F-6,
 art. 6.1), y el IVA por defecto es lo que se aplica en cada línea.
@@ -157,10 +200,10 @@ dos cosas: que una factura nueva usa ese tipo y que un empleado no puede entrar 
 
 1. **Given** una instalación nueva, **When** el administrador abre Configuración → Facturación,
    **Then** el IVA por defecto aparece al 21 % y los datos del emisor, vacíos, marcados como
-   necesarios para emitir.
-2. **Given** el IVA por defecto al 21 %, **When** el administrador lo cambia a otro tipo válido y
-   guarda, **Then** los borradores nuevos y los que se emitan a partir de ese momento usan el tipo
-   nuevo, y las facturas ya emitidas conservan el suyo.
+   necesarios para emitir, salvo el IBAN, que es opcional. No hay ningún campo de clave de régimen.
+2. **Given** el IVA por defecto al 21 %, **When** el administrador lo cambia a 10 y guarda,
+   **Then** los borradores nuevos y los que se emitan a partir de ese momento usan el tipo nuevo, y
+   las facturas ya emitidas conservan el suyo.
 3. **Given** un empleado, **When** intenta abrir o guardar la configuración de facturación,
    **Then** el sistema se lo impide.
 4. **Given** datos del emisor incompletos o la modalidad sin elegir, **When** alguien intenta emitir
@@ -172,6 +215,13 @@ dos cosas: que una factura nueva usa ese tipo y que un empleado no puede entrar 
    auditoría con su motivo.
 6. **Given** la misma serie, **When** el administrador intenta fijar el próximo número en 5 o menos,
    **Then** el sistema lo rechaza, porque ese número ya se ha usado.
+7. **Given** el IVA por defecto al 21 %, **When** el administrador escribe 22 y guarda, **Then** un
+   aviso le indica que 22 no está entre los tipos que la AEAT admite hoy (0, 4, 10 y 21) y le pide
+   confirmarlo. Si confirma, se guarda y se aplica igual que cualquier otro tipo. Si no, nada
+   cambia.
+8. **Given** el formulario de datos del emisor, **When** el administrador escribe un IBAN con el
+   dígito de control erróneo y guarda, **Then** el sistema lo rechaza con el error en el propio
+   campo. Con un IBAN válido, lo guarda y lo muestra agrupado de cuatro en cuatro.
 
 ---
 
@@ -216,6 +266,10 @@ el registro de alta y su huella encadenada con la del registro anterior.
 9. **Given** un cliente que todavía no está en la cartera, **When** se pulsa «Nuevo cliente» junto
    al selector, se rellena su ficha y se guarda, **Then** el modal de la factura vuelve con ese
    cliente elegido y conserva las líneas ya escritas.
+10. **Given** una factura con una línea «Lingote de oro 100 g» de 1 unidad a 7.450,00 €, **When** se
+    marca «Sin IVA (oro de inversión)», **Then** el modal previsualiza una base exenta de 7.450,00 €,
+    un IVA de 0,00 € y un total de 7.450,00 €, con la mención de la exención. Al emitirla, su
+    registro de alta identifica la operación como exenta de oro de inversión (FR-052).
 
 ---
 
@@ -330,6 +384,10 @@ cosas:
    puede corregir de nuevo.
 8. **Given** un empleado, **When** consulta una factura emitida, **Then** no ve «Anular» ni
    «Modificar», y el servidor rechaza cualquier intento suyo de anular o modificar.
+9. **Given** `FAC-2026-0010`, ya entregada, en la que se vendió un lingote de oro de inversión con
+   IVA por error, **When** se modifica marcando «Sin IVA (oro de inversión)» y la causa
+   «Devolución, descuento o cambio de precio posterior a la venta, o IVA mal aplicado», **Then** se
+   emite una rectificativa R1 por sustitución, exenta, y `FAC-2026-0010` queda rectificada.
 
 ---
 
@@ -373,6 +431,22 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **IVA de una rectificativa o una reemisión**: se aplica el tipo de Configuración vigente al
   emitirla, igual que en cualquier factura (FR-013). Si no coincide con el de la factura original,
   el modal lo avisa antes de guardar (research R-4).
+- **Tipo de IVA fuera de la lista de la AEAT**: tras confirmarlo en Configuración (FR-001), las
+  facturas se emiten con él sin más avisos. Si la AEAT aún no lo admite, rechazará el registro
+  cuando se remita (feature 004; research R-17, Q-11).
+- **Factura de oro de inversión** (FR-052):
+  - **Venta mixta**: un lingote y una joya en la misma venta se documentan en dos facturas, una sin
+    IVA y otra con IVA. Una factura nunca mezcla líneas exentas y sujetas.
+  - **Borrador**: guarda si está marcado «Sin IVA». Un cambio del IVA por defecto no le afecta ni
+    provoca el aviso de cambio de tipo.
+  - **Corrección**: «Modificar» parte del valor de la factura original y deja cambiarlo. Cambiarlo
+    cuenta como un cambio: la modificación no se considera «sin cambios».
+  - **Rectificar una factura exenta a sujeta, o al revés**: la rectificativa lleva el tratamiento
+    que se marque, y su importe de rectificación se calcula igual que en cualquier rectificativa.
+  - **Total**: como en cualquier factura ordinaria, no se admite un total de cero (Casos límite,
+    «Importes límite»).
+- **Cambio del IBAN**: las facturas ya emitidas conservan el IBAN que tenían al emitirse. Las
+  emitidas antes del ajuste de cierre, o cuando el IBAN estaba vacío, no llevan ninguno.
 - **Cambios en el cliente después de emitir**: la factura emitida conserva los datos del cliente y
   del emisor tal como estaban al emitirla. Editar después la ficha del cliente no la altera.
 - **Cliente con facturas**: no se puede borrar. Se ofrece desactivarlo, y el borrado lo rechaza el
@@ -426,17 +500,28 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 #### Configuración de facturación
 
 - **FR-001**: Configuración DEBE tener una sección «Facturación», solo para administradores, con:
-  - **IVA por defecto**: vale 21 al instalar y solo admite los tipos de IVA que las validaciones
-    oficiales permiten para una operación sujeta y no exenta en la fecha actual (F-3, §15.1). Hoy
-    son 0, 4, 10 y 21. Un tipo nuevo, si cambia la ley, exige actualizar esa lista en el sistema.
+  - **IVA por defecto**: vale 21 al instalar y se escribe libremente, porque el tipo puede cambiar
+    por ley (Clarifications, ajuste de cierre):
+    - Admite cualquier porcentaje de 0 a 99,99, con hasta dos decimales.
+    - **Aviso**: si el tipo no está entre los que las validaciones oficiales permiten en la fecha
+      actual para una operación sujeta y no exenta (F-3 §15.1; hoy 0, 4, 10 y 21), el sistema lo
+      avisa y NO DEBE guardarlo sin una confirmación expresa del administrador. La exigencia de
+      confirmación la aplica el servidor, no solo la pantalla.
+    - Emitir nunca se bloquea por el tipo (FR-013).
   - **Datos del emisor**: razón social o nombre y apellidos, NIF y domicilio completo (dirección,
     código postal, localidad y provincia), exigidos por F-6, art. 6.1.c, d y e.
+    - **IBAN** de la cuenta en la que cobra la joyería: opcional, y no forma parte de lo necesario
+      para emitir (FR-004). Si se rellena, DEBE ser un IBAN válido según ISO 13616, con la longitud
+      de su país y el dígito de control correcto. Se guarda sin espacios y en mayúsculas, y se
+      muestra agrupado de cuatro en cuatro.
   - **Modalidad del sistema de facturación**: VERI\*FACTU o no VERI\*FACTU. Empieza sin valor
     («Sin decidir»), porque la elección está pendiente de la asesoría (Clarifications). La elige el
     administrador y DEBE fijarse antes de la feature 004. Una vez generado el primer registro, queda
     bloqueada (FR-050).
-  - **Clave de régimen del IVA**: vale 01, «operación de régimen general», al instalar. Solo admite
-    los valores de la lista oficial L8A (F-1), y la asesoría la debe confirmar antes de producción.
+  - **Sin clave de régimen**: la clave de régimen del IVA NO se configura. El sistema la fija en
+    cada registro: `01`, «Operación de régimen general», en toda factura, y `04`, «Régimen especial
+    del oro de inversión», en las de oro de inversión (lista L8A de F-1; FR-052). La asesoría las
+    confirma antes de producción.
   - **Próximo número de la serie ordinaria del año en curso**: solo informativo, salvo el ajuste
     de FR-010.
 - **FR-002**: El NIF del emisor DEBE validarse con las mismas reglas que el de los clientes (001,
@@ -494,8 +579,10 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 
   El importe de la línea lo calcula el servidor.
 - **FR-013**: El tipo de IVA de cada línea DEBE ser el de la configuración vigente al emitir, y se
-  guarda en la propia línea (constitución II). En el modal no hay selector de IVA. La etiqueta de
-  los totales muestra el tipo aplicado, p. ej. «IVA (21 %)».
+  guarda en la propia línea (constitución II). En el modal no hay selector de tipo. La etiqueta de
+  los totales muestra el tipo aplicado, p. ej. «IVA (21 %)». Al emitir no se vuelve a comprobar el
+  tipo contra la lista de la AEAT: el aviso se da al configurarlo (FR-001). La única excepción es
+  la factura de oro de inversión, cuyas líneas van sin tipo ni cuota (FR-052).
 - **FR-014**: El servidor DEBE calcular y devolver:
   - El importe de cada línea.
   - La base imponible y la cuota de cada tipo de IVA.
@@ -511,9 +598,9 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 
   La política DEBE contrastarse con las tolerancias oficiales de validación (F-3) antes de la
   implementación (constitución II).
-- **FR-016**: Al emitir, la factura DEBE guardar una copia de los datos del emisor y del
-  destinatario tal como están en ese momento. Los cambios posteriores en la configuración o en la
-  ficha del cliente no alteran la factura emitida.
+- **FR-016**: Al emitir, la factura DEBE guardar una copia de los datos del emisor, IBAN incluido
+  si lo hay, y del destinatario, tal como están en ese momento. Los cambios posteriores en la
+  configuración o en la ficha del cliente no alteran la factura emitida.
 - **FR-017**: Para emitir una factura completa, el destinatario DEBE tener su identificación
   fiscal y su domicilio: dirección, código postal y localidad (F-6, art. 6.1.c, d y e). Si falta
   algo, el sistema lo indica y ofrece abrir la ficha del cliente.
@@ -541,6 +628,28 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
   - En una rectificativa sin líneas, la descripción es «Devolución total de la factura
     <número rectificado>».
   - No se pide ningún dato adicional en el modal.
+- **FR-052**: Factura de **oro de inversión** sin IVA (Clarifications, ajuste de cierre):
+  - **Interruptor**: el modal DEBE ofrecer, junto al IVA de los totales, la casilla «Sin IVA (oro
+    de inversión)», desmarcada por defecto. Afecta a toda la factura: no hay elección por línea.
+    Está en la factura nueva, en el borrador, que la guarda, y en «Modificar». La pueden marcar
+    todos los que crean y emiten facturas, empleados incluidos (Clarifications). Marcarla en
+    «Modificar» sigue exigiendo ser administrador, igual que modificar (FR-023).
+  - **Importes**: con la casilla marcada, las líneas van sin tipo ni cuota, y toda la base es
+    exenta. La cuota total es 0 y el total de la factura es igual a su base. La previsualización y
+    los totales muestran «Base exenta», «IVA 0,00 €» y el total.
+  - **Mención obligatoria** (F-6, art. 6.1.j): la factura DEBE llevar «Operación exenta de IVA
+    (art. 140 bis.Uno.1.º de la Ley 37/1992)». Se ve en el modal y en la consulta, y la llevará el
+    PDF de la feature 003.
+  - **Registro de alta** (F-1; F-3 §15.5 y §15.6.3): el desglose de la factura lleva la clave de
+    régimen `04`, la causa de exención `E6` y la base en `BaseImponibleOimporteNoSujeto`, sin
+    `CalificacionOperacion`, `TipoImpositivo` ni `CuotaRepercutida`. La codificación completa de
+    los campos está en research.
+  - **Qué es oro de inversión**: lo decide quien factura, según F-11, art. 140. Por ejemplo,
+    lingotes o láminas de ley igual o superior a 995 milésimas, o las monedas que cumplen sus
+    requisitos. El sistema no lo comprueba.
+- **FR-053**: El IBAN copiado en una factura emitida (FR-016) DEBE mostrarse en su consulta, en el
+  bloque de pago. Si la factura no tiene IBAN, ese bloque no aparece. La consulta DEBE mostrar
+  también la mención de FR-052 en las facturas de oro de inversión.
 
 #### Ciclo de vida: borrador y emisión
 
@@ -561,8 +670,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 
 - **FR-023**: Solo un administrador DEBE poder «Modificar» la factura vigente de una serie,
   sea ordinaria o rectificativa. El modal se abre con los datos precargados, y son editables el
-  cliente, las líneas y la fecha de expedición. El número no es editable (FR-010), y la fecha de
-  la operación se hereda (FR-018).
+  cliente, las líneas, la fecha de expedición y la casilla «Sin IVA (oro de inversión)» (FR-052).
+  El número no es editable (FR-010), y la fecha de la operación se hereda (FR-018).
 - **FR-024**: Al guardar una modificación, el modal DEBE pedir el motivo, que es obligatorio y se
   elige entre dos opciones, con un texto libre adicional. Según el motivo, el sistema genera la
   corrección que prescribe la normativa (F-4, aclaración 17; F-5; F-6, art. 15):
@@ -649,7 +758,8 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **FR-033**: Columnas: número, fecha de expedición, cliente, identificación fiscal, base
   imponible, IVA (cuota), total y acciones. Los importes van en euros con formato español. Un
   borrador muestra «Borrador» en lugar del número. Una factura anulada o rectificada muestra una
-  marca discreta junto a su número. NO hay columna de estado ni indicadores.
+  marca discreta junto a su número. Una factura de oro de inversión (FR-052) muestra «Exenta» en
+  la columna del IVA. NO hay columna de estado ni indicadores.
   - **Según el ancho** (medido, research R-12): la identificación fiscal se muestra desde 1280 px,
     y la base imponible y el IVA desde 1440 px. El número, la fecha, el cliente, el total y las
     acciones se ven siempre; por debajo de 768 px, tarjetas (FR-049).
@@ -680,7 +790,9 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
     - Cliente, con el resumen de nombre, identificación, dirección, localidad y provincia.
   - **Detalle**: tabla de líneas con unidades, descripción, precio unitario, importe y quitar
     línea, más el botón «Añadir línea».
-  - **Totales**: base imponible, IVA con su tipo y total de la factura.
+  - **Totales**: base imponible, IVA con su tipo y total de la factura, junto con la casilla «Sin
+    IVA (oro de inversión)» (FR-052). En la consulta de una factura emitida, además, el bloque de
+    pago con el IBAN (FR-053).
 - **FR-038**: Botones del modal según el caso:
   - **Nueva**: «Cancelar», «Guardar borrador» y «Emitir factura».
   - **Borrador**: además, «Eliminar borrador».
@@ -762,17 +874,20 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Configuración de facturación**: IVA por defecto, datos del emisor y modalidad. Hay una sola, y
-  sus cambios se auditan.
+- **Configuración de facturación**: IVA por defecto, datos del emisor con el IBAN opcional y
+  modalidad. Hay una sola, y sus cambios se auditan.
 - **Borrador de factura**: factura en preparación.
-  - Fecha, cliente, líneas, autor y versión para detectar la edición concurrente.
+  - Fecha, cliente, líneas, si es de oro de inversión, autor y versión para detectar la edición
+    concurrente.
   - Sin número definitivo ni registro. Se puede editar y borrar.
 - **Factura emitida**: documento expedido e inalterable.
-  - Número y serie, fecha de expedición, copia de los datos del emisor y del destinatario, líneas
-    con su tipo de IVA, desglose por tipo, totales, autor y fecha de emisión.
+  - Número y serie, fecha de expedición, copia de los datos del emisor (IBAN incluido) y del
+    destinatario, líneas con su tipo de IVA, desglose por tipo, totales, autor y fecha de emisión.
+  - Si es de oro de inversión: su clave de régimen `04` y un desglose exento, sin tipo ni cuota.
   - Si es rectificativa, la referencia a la factura que rectifica.
   - Si es el caso, su estado derivado: anulada o rectificada.
-- **Línea de factura**: unidades, descripción, precio unitario sin IVA, tipo de IVA e importe.
+- **Línea de factura**: unidades, descripción, precio unitario sin IVA, tipo de IVA e importe. En
+  una factura de oro de inversión, la línea no tiene tipo de IVA.
 - **Serie y contador**: uno por serie (`FAC` ordinaria y `REC` rectificativa) y año natural.
   - Guarda el último número asignado y serializa las asignaciones simultáneas.
   - Los ajustes al alza de la serie ordinaria se hacen con motivo y quedan auditados.
@@ -823,6 +938,13 @@ superusuario, se altera un registro y se repite: debe señalar ese registro.
 - **SC-011**: En pruebas de doble envío de «Emitir», «Modificar» y «Anular», tanto simultáneos como
   repetidos, cada operación genera exactamente una factura o corrección y sus registros: 0
   duplicados.
+- **SC-012**: Un administrador cambia el IVA por defecto a cualquier tipo de 0 a 99,99 % sin
+  intervención técnica. El 100 % de los intentos de guardar un tipo fuera de la lista de la AEAT sin
+  confirmarlo se rechazan.
+- **SC-013**: En el 100 % de las facturas de oro de inversión emitidas, la cuota es 0, el total es
+  igual a la base y el registro lleva la clave `04` y la exención `E6`, sin tipo ni cuota. La
+  comprobación de integridad (FR-031) da por íntegras las cadenas que mezclan facturas exentas y
+  sujetas, incluidas las emitidas antes del ajuste de cierre.
 
 ## Conformidad con el sistema de diseño y desviaciones del mockup
 
@@ -837,7 +959,7 @@ mandan `docs/DESIGN.md` y esta spec. Diferencias deliberadas:
 | Columna «Estado» con chips redondeados (Cobrada, Pendiente, Vencida, Emitida, Pagada) | Sin columna de estado. Borrador, anulada y rectificada se marcan en la columna del número | Decisión del responsable. Los chips redondeados y el azul de «Pagada» incumplen DESIGN.md (esquinas a 0 px, colores solo de tokens) |
 | Filtros «Cliente» y «Estado» | El cliente se busca con la búsqueda. No hay filtro de estado | Misma lógica que clientes (FR-034, FR-035) |
 | Campo «Nº de factura» editable al crear | Número en solo lectura, asignado por el servidor al emitir. Una factura con número erróneo se anula y se reemite, y el contador se ajusta en Configuración (FR-010, FR-024) | Constitución (principio III y "Numeración"); correlatividad del ROF (F-6, art. 6.1.a) |
-| «IVA (21%)» fijo | La etiqueta muestra el tipo vigente de Configuración | Decisión del responsable: el IVA se configura (FR-013) |
+| «IVA (21%)» fijo | La etiqueta muestra el tipo vigente de Configuración. Junto a ella, la casilla «Sin IVA (oro de inversión)» | Decisión del responsable: el IVA se configura (FR-013), y la venta de oro de inversión va sin IVA (FR-052) |
 | Botón «Nueva factura» con letra serif y caja mixta; esquinas redondeadas en campos y botones | Botón primario de DESIGN.md: Manrope en mayúsculas con espaciado; esquinas a 0 px | DESIGN.md prevalece sobre el mockup |
 | Paginación numérica con recuadro redondeado | Paginación del listado de clientes | Coherencia con 001 y DESIGN.md |
 
@@ -850,6 +972,11 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   - URL:
     `https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/DsRegistroVeriFactu.xlsx`.
   - Los campos del registro de alta y de anulación se transcriben y citan en el plan (research).
+  - Ajuste de cierre (descarga del 2026-09-30, mismo SHA-256 que en research):
+    - Lista L8A: `01` «Operación de régimen general» y `04` «Régimen especial del oro de
+      inversión».
+    - Lista L10: `E6` «Exenta por otros». `E1` a `E5` son las exenciones de los arts. 20 a 25 de
+      la Ley del IVA, y la del oro de inversión es otra (F-11).
 - **F-2**: AEAT, *Detalle de las especificaciones técnicas para generación de la huella o hash de
   los registros de facturación*, versión 0.1.2 (27/08/2024).
   - URL:
@@ -864,6 +991,11 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   - SHA-256: `426eb926fc098a36a163f66ca5f40d9e0847ca23300bbe5008979832d3513440`.
   - Las tolerancias de importes, los tipos de IVA admitidos y las reglas de fechas se transcriben
     en research R-10 y R-17.
+  - Ajuste de cierre (descarga del 2026-09-30, mismo SHA-256):
+    - §15.5: con `OperacionExenta` informada, no se pueden informar `TipoImpositivo`,
+      `CuotaRepercutida`, `TipoRecargoEquivalencia` ni `CuotaRecargoEquivalencia`.
+    - §15.6.3: «si ClaveRegimen es igual a 04, CalificacionOperacion solo puede ser S2, o bien
+      OperacionExenta».
 - **F-4**: AEAT, *Aclaraciones a dudas de los desarrolladores*, versión 1.3 (4 de diciembre de
   2025).
   - URL:
@@ -910,6 +1042,10 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
     - e) Domicilio de ambos.
     - f) Descripción, con el precio unitario sin impuesto.
     - g) Tipo impositivo, etc.
+    - j) Si la operación está exenta, «una referencia a las disposiciones correspondientes de la
+      Directiva 2006/112/CE […] o a los preceptos correspondientes de la Ley del Impuesto o
+      indicación de que la operación está exenta» (redacción vigente desde el 07/12/2023,
+      consultada el 2026-09-30).
   - **Art. 7.1.a**: las simplificadas llevan serie separada de las completas del mismo año.
   - **Art. 15**: rectificativas. Son obligatorias cuando la factura no cumple los arts. 6 o 7 o
     cuando las cuotas se determinaron mal, y se hacen con una nueva factura que identifica la
@@ -933,6 +1069,16 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   (actualizada el 22/07/2026; consulta 2026-09-28):
   - Criterio de las claves F1, R1 y R4. R4 incluye «cuando se haya consignado erróneamente algún
     dato no monetario de la factura».
+- **F-11**: Ley 37/1992, del Impuesto sobre el Valor Añadido (BOE-A-1992-28740), título IX,
+  capítulo V, «Régimen especial del oro de inversión», añadido por la Ley 55/1999 y en vigor desde
+  el 01/01/2000. Consultado en la API de datos abiertos del BOE el 2026-09-30:
+  - **Art. 140**: concepto de oro de inversión. Por ejemplo, los «lingotes o láminas de oro de ley
+    igual o superior a 995 milésimas» con el peso del anexo, y las monedas de oro que reúnen sus
+    requisitos.
+  - **Art. 140 bis.Uno.1.º**: «Estarán exentas del impuesto […] Las entregas, adquisiciones
+    intracomunitarias e importaciones de oro de inversión».
+  - **Art. 140 ter**: la renuncia a la exención solo cabe si el transmitente produce oro de
+    inversión o transforma oro en oro de inversión, y el adquirente es empresario o profesional.
   - Rectificativa por sustitución (opción 1): importes correctos en el desglose, y la «base
     rectificada» y la «cuota rectificada» de la original.
   - Fecha de operación de la rectificativa: la de la factura original.
@@ -957,8 +1103,16 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
     (004).
   - Los presupuestos y su conversión en factura (005).
 - **Cobro**: estado de cobro, pagos, vencimientos, recordatorios e indicadores de facturación.
-- **Tipos de IVA**: varios tipos en una misma factura, líneas exentas o no sujetas, recargo de
-  equivalencia en las líneas y retenciones de IRPF. El tipo es siempre el de Configuración.
+- **Tipos de IVA**: varios tipos en una misma factura, facturas que mezclan líneas exentas y
+  sujetas, operaciones no sujetas, recargo de equivalencia en las líneas y retenciones de IRPF. El
+  tipo es siempre el de Configuración, salvo en la factura de oro de inversión (FR-052).
+- **Exenciones**: solo se contempla la del oro de inversión (F-11, art. 140 bis.Uno.1.º). Quedan
+  fuera:
+  - Las demás, como exportaciones o entregas intracomunitarias.
+  - Los servicios de mediación en oro de inversión (art. 140 bis.Uno.2.º).
+  - La renuncia a la exención (art. 140 ter), que solo corresponde a quien produce o transforma
+    oro de inversión.
+- **Salidas en papel**: el IBAN y la mención de la exención estarán en el PDF de la feature 003.
 - **Líneas**: descuentos por línea o globales distintos del precio unitario.
 - **Series y tipos**: facturas simplificadas (F2) y cualquier serie distinta de `FAC` y `REC`.
 - **Correcciones**: rectificativas por diferencias y registros de alta de subsanación (feature
@@ -974,9 +1128,12 @@ Desviaciones de `docs/DESIGN.md`: **ninguna**.
   - Solo los administradores anulan y modifican facturas emitidas, y acceden a la configuración de
     facturación, igual que al resto de Configuración en 001.
 - **Operaciones**: todas son entregas de bienes y prestaciones de servicios sujetas y no exentas de
-  IVA, en régimen general y al tipo único de Configuración (Clarifications). No hay ventas en REBU
-  ni de oro de inversión. Si en algún momento no fuera así, haría falta una feature nueva. La
+  IVA, en régimen general y al tipo único de Configuración (Clarifications). La única excepción es
+  la venta de oro de inversión, exenta (FR-052, ajuste de cierre). No hay ventas en REBU. La
   calificación de la operación en el registro (lista L9) se deriva de esto en el plan.
+- **Oro de inversión**: la joyería no produce oro de inversión ni transforma oro en oro de
+  inversión, solo lo vende (Clarifications). Por eso no puede renunciar a la exención (F-11, art.
+  140 ter), y toda venta de oro de inversión es exenta.
 - **Cadena de registros**: hay una sola, la del NIF del emisor. La joyería factura desde una única
   instalación del sistema.
 - **Columna «Facturas» del listado de clientes** (001, FR-035): sigue oculta. Mostrarla no forma
