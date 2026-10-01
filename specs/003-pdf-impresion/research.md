@@ -91,6 +91,9 @@ V).
     cabe en la misma versión, y F-10, art. 21.1, fija el nivel M.
   - La versión del símbolo la elige segno. Con una dirección de prueba de unos 120 caracteres salió
     la versión 7, de 45 × 45 módulos.
+  - **Norma**: F-10, art. 21.1, cita «ISO/IEC 18004» sin edición, y F-12 §2 la transcribe como
+    «ISO/IEC 18004:2015». Se aplica la de 2015, la vigente, que es la que implementa segno. No hay
+    contradicción: F-12 concreta la referencia de la Orden.
 - **Formato**: SVG vectorial en línea, generado con `svg_inline(border=0, omitsize=True)`. El
   color de los módulos es el token `paper-qr` (R-5).
 - **Tamaño**: el símbolo mide **35 × 35 mm**, el centro del intervalo de 30 a 40 mm. Así sigue

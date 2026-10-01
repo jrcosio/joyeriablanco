@@ -295,7 +295,12 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   - **i)** La fecha de la operación, solo si es distinta de la de expedición (002, FR-018).
   - **j)** La mención de la exención, en las de oro de inversión (FR-007).
   - **Desglose**: base imponible, tipo y cuota de cada tipo aplicado, más los totales: base total,
-    IVA total y total de la factura.
+    IVA total y total de la factura. El tipo impositivo (g) figura en el desglose y no en cada
+    línea, porque una factura del sistema lleva un único tratamiento: un tipo o la exención (002,
+    FR-013 y FR-052).
+  - **Letras que no aplican**: k a p, porque el sistema no documenta medios de transporte nuevos,
+    facturación por el destinatario, inversión del sujeto pasivo ni regímenes especiales (002,
+    «Fuera de alcance» y Assumptions).
 - **FR-004**: Los datos fiscales del emisor y del destinatario DEBEN tomarse de la copia guardada
   en la factura al emitirla (002, FR-016), nunca de la configuración ni de la ficha del cliente
   actuales. Todos los importes salen de la factura emitida: el PDF no recalcula nada
@@ -318,9 +323,15 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   - Indica la causa de la rectificación con el mismo texto que la consulta.
   - Expresa el importe de la rectificación (base rectificada y cuota rectificada) junto a los datos
     tal como quedan, que son los de sus líneas y totales.
+  - **Devolución total** (002, Clarifications del plan): la rectificativa no tiene líneas. En lugar
+    de la tabla de líneas figura «Devolución total de la factura {número rectificado}», y los
+    totales salen a 0,00 €.
 - **FR-009**: **Marcas de estado**, visibles en la primera página y sin tapar ningún dato:
   - Factura anulada: «ANULADA» y, si se reemitió, «Sustituida por {número}».
-  - Factura rectificada: «RECTIFICADA por {número de la rectificativa vigente}».
+  - Factura rectificada: «RECTIFICADA por {número}».
+  - En los dos casos, {número} es el de la factura **vigente** que la sustituye ahora, siguiendo la
+    cadena de correcciones. Es el mismo que el acceso directo de la consulta (002, FR-026). Si una
+    anulada no tiene sustituta vigente, solo lleva «ANULADA».
   - Factura vigente: sin marca.
 - **FR-010**: **Número de cuenta**:
   - Si la factura tiene IBAN, la consulta DEBE ofrecer junto a «Imprimir» la casilla «Incluir
@@ -341,9 +352,10 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 - **FR-011**: **Formato**: A4 vertical. Si la factura ocupa varias páginas, cada página lleva el
   número de la factura y «Página n de m», y la cabecera de la tabla de líneas se repite. El QR va
   solo en la primera página (FR-013).
-- **FR-012**: El PDF se genera bajo demanda en cada impresión y no se almacena. Dos impresiones de la
-  misma factura con las mismas opciones (número de cuenta y duplicado) y la misma configuración de
-  contacto tienen el mismo contenido.
+- **FR-012**: El PDF se genera bajo demanda en cada impresión y no se almacena en el servidor. Se
+  sirve indicando que no debe guardarse en caché, ni en el navegador ni en intermediarios. Dos
+  impresiones de la misma factura con las mismas opciones (número de cuenta y duplicado), el mismo
+  estado y la misma configuración de contacto tienen el mismo contenido.
 
 #### Código QR tributario (F-12; F-10, arts. 20 y 21; F-6, art. 6.5)
 
@@ -401,7 +413,9 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   - Genera un PDF con **todas** las filas que cumplen los filtros actuales de la pantalla (búsqueda,
     año y mes), sin paginar y en el orden actual, con el mismo desempate (002, FR-034 y FR-035).
   - Se abre en una pestaña nueva, igual que la factura (FR-002).
-  - Está desactivado cuando el filtro no tiene resultados.
+  - Está desactivado cuando el filtro no tiene resultados. Si se pide por otra vía con un filtro
+    sin resultados, el PDF se genera igualmente: la cabecera, la indicación «No hay facturas con
+    este filtro» y los totales a 0,00 €.
   - **Límite de 5.000 filas** (Clarifications):
     - Si el filtro tiene más, el botón está desactivado y explica que el listado impreso admite
       hasta 5.000 facturas y que conviene acotar el filtro, por ejemplo por año.
@@ -415,7 +429,9 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   - Las de oro de inversión muestran «Exenta» en la columna del IVA (002, FR-033).
   - Los importes de un borrador son los previstos, igual que en pantalla.
 - **FR-020**: **Cabecera**:
-  - Título «Listado de facturas», con el logotipo y el nombre de la joyería.
+  - Título «Listado de facturas», con el logotipo y el nombre del emisor de la configuración
+    vigente. Un listado no es una factura, así que no usa ninguna copia guardada. Si el emisor no
+    está configurado, solo lleva el logotipo.
   - El filtro aplicado, en palabras: búsqueda (o «Sin búsqueda»), año (o «Todos los años»), mes (o
     «Todos los meses») y orden.
   - El número de filas, y la fecha y la hora de generación.
@@ -427,13 +443,17 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
     al final.
   - **Total general**: número de facturas vigentes y suma de su base imponible, IVA y total.
   - **Filas fuera de la suma**: cuántos borradores, anuladas y rectificadas hay.
+  - **Por qué solo las vigentes**: una factura corregida deja de estar vigente, y su sustituta
+    (reemitida o rectificativa por sustitución) sí lo está. La suma de las vigentes es, por tanto,
+    lo facturado neto, sin contar dos veces una venta corregida. Si la sustituta queda fuera del
+    filtro, por ejemplo por ser de otro año, no se suma en este listado.
   - **Cuadre**: las sumas DEBEN coincidir al céntimo con los desgloses y totales guardados en esas
     facturas (constitución II). La suma de las líneas por tipo es igual al total general.
 - **FR-022**: **Formato**: A4 apaisado, para que quepan todas las columnas sin recortar el nombre
   del cliente (plan, research R-7). Cada página lleva «Página n de m» y la cabecera de la tabla se
   repite. Una fila nunca se parte entre dos páginas.
 - **FR-023**: Tras pulsar «Imprimir» o «Imprimir listado», el botón indica «Preparando…» y no
-  admite otro clic durante unos segundos. La pestaña nueva muestra la carga del navegador hasta que
+  admite otro clic durante 2 segundos. La pestaña nueva muestra la carga del navegador hasta que
   el PDF está listo (casos límite).
 
 #### Configuración: contacto y pie de factura
@@ -449,7 +469,9 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   - **Pie de factura**: texto libre de varias líneas, de 600 caracteres como máximo, con sus saltos
     de línea.
 
-  Todos se guardan sin espacios al principio ni al final. Un campo vacío equivale a «sin dato».
+  Todos se guardan sin espacios al principio ni al final. Un campo vacío equivale a «sin dato», y
+  vaciarlo lo borra. Una petición que no incluye estos campos los deja como estaban, para no
+  borrarlos por omisión.
 - **FR-025**: Estos datos NO son datos fiscales ni forman parte de la factura emitida:
   - No se copian al emitir.
   - Cada impresión usa los vigentes en ese momento, también al reimprimir facturas antiguas
@@ -485,7 +507,8 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 - **FR-031**: Los botones «Imprimir» e «Imprimir listado» DEBEN tener nombre accesible, p. ej.
   «Imprimir factura FAC-2026-0005», y usarse por completo con teclado. Las casillas «Incluir número
   de cuenta» y «Duplicado» tienen su etiqueta asociada. Cuando «Imprimir listado» está desactivado,
-  el motivo es accesible, no solo visual.
+  el motivo es accesible, no solo visual. El estado «Preparando…» se anuncia a los lectores de
+  pantalla.
 - **FR-032**: Los datos de ejemplo del entorno de desarrollo DEBEN incluir teléfono, correo, web y
   pie de factura ficticios. Su carga sigue prohibida en producción (001, FR-045).
 
@@ -521,7 +544,9 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 - **SC-005**: Un listado de 1.000 facturas está listo para imprimir en menos de 15 segundos, y uno
   de 5.000, el máximo, en menos de 60 segundos. Sus totales por tipo y generales coinciden al
   céntimo con la suma de los desgloses de las vigentes calculada aparte, y el número de filas
-  coincide con el total que muestra la pantalla para ese filtro.
+  coincide con el total que muestra la pantalla para ese filtro. Generar un listado de 5.000 filas
+  no ocupa más de unos 300 MB de memoria en el servidor, de modo que dos generaciones simultáneas
+  caben junto al resto del sistema.
 - **SC-006**: Medido sobre el PDF, el QR mide entre 30 y 40 mm de lado y tiene al menos 2 mm de
   margen en blanco por los cuatro lados. «QR tributario:» y la frase VERI\*FACTU tienen un tamaño de
   letra igual o mayor que el de los datos de la factura.

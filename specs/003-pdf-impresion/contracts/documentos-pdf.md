@@ -59,6 +59,8 @@ Orden de los bloques, de arriba abajo:
      separadas por filetes horizontales, sin verticales.
    - La cabecera se repite en cada página, y una fila no se parte entre páginas.
    - La descripción admite varias líneas.
+   - En una rectificativa de devolución total, que no tiene líneas, la tabla se sustituye por
+     «Devolución total de la factura {número rectificado}» en `print-body` (FR-008).
 6. **Totales**: una caja alineada a la derecha, de 80 mm de ancho, con marco de 1 px `paper-rule`
    («Totals Section»). No se parte entre páginas.
    - Una línea por desglose: «Base imponible al 21 %» con su importe e «IVA 21 %» con su cuota. En
@@ -88,6 +90,8 @@ Orden de los bloques, de arriba abajo:
    «Base imponible» (10 %, a la derecha), «IVA» (9 %, a la derecha) y «Total» (11 %, a la
    derecha).
    - Se usan `table-layout: fixed` y `print-table`.
+   - Sin filas, cuando se pide por otra vía que no es el botón: «No hay facturas con este filtro» en
+     `print-body` en lugar de la tabla, y totales a 0,00 € (FR-018).
    - El cliente se parte en varias líneas si es largo, sin recortes.
    - Las marcas «Borrador», «Anulada» y «Rectificada» van en `print-label`, recuadradas con 1 px
      `paper-ink-muted`. El borrador muestra la suya en lugar del número.
