@@ -273,10 +273,315 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/configuracion/facturacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Configuracion */
+        get: operations["obtener_configuracion_api_v1_configuracion_facturacion_get"];
+        /** Guardar Configuracion */
+        put: operations["guardar_configuracion_api_v1_configuracion_facturacion_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/configuracion/facturacion/contador": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ajustar Contador */
+        post: operations["ajustar_contador_api_v1_configuracion_facturacion_contador_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facturas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Facturas */
+        get: operations["listar_facturas_api_v1_facturas_get"];
+        put?: never;
+        /** Emitir Factura */
+        post: operations["emitir_factura_api_v1_facturas_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facturas/parametros": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Parametros */
+        get: operations["obtener_parametros_api_v1_facturas_parametros_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facturas/{factura_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Factura */
+        get: operations["obtener_factura_api_v1_facturas__factura_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facturas/{factura_id}/anulacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Anular Factura
+         * @description Anulación sin reemisión (FR-025). Una repetición devuelve lo mismo (200 en ambos casos).
+         */
+        post: operations["anular_factura_api_v1_facturas__factura_id__anulacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/facturas/{factura_id}/modificacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Modificar Factura
+         * @description Corrección trazable (FR-023, FR-024): devuelve la factura nueva (FAC o REC).
+         */
+        post: operations["modificar_factura_api_v1_facturas__factura_id__modificacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/borradores-factura": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crear Borrador */
+        post: operations["crear_borrador_api_v1_borradores_factura_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/borradores-factura/{borrador_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Borrador */
+        get: operations["obtener_borrador_api_v1_borradores_factura__borrador_id__get"];
+        /** Guardar Borrador */
+        put: operations["guardar_borrador_api_v1_borradores_factura__borrador_id__put"];
+        post?: never;
+        /** Borrar Borrador */
+        delete: operations["borrar_borrador_api_v1_borradores_factura__borrador_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/borradores-factura/{borrador_id}/emision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Emitir Borrador */
+        post: operations["emitir_borrador_api_v1_borradores_factura__borrador_id__emision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AjusteContadorEntrada */
+        AjusteContadorEntrada: {
+            /** Proximo Numero */
+            proximo_numero: number;
+            /** Motivo */
+            motivo: string;
+            /** Simular */
+            simular: boolean;
+        };
+        /** AjusteContadorSalida */
+        AjusteContadorSalida: {
+            /**
+             * Serie
+             * @constant
+             */
+            serie: "FAC";
+            /** Anio */
+            anio: number;
+            /** Ultimo Usado */
+            ultimo_usado: number;
+            /** Proximo Numero */
+            proximo_numero: number;
+            /** Numeros Sin Usar */
+            numeros_sin_usar: number;
+            /** Aplicado */
+            aplicado: boolean;
+        };
+        /** AnulacionEntrada */
+        AnulacionEntrada: {
+            /**
+             * Declaracion No Debio Emitirse
+             * @constant
+             */
+            declaracion_no_debio_emitirse: true;
+            /** Motivo Texto */
+            motivo_texto: string;
+        };
+        /**
+         * BorradorEdicionEntrada
+         * @description Editar y emitir: la casilla es obligatoria, para que omitirla no convierta en sujeto un
+         *     borrador exento (research R-21).
+         */
+        BorradorEdicionEntrada: {
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            /** Cliente Id */
+            cliente_id?: string | null;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             */
+            oro_inversion: boolean;
+            /** Version */
+            version: number;
+        };
+        /**
+         * BorradorEntrada
+         * @description Un borrador puede guardarse incompleto: sin cliente o sin líneas (FR-011).
+         */
+        BorradorEntrada: {
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            /** Cliente Id */
+            cliente_id?: string | null;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             * @default false
+             */
+            oro_inversion: boolean;
+        };
+        /** BorradorSalida */
+        BorradorSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            cliente: components["schemas"]["ClienteFacturaSalida"] | null;
+            /** Lineas */
+            lineas: components["schemas"]["LineaBorradorSalida"][];
+            /** Oro Inversion */
+            oro_inversion: boolean;
+            /**
+             * Mencion Exencion
+             * @description Mención de F-6, art. 6.1.j (FR-052)
+             */
+            mencion_exencion: string | null;
+            totales_previstos: components["schemas"]["TotalesSalida"];
+            /**
+             * Tipo Iva Previsto
+             * @description IVA vigente cuando se guardó (aviso de cambio de IVA)
+             * @example 21.00
+             */
+            tipo_iva_previsto: string;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
+            creado_por: components["schemas"]["UsuarioReferencia"];
+            /**
+             * Actualizado En
+             * Format: date-time
+             */
+            actualizado_en: string;
+            actualizado_por: components["schemas"]["UsuarioReferencia"];
+        };
         /** CambioContrasenaEntrada */
         CambioContrasenaEntrada: {
             /** Contrasena Actual */
@@ -295,6 +600,12 @@ export interface components {
             /** Tipos Identificacion */
             tipos_identificacion: components["schemas"]["TipoIdentificacionSalida"][];
         };
+        /**
+         * CausaRectificacion
+         * @description Causa declarada al rectificar una factura entregada (FR-024; F-9 → R1 o R4).
+         * @enum {string}
+         */
+        CausaRectificacion: "devolucion_o_precio" | "error_datos";
         /** ClienteEdicionEntrada */
         ClienteEdicionEntrada: {
             tipo: components["schemas"]["TipoCliente"];
@@ -366,6 +677,34 @@ export interface components {
             correo?: string | null;
             /** Observaciones */
             observaciones?: string | null;
+        };
+        /** ClienteFacturaSalida */
+        ClienteFacturaSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Nombre */
+            nombre: string;
+            /** Identificacion Pais */
+            identificacion_pais: string;
+            /** Identificacion Tipo */
+            identificacion_tipo: string;
+            /** Identificacion Numero */
+            identificacion_numero: string;
+            /** Direccion */
+            direccion: string | null;
+            /** Codigo Postal */
+            codigo_postal: string | null;
+            /** Localidad */
+            localidad: string | null;
+            /** Provincia */
+            provincia: string | null;
+            /** Pais */
+            pais: string;
+            /** Activo */
+            activo?: boolean | null;
         };
         /** ClienteResumenSalida */
         ClienteResumenSalida: {
@@ -445,6 +784,73 @@ export interface components {
             actualizado_en: string;
             actualizado_por: components["schemas"]["UsuarioReferencia"];
         };
+        /**
+         * ConfiguracionFacturacionEntrada
+         * @description Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23).
+         */
+        ConfiguracionFacturacionEntrada: {
+            /** Version */
+            version: number;
+            /**
+             * Iva Por Defecto
+             * @example 21.00
+             */
+            iva_por_defecto: string;
+            /**
+             * Confirmar Tipo Iva
+             * @default false
+             */
+            confirmar_tipo_iva: boolean;
+            modalidad: components["schemas"]["Modalidad"] | null;
+            emisor: components["schemas"]["DatosEmisorEntrada"];
+        };
+        /** ConfiguracionFacturacionSalida */
+        ConfiguracionFacturacionSalida: {
+            /** Version */
+            version: number;
+            /**
+             * Iva Por Defecto
+             * @example 21.00
+             */
+            iva_por_defecto: string;
+            modalidad: components["schemas"]["Modalidad"] | null;
+            emisor: components["schemas"]["DatosEmisorSalida"];
+            /** Emision Posible */
+            emision_posible: boolean;
+            /** Faltan */
+            faltan: string[];
+            /** Proximo Numero */
+            proximo_numero: string;
+            /** Modalidad Bloqueada */
+            modalidad_bloqueada: boolean;
+            /**
+             * Tipos Iva Oficiales
+             * @description Lista de F-3 §15.1 para hoy. Solo para el aviso (research R-20)
+             */
+            tipos_iva_oficiales: string[];
+            /**
+             * Actualizado En
+             * Format: date-time
+             */
+            actualizado_en: string;
+            actualizado_por: components["schemas"]["UsuarioReferencia"] | null;
+        };
+        /** CorreccionSalida */
+        CorreccionSalida: {
+            tipo: components["schemas"]["TipoCorreccion"];
+            motivo: components["schemas"]["MotivoModificacion"];
+            /** Motivo Texto */
+            motivo_texto: string;
+            /**
+             * Creada En
+             * Format: date-time
+             */
+            creada_en: string;
+            creada_por: components["schemas"]["UsuarioReferencia"];
+            factura_nueva: components["schemas"]["FacturaReferencia"] | null;
+            /** En Vigor */
+            en_vigor: boolean;
+        };
         /** CredencialesEntrada */
         CredencialesEntrada: {
             /** Nombre Usuario */
@@ -452,6 +858,59 @@ export interface components {
             /** Contrasena */
             contrasena: string;
         };
+        /** DatosEmisorEntrada */
+        DatosEmisorEntrada: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Nif */
+            nif?: string | null;
+            /** Direccion */
+            direccion?: string | null;
+            /** Codigo Postal */
+            codigo_postal?: string | null;
+            /** Localidad */
+            localidad?: string | null;
+            /** Iban */
+            iban?: string | null;
+        };
+        /** DatosEmisorSalida */
+        DatosEmisorSalida: {
+            /** Nombre */
+            nombre: string | null;
+            /** Nif */
+            nif: string | null;
+            /** Direccion */
+            direccion: string | null;
+            /** Codigo Postal */
+            codigo_postal: string | null;
+            /** Localidad */
+            localidad: string | null;
+            /** Iban */
+            iban: string | null;
+            /** Provincia */
+            provincia: string | null;
+        };
+        /** DesgloseSalida */
+        DesgloseSalida: {
+            /** Tipo Iva */
+            tipo_iva: string | null;
+            /**
+             * Base
+             * @example 1290.00
+             */
+            base: string;
+            /**
+             * Cuota
+             * @example 1290.00
+             */
+            cuota: string;
+        };
+        /**
+         * EstadoFactura
+         * @description Estado de un documento en el listado. El de una emitida se deriva (research R-8).
+         * @enum {string}
+         */
+        EstadoFactura: "borrador" | "vigente" | "anulada" | "rectificada";
         /** EventoSalida */
         EventoSalida: {
             /**
@@ -480,6 +939,130 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** FacturaEntrada */
+        FacturaEntrada: {
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            /**
+             * Cliente Id
+             * Format: uuid
+             */
+            cliente_id: string;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             * @default false
+             */
+            oro_inversion: boolean;
+        };
+        /** FacturaReferencia */
+        FacturaReferencia: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Num Serie */
+            num_serie: string;
+        };
+        /**
+         * FacturaResumenSalida
+         * @description Fila del listado (FR-033): un borrador no tiene número y sus totales son los previstos.
+         */
+        FacturaResumenSalida: {
+            /**
+             * Tipo Documento
+             * @enum {string}
+             */
+            tipo_documento: "borrador" | "factura";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Num Serie */
+            num_serie: string | null;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /** Cliente Nombre */
+            cliente_nombre: string | null;
+            /** Identificacion */
+            identificacion: string | null;
+            /**
+             * Base
+             * @example 1290.00
+             */
+            base: string;
+            /**
+             * Cuota
+             * @example 1290.00
+             */
+            cuota: string;
+            /**
+             * Total
+             * @example 1290.00
+             */
+            total: string;
+            estado: components["schemas"]["EstadoFactura"];
+            /** Oro Inversion */
+            oro_inversion: boolean;
+        };
+        /** FacturaSalida */
+        FacturaSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Num Serie */
+            num_serie: string;
+            tipo_factura: components["schemas"]["TipoFactura"];
+            /** Tipo Rectificativa */
+            tipo_rectificativa: string | null;
+            estado: components["schemas"]["EstadoFactura"];
+            /**
+             * Fecha Expedicion
+             * Format: date
+             */
+            fecha_expedicion: string;
+            /** Fecha Operacion */
+            fecha_operacion: string | null;
+            emisor: components["schemas"]["DatosEmisorSalida"];
+            cliente: components["schemas"]["ClienteFacturaSalida"];
+            /** Lineas */
+            lineas: components["schemas"]["LineaSalida"][];
+            totales: components["schemas"]["TotalesSalida"];
+            /** Oro Inversion */
+            oro_inversion: boolean;
+            /**
+             * Mencion Exencion
+             * @description Mención de F-6, art. 6.1.j (FR-052, FR-053)
+             */
+            mencion_exencion: string | null;
+            /** Descripcion Operacion */
+            descripcion_operacion: string;
+            rectifica_a: components["schemas"]["RectificaA"] | null;
+            sustituye_a: components["schemas"]["FacturaReferencia"] | null;
+            vigente_actual: components["schemas"]["FacturaReferencia"] | null;
+            /** Correcciones */
+            correcciones: components["schemas"]["CorreccionSalida"][];
+            /**
+             * Emitida En
+             * Format: date-time
+             */
+            emitida_en: string;
+            emitida_por: components["schemas"]["UsuarioReferencia"];
+            /** Registros */
+            registros: components["schemas"]["RegistroResumen"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -492,6 +1075,101 @@ export interface components {
             /** Nuevos Este Anio */
             nuevos_este_anio: number;
         };
+        /** LineaBorradorSalida */
+        LineaBorradorSalida: {
+            /** Orden */
+            orden: number;
+            /**
+             * Unidades
+             * @example 2.00
+             */
+            unidades: string;
+            /** Descripcion */
+            descripcion: string;
+            /**
+             * Precio Unitario
+             * @example 1290.00
+             */
+            precio_unitario: string;
+            /**
+             * Importe
+             * @example 1290.00
+             */
+            importe: string;
+        };
+        /** LineaEntrada */
+        LineaEntrada: {
+            /**
+             * Unidades
+             * @example 2
+             * @example 1.50
+             */
+            unidades: string;
+            /** Descripcion */
+            descripcion: string;
+            /**
+             * Precio Unitario
+             * @example 1200.00
+             */
+            precio_unitario: string;
+        };
+        /** LineaSalida */
+        LineaSalida: {
+            /** Orden */
+            orden: number;
+            /**
+             * Unidades
+             * @example 2.00
+             */
+            unidades: string;
+            /** Descripcion */
+            descripcion: string;
+            /**
+             * Precio Unitario
+             * @example 1290.00
+             */
+            precio_unitario: string;
+            /** Tipo Iva */
+            tipo_iva: string | null;
+            /**
+             * Importe
+             * @example 1290.00
+             */
+            importe: string;
+        };
+        /**
+         * Modalidad
+         * @description Modalidad (constitución IV): opción de configuración y campo de cada registro.
+         * @enum {string}
+         */
+        Modalidad: "verifactu" | "no_verifactu";
+        /** ModificacionEntrada */
+        ModificacionEntrada: {
+            motivo: components["schemas"]["MotivoModificacion"];
+            causa?: components["schemas"]["CausaRectificacion"] | null;
+            /** Motivo Texto */
+            motivo_texto: string;
+            /**
+             * Cliente Id
+             * Format: uuid
+             */
+            cliente_id: string;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             */
+            oro_inversion: boolean;
+            /** Fecha Expedicion */
+            fecha_expedicion?: string | null;
+        };
+        /**
+         * MotivoModificacion
+         * @description Motivo declarado al modificar o anular una factura emitida (FR-024, FR-025).
+         * @enum {string}
+         */
+        MotivoModificacion: "no_debio_emitirse" | "factura_entregada";
         /** Pagina[ClienteResumenSalida] */
         Pagina_ClienteResumenSalida_: {
             /** Elementos */
@@ -514,6 +1192,40 @@ export interface components {
             /** Tamano */
             tamano: number;
         };
+        /** Pagina[FacturaResumenSalida] */
+        Pagina_FacturaResumenSalida_: {
+            /** Elementos */
+            elementos: components["schemas"]["FacturaResumenSalida"][];
+            /** Total */
+            total: number;
+            /** Pagina */
+            pagina: number;
+            /** Tamano */
+            tamano: number;
+        };
+        /** ParametrosFacturacionSalida */
+        ParametrosFacturacionSalida: {
+            /**
+             * Iva Por Defecto
+             * @example 21.00
+             */
+            iva_por_defecto: string;
+            /** Emision Posible */
+            emision_posible: boolean;
+            /** Faltan */
+            faltan: string[];
+            /** Proximo Numero */
+            proximo_numero: string;
+            /**
+             * Hoy
+             * Format: date
+             */
+            hoy: string;
+            /** Fecha Minima */
+            fecha_minima: string | null;
+            /** Mencion Exencion Oro Inversion */
+            mencion_exencion_oro_inversion: string;
+        };
         /** ProvinciaSalida */
         ProvinciaSalida: {
             /** Codigo */
@@ -522,6 +1234,34 @@ export interface components {
             nombre: string;
             /** Nombre Visible */
             nombre_visible: string;
+        };
+        /** RectificaA */
+        RectificaA: {
+            factura: components["schemas"]["FacturaReferencia"];
+            /**
+             * Base Rectificada
+             * @example 1290.00
+             */
+            base_rectificada: string;
+            /**
+             * Cuota Rectificada
+             * @example 1290.00
+             */
+            cuota_rectificada: string;
+            causa: components["schemas"]["CausaRectificacion"];
+        };
+        /** RegistroResumen */
+        RegistroResumen: {
+            /** Tipo */
+            tipo: string;
+            /** Secuencia */
+            secuencia: number;
+            /** Huella */
+            huella: string;
+            /** Fecha Hora Huso Gen */
+            fecha_hora_huso_gen: string;
+            /** Estado Remision */
+            estado_remision: string;
         };
         /**
          * Rol
@@ -555,10 +1295,21 @@ export interface components {
          */
         TipoCliente: "particular" | "empresa";
         /**
+         * TipoCorreccion
+         * @enum {string}
+         */
+        TipoCorreccion: "anulacion" | "anulacion_y_reemision" | "rectificacion_sustitucion";
+        /**
          * TipoEvento
          * @enum {string}
          */
-        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado";
+        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente";
+        /**
+         * TipoFactura
+         * @description Lista L2 de DsRegistroVeriFactu.xlsx v1.0 (research R-3, R-4). Solo las de esta feature.
+         * @enum {string}
+         */
+        TipoFactura: "F1" | "R1" | "R4";
         /**
          * TipoIdentificacion
          * @description `NIF` o clave de la lista L7 de DsRegistroVeriFactu.xlsx v1.0 (spec F-2).
@@ -575,6 +1326,26 @@ export interface components {
             descripcion: string;
             /** Ambito */
             ambito: string;
+        };
+        /** TotalesSalida */
+        TotalesSalida: {
+            /** Desglose */
+            desglose: components["schemas"]["DesgloseSalida"][];
+            /**
+             * Base Total
+             * @example 1290.00
+             */
+            base_total: string;
+            /**
+             * Cuota Total
+             * @example 1290.00
+             */
+            cuota_total: string;
+            /**
+             * Importe Total
+             * @example 1290.00
+             */
+            importe_total: string;
         };
         /** UsuarioAltaEntrada */
         UsuarioAltaEntrada: {
@@ -1323,6 +2094,485 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Pagina_EventoSalida_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_configuracion_api_v1_configuracion_facturacion_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfiguracionFacturacionSalida"];
+                };
+            };
+        };
+    };
+    guardar_configuracion_api_v1_configuracion_facturacion_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfiguracionFacturacionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfiguracionFacturacionSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ajustar_contador_api_v1_configuracion_facturacion_contador_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AjusteContadorEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AjusteContadorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_facturas_api_v1_facturas_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                /** @description Por defecto, el año en curso */
+                anio?: number | "todos" | null;
+                mes?: number | null;
+                orden?: "recientes" | "antiguas" | "total_desc" | "total_asc";
+                pagina?: number;
+                tamano?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pagina_FacturaResumenSalida_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    emitir_factura_api_v1_facturas_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FacturaEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_parametros_api_v1_facturas_parametros_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParametrosFacturacionSalida"];
+                };
+            };
+        };
+    };
+    obtener_factura_api_v1_facturas__factura_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                factura_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anular_factura_api_v1_facturas__factura_id__anulacion_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                factura_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnulacionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    modificar_factura_api_v1_facturas__factura_id__modificacion_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                factura_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModificacionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_borrador_api_v1_borradores_factura_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BorradorEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_borrador_api_v1_borradores_factura__borrador_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    guardar_borrador_api_v1_borradores_factura__borrador_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BorradorEdicionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_borrador_api_v1_borradores_factura__borrador_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    emitir_borrador_api_v1_borradores_factura__borrador_id__emision_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BorradorEdicionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacturaSalida"];
                 };
             };
             /** @description Validation Error */

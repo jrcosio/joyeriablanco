@@ -41,3 +41,9 @@ export function suscribir(callback: () => void) {
 export function getAvisos(): readonly ToastItem[] {
   return avisos
 }
+
+/** Vacía los avisos pendientes (las pruebas lo usan para que no pasen de un test al siguiente). */
+export function vaciarAvisos(): void {
+  avisos = []
+  emitir()
+}

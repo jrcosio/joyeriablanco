@@ -89,23 +89,54 @@ def purgar_sesiones() -> None:
 @app.command("cargar-datos-ejemplo")
 def cargar_datos_ejemplo(
     clientes: Annotated[int, typer.Option(min=1, help="Número de clientes ficticios")] = 40,
+    facturas: Annotated[
+        int, typer.Option(min=0, help="Número de facturas emitidas de los últimos 6 meses")
+    ] = 50,
+    borradores: Annotated[int, typer.Option(min=0, help="Número de borradores de factura")] = 5,
     contrasena_demo: Annotated[
         str | None,
         typer.Option(help="Contraseña conocida para los usuarios de ejemplo (solo desarrollo/E2E)"),
     ] = None,
 ) -> None:
-    """Carga clientes y usuarios ficticios. Se niega en producción (FR-045)."""
+    """Carga usuarios, clientes y facturas ficticios. Se niega en producción (FR-045)."""
     from app.services import datos_ejemplo
 
     resumen = _ejecutar(
-        lambda db: datos_ejemplo.cargar(db, clientes=clientes, contrasena_demo=contrasena_demo)
+        lambda db: datos_ejemplo.cargar(
+            db,
+            clientes=clientes,
+            facturas=facturas,
+            borradores=borradores,
+            contrasena_demo=contrasena_demo,
+        )
     )
     if resumen.ya_cargados:
         typer.echo("Los datos de ejemplo ya estaban cargados: no se ha hecho nada.")
         return
     typer.echo(f"Clientes de ejemplo creados: {resumen.clientes_creados}")
+    typer.echo(f"Facturas de ejemplo emitidas: {resumen.facturas_emitidas}")
+    typer.echo(f"Correcciones de ejemplo: {resumen.correcciones}")
+    typer.echo(f"Borradores de ejemplo: {resumen.borradores_creados}")
     for nombre_usuario, temporal in resumen.contrasenas_temporales.items():
         _mostrar_temporal(nombre_usuario, temporal)
+
+
+@app.command("verificar-cadena")
+def verificar_cadena() -> None:
+    """Comprueba la cadena de registros y los documentos (FR-031). Código 1 si no es íntegra."""
+    from app.services import integridad
+
+    resultado = _ejecutar(integridad.verify_chain)
+    if resultado.discrepancia is None:
+        typer.echo(f"Cadena íntegra ({resultado.registros} registros).")
+        return
+    d = resultado.discrepancia
+    typer.secho(
+        f"Cadena inconsistente en el registro nº {d.secuencia} ({d.num_serie}): {d.motivo}.",
+        fg=typer.colors.RED,
+        err=True,
+    )
+    raise typer.Exit(code=1)
 
 
 @app.command("reiniciar-bd-e2e")

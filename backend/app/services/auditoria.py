@@ -6,6 +6,7 @@ Nunca se registran secretos: las claves sensibles se eliminan del detalle y del 
 import uuid
 from collections.abc import Mapping
 from datetime import date, datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Final
 
@@ -26,10 +27,13 @@ type ValorJson = str | int | float | bool | list["ValorJson"] | dict[str, "Valor
 
 
 def to_json(valor: object) -> ValorJson:
-    """Convierte valores de dominio a tipos JSON (UUID, fechas y enumeraciones a texto)."""
+    """Convierte valores de dominio a tipos JSON (UUID, fechas, enumeraciones y Decimal a texto)."""
     match valor:
         case None | bool() | int() | float() | str():
             return valor
+        case Decimal():
+            # Importes como texto decimal exacto, nunca como float (constitución II, FR-043).
+            return format(valor, "f")
         case Enum():
             return to_json(valor.value)
         case uuid.UUID() | datetime() | date():

@@ -130,6 +130,79 @@ class ClienteConDocumentos(ProblemaError):
     )
 
 
+# ------------------------------------------------------------------ facturación (002, R-14)
+
+
+class EmisionNoDisponible(ProblemaError):
+    """Falta el emisor o la modalidad. `extra={"faltan": [...]}` (FR-004)."""
+
+    status, tipo, titulo = 409, "emision-no-disponible", "No se puede emitir"
+    detalle_por_defecto = (
+        "Faltan datos de la configuración de facturación. Un administrador debe completarlos."
+    )
+
+
+class ClienteNoFacturable(ProblemaError):
+    """Cliente inactivo o sin domicilio completo. `extra={"faltan": [...]}` (FR-017)."""
+
+    status, tipo, titulo = 422, "cliente-no-facturable", "El cliente no se puede facturar"
+    detalle_por_defecto = "Completa los datos del cliente antes de emitir."
+
+
+class FechaExpedicionNoValida(ProblemaError):
+    status, tipo, titulo = 422, "fecha-expedicion", "Fecha de expedición no válida"
+
+
+class TipoIvaSinConfirmar(ProblemaError):
+    """IVA por defecto fuera de la lista oficial de hoy sin confirmar (research R-20).
+    `extra={"tipos_oficiales": [...]}`."""
+
+    status, tipo, titulo = 422, "tipo-iva-sin-confirmar", "Confirma el tipo de IVA"
+    detalle_por_defecto = (
+        "Ese tipo de IVA no está entre los que la AEAT admite hoy. Guárdalo solo si ha cambiado "
+        "la ley: la AEAT podría rechazar los registros de las facturas hasta que lo admita."
+    )
+
+
+class FacturaNoModificable(ProblemaError):
+    status, tipo, titulo = 409, "factura-no-modificable", "La factura no se puede corregir"
+    detalle_por_defecto = (
+        "Solo se puede corregir la factura vigente: esta ya está anulada o rectificada."
+    )
+
+
+class ContadorNoAjustable(ProblemaError):
+    status, tipo, titulo = 409, "contador-no-ajustable", "Ajuste no permitido"
+    detalle_por_defecto = (
+        "El próximo número debe ser mayor que el que ya corresponde a la siguiente factura."
+    )
+
+
+class CadenaInconsistente(ProblemaError):
+    status, tipo, titulo = 409, "cadena-inconsistente", "Registro de facturación bloqueado"
+    detalle_por_defecto = (
+        "La cadena de registros de facturación no supera la comprobación de integridad. "
+        "No se ha emitido nada. Avisa al responsable técnico."
+    )
+
+
+class SinCambios(ProblemaError):
+    status, tipo, titulo = 422, "sin-cambios", "No hay cambios"
+    detalle_por_defecto = "La rectificativa sería idéntica a la factura vigente."
+
+
+class ModalidadBloqueada(ProblemaError):
+    status, tipo, titulo = 409, "modalidad-bloqueada", "Modalidad bloqueada"
+    detalle_por_defecto = (
+        "Ya hay registros de facturación: el cambio de modalidad llega con la remisión a la AEAT."
+    )
+
+
+class IdempotenciaConflicto(ProblemaError):
+    status, tipo, titulo = 409, "idempotencia-conflicto", "Clave de operación reutilizada"
+    detalle_por_defecto = "Esa clave de operación ya se usó en otra operación o documento."
+
+
 class LimiteOrigen(ProblemaError):
     status, tipo, titulo = 429, "limite-origen", "Demasiados intentos"
     detalle_por_defecto = (

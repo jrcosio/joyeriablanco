@@ -1,0 +1,435 @@
+"""US1 — Configuración de facturación (FR-001 a FR-004, FR-010, FR-050; research R-5, R-7, R-19).
+
+Ajuste de cierre: IVA libre con confirmación (R-20), IBAN (R-22) y sin clave de régimen (R-23).
+"""
+
+from typing import Any
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
+
+from app.core.tiempo import hoy
+from app.domain.tipos import Rol, Serie, TipoEvento
+from app.repositories import contadores
+from tests.conftest import CrearUsuario, IniciarSesion, eventos
+from tests.integration.facturacion_sql import (
+    huella_de_prueba,
+    insertar_factura,
+    insertar_registro,
+    insertar_usuario_y_cliente,
+)
+
+URL = "/api/v1/configuracion/facturacion"
+EMISOR = {
+    "nombre": "Joyería Blanco, S.L.",
+    "nif": "B12345674",
+    "direccion": "Calle Mayor, 1",
+    "codigo_postal": "39001",
+    "localidad": "Santander",
+}
+
+
+async def _admin(
+    client: AsyncClient, crear_usuario: CrearUsuario, iniciar_sesion: IniciarSesion
+) -> dict[str, str]:
+    await crear_usuario("admin.facturacion", rol=Rol.ADMINISTRADOR)
+    return {"X-CSRF-Token": await iniciar_sesion(client, "admin.facturacion")}
+
+
+def _cuerpo(actual: dict[str, Any], **cambios: Any) -> dict[str, Any]:
+    cuerpo = {
+        "version": actual["version"],
+        "iva_por_defecto": actual["iva_por_defecto"],
+        "modalidad": actual["modalidad"],
+        "emisor": {k: actual["emisor"][k] for k in (*EMISOR, "iban")},
+    }
+    cuerpo.update(cambios)
+    return cuerpo
+
+
+async def test_valores_iniciales_y_faltan_los_datos_del_emisor(
+    client: AsyncClient, crear_usuario: CrearUsuario, iniciar_sesion: IniciarSesion
+) -> None:
+    await _admin(client, crear_usuario, iniciar_sesion)
+
+    respuesta = await client.get(URL)
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["iva_por_defecto"] == "21.00"
+    assert "clave_regimen" not in datos  # la fija el sistema (R-23)
+    assert datos["modalidad"] is None
+    assert all(v is None for k, v in datos["emisor"].items())
+    assert datos["emision_posible"] is False
+    assert set(datos["faltan"]) == {
+        "modalidad",
+        "emisor.nombre",
+        "emisor.nif",
+        "emisor.direccion",
+        "emisor.codigo_postal",
+        "emisor.localidad",
+    }
+    assert datos["tipos_iva_oficiales"] == ["0.00", "4.00", "10.00", "21.00"]
+    assert datos["modalidad_bloqueada"] is False
+    assert datos["proximo_numero"] == f"FAC-{hoy().year}-0001"
+
+
+async def test_un_empleado_no_accede(
+    client: AsyncClient, crear_usuario: CrearUsuario, iniciar_sesion: IniciarSesion
+) -> None:
+    await crear_usuario("empleado.fact")
+    csrf = await iniciar_sesion(client, "empleado.fact")
+
+    lectura = await client.get(URL)
+    escritura = await client.put(URL, json={}, headers={"X-CSRF-Token": csrf})
+    contador = await client.post(
+        f"{URL}/contador",
+        json={"proximo_numero": 10, "motivo": "x", "simular": True},
+        headers={"X-CSRF-Token": csrf},
+    )
+
+    assert [lectura.status_code, escritura.status_code, contador.status_code] == [403, 403, 403]
+
+
+async def test_guardar_la_configuracion_completa_y_auditarla(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+
+    respuesta = await client.put(
+        URL,
+        json=_cuerpo(actual, iva_por_defecto="10", modalidad="verifactu", emisor=EMISOR),
+        headers=cabeceras,
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["iva_por_defecto"] == "10.00"
+    assert datos["emisor"]["provincia"] == "Cantabria"  # derivada del código postal
+    assert datos["emision_posible"] is True
+    assert datos["faltan"] == []
+    assert datos["version"] == actual["version"] + 1
+    (evento,) = await eventos(db, TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA)
+    assert evento.detalle["cambios"]["iva_por_defecto"] == ["21.00", "10.00"]
+    assert evento.detalle["cambios"]["modalidad"] == [None, "verifactu"]
+
+
+@pytest.mark.parametrize(
+    ("cambio", "tipo", "campo"),
+    [
+        ({"iva_por_defecto": 21}, "validacion", "iva_por_defecto"),  # número JSON
+        ({"iva_por_defecto": "100"}, "validacion", "iva_por_defecto"),  # de 0 a 99,99
+        ({"iva_por_defecto": "22.555"}, "validacion", "iva_por_defecto"),
+        ({"clave_regimen": "01"}, "validacion", "clave_regimen"),  # ya no se admite (R-23)
+        ({"emisor": {**EMISOR, "iban": "ES9121000418450200051333"}}, "validacion", "emisor.iban"),
+        ({"emisor": {**EMISOR, "iban": "ES91210004184502"}}, "validacion", "emisor.iban"),
+        ({"modalidad": "otra"}, "validacion", "modalidad"),
+        ({"emisor": {**EMISOR, "nif": "12345678A"}}, "validacion", "emisor.nif"),
+        ({"emisor": {**EMISOR, "codigo_postal": "53000"}}, "validacion", "emisor.codigo_postal"),
+    ],
+)
+async def test_validaciones(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    cambio: dict[str, Any],
+    tipo: str,
+    campo: str | None,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+
+    respuesta = await client.put(URL, json=_cuerpo(actual, **cambio), headers=cabeceras)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["type"] == f"/problemas/{tipo}"
+    if campo:
+        assert campo in {e["campo"] for e in respuesta.json()["errores"]}
+
+
+async def test_version_desfasada(
+    client: AsyncClient, crear_usuario: CrearUsuario, iniciar_sesion: IniciarSesion
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+    await client.put(URL, json=_cuerpo(actual, iva_por_defecto="10"), headers=cabeceras)
+
+    respuesta = await client.put(URL, json=_cuerpo(actual, iva_por_defecto="4"), headers=cabeceras)
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["type"] == "/problemas/conflicto-version"
+
+
+async def test_la_modalidad_se_bloquea_cuando_ya_hay_registros(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    conexion: AsyncConnection,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+    guardada = (
+        await client.put(URL, json=_cuerpo(actual, modalidad="verifactu"), headers=cabeceras)
+    ).json()
+    usuario, cliente = await insertar_usuario_y_cliente(conexion)
+    factura = await insertar_factura(conexion, usuario, cliente, 1)
+    await insertar_registro(
+        conexion, factura, secuencia=1, huella=huella_de_prueba("m"), huella_anterior=None
+    )
+
+    lectura = (await client.get(URL)).json()
+    cambio = await client.put(
+        URL, json=_cuerpo(guardada, modalidad="no_verifactu"), headers=cabeceras
+    )
+    otro_campo = await client.put(
+        URL, json=_cuerpo(guardada, iva_por_defecto="10"), headers=cabeceras
+    )
+
+    assert lectura["modalidad_bloqueada"] is True
+    assert cambio.status_code == 409
+    assert cambio.json()["type"] == "/problemas/modalidad-bloqueada"
+    assert otro_campo.status_code == 200  # el resto sí se puede cambiar
+
+
+# ------------------------------------------- IVA libre con confirmación (R-20, SC-012)
+
+
+@pytest.mark.parametrize(("tipo", "guardado"), [("22", "22.00"), ("5", "5.00"), ("12.5", "12.50")])
+async def test_un_tipo_fuera_de_la_lista_oficial_exige_confirmacion(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+    tipo: str,
+    guardado: str,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+
+    sin_confirmar = await client.put(
+        URL, json=_cuerpo(actual, iva_por_defecto=tipo), headers=cabeceras
+    )
+
+    assert sin_confirmar.status_code == 422, sin_confirmar.text
+    problema = sin_confirmar.json()
+    assert problema["type"] == "/problemas/tipo-iva-sin-confirmar"
+    assert problema["tipos_oficiales"] == ["0.00", "4.00", "10.00", "21.00"]
+    assert (await client.get(URL)).json()["iva_por_defecto"] == "21.00"  # nada guardado
+
+    confirmado = await client.put(
+        URL,
+        json=_cuerpo(actual, iva_por_defecto=tipo, confirmar_tipo_iva=True),
+        headers=cabeceras,
+    )
+
+    assert confirmado.status_code == 200, confirmado.text
+    assert confirmado.json()["iva_por_defecto"] == guardado
+    (evento,) = await eventos(db, TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA)
+    assert evento.detalle["cambios"]["iva_por_defecto"][0] == "21.00"
+    assert evento.detalle["tipo_iva_fuera_de_lista"] is True
+
+
+async def test_la_confirmacion_solo_se_pide_si_el_tipo_cambia(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+    con_22 = (
+        await client.put(
+            URL,
+            json=_cuerpo(actual, iva_por_defecto="22", confirmar_tipo_iva=True),
+            headers=cabeceras,
+        )
+    ).json()
+
+    otro_campo = await client.put(URL, json=_cuerpo(con_22, emisor=EMISOR), headers=cabeceras)
+    vuelta_a_21 = await client.put(
+        URL, json=_cuerpo(otro_campo.json(), iva_por_defecto="21"), headers=cabeceras
+    )
+
+    assert otro_campo.status_code == 200, otro_campo.text
+    assert vuelta_a_21.status_code == 200, vuelta_a_21.text
+    ultimo = (await eventos(db, TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA))[-1]
+    assert "tipo_iva_fuera_de_lista" not in ultimo.detalle
+
+
+# ----------------------------------------------------------------------------- IBAN (R-22)
+
+
+async def test_iban_opcional_normalizado_y_auditado(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+    assert actual["emisor"]["iban"] is None
+
+    con_iban = await client.put(
+        URL,
+        json=_cuerpo(
+            actual,
+            modalidad="verifactu",
+            emisor={**EMISOR, "iban": " es91 2100 0418 4502 0005 1332 "},
+        ),
+        headers=cabeceras,
+    )
+    vacio = await client.put(
+        URL, json=_cuerpo(con_iban.json(), emisor={**EMISOR, "iban": ""}), headers=cabeceras
+    )
+
+    assert con_iban.status_code == 200, con_iban.text
+    assert con_iban.json()["emisor"]["iban"] == "ES9121000418450200051332"
+    assert con_iban.json()["faltan"] == []
+    assert vacio.status_code == 200, vacio.text
+    assert vacio.json()["emisor"]["iban"] is None
+    assert vacio.json()["faltan"] == []  # el IBAN nunca impide emitir (FR-004)
+    primero, segundo = await eventos(db, TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA)
+    assert primero.detalle["cambios"]["emisor_iban"] == [None, "ES9121000418450200051332"]
+    assert segundo.detalle["cambios"]["emisor_iban"] == ["ES9121000418450200051332", None]
+
+
+# ---------------------------------------------------------------------- contador (FR-010)
+
+
+async def test_simular_el_ajuste_no_cambia_nada_ni_audita(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    anio = hoy().year
+    for _ in range(5):
+        await contadores.assign_numero(db, Serie.ORDINARIA, anio)
+
+    respuesta = await client.post(
+        f"{URL}/contador",
+        json={"proximo_numero": 143, "motivo": "Numeración del programa anterior", "simular": True},
+        headers=cabeceras,
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json() == {
+        "serie": "FAC",
+        "anio": anio,
+        "ultimo_usado": 5,
+        "proximo_numero": 143,
+        "numeros_sin_usar": 137,
+        "aplicado": False,
+    }
+    assert await contadores.last_used(db, Serie.ORDINARIA, anio) == 5
+    assert await eventos(db, TipoEvento.CONTADOR_AJUSTADO) == []
+
+
+async def test_aplicar_el_ajuste_audita_con_su_motivo(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    anio = hoy().year
+    for _ in range(5):
+        await contadores.assign_numero(db, Serie.ORDINARIA, anio)
+
+    respuesta = await client.post(
+        f"{URL}/contador",
+        json={
+            "proximo_numero": 143,
+            "motivo": "Numeración del programa anterior",
+            "simular": False,
+        },
+        headers=cabeceras,
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["aplicado"] is True
+    assert await contadores.assign_numero(db, Serie.ORDINARIA, anio) == 143
+    (evento,) = await eventos(db, TipoEvento.CONTADOR_AJUSTADO)
+    assert evento.detalle == {
+        "serie": "FAC",
+        "anio": anio,
+        "ultimo_usado": 5,
+        "proximo_numero": 143,
+        "numeros_sin_usar": 137,
+        "motivo": "Numeración del programa anterior",
+    }
+    assert (await client.get(URL)).json()["proximo_numero"] == f"FAC-{anio}-0144"
+
+
+@pytest.mark.parametrize("proximo", [5, 6])
+async def test_el_ajuste_debe_saltar_al_menos_un_numero(
+    client: AsyncClient,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    db: AsyncSession,
+    proximo: int,
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    for _ in range(5):
+        await contadores.assign_numero(db, Serie.ORDINARIA, hoy().year)
+
+    respuesta = await client.post(
+        f"{URL}/contador",
+        json={"proximo_numero": proximo, "motivo": "x", "simular": False},
+        headers=cabeceras,
+    )
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["type"] == "/problemas/contador-no-ajustable"
+
+
+async def test_el_ajuste_exige_motivo(
+    client: AsyncClient, crear_usuario: CrearUsuario, iniciar_sesion: IniciarSesion
+) -> None:
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+
+    respuesta = await client.post(
+        f"{URL}/contador",
+        json={"proximo_numero": 10, "motivo": "   ", "simular": False},
+        headers=cabeceras,
+    )
+
+    assert respuesta.status_code == 422
+
+
+# ------------------------------------------------------------------- parámetros del modal
+
+
+async def test_parametros_para_cualquier_usuario(
+    client: AsyncClient, crear_usuario: CrearUsuario, iniciar_sesion: IniciarSesion
+) -> None:
+    await crear_usuario("empleada.param")
+    await iniciar_sesion(client, "empleada.param")
+
+    respuesta = await client.get("/api/v1/facturas/parametros")
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json() == {
+        "iva_por_defecto": "21.00",
+        "emision_posible": False,
+        "faltan": [
+            "modalidad",
+            "emisor.nombre",
+            "emisor.nif",
+            "emisor.direccion",
+            "emisor.codigo_postal",
+            "emisor.localidad",
+        ],
+        "proximo_numero": f"FAC-{hoy().year}-0001",
+        "hoy": hoy().isoformat(),
+        "fecha_minima": "2024-10-28",  # F-3 §3.1.3.1 (FR-018)
+        "mencion_exencion_oro_inversion": (
+            "Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)"
+        ),
+    }

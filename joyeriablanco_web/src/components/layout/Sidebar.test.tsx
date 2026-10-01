@@ -9,16 +9,15 @@ async function navegacion(): Promise<HTMLElement> {
 }
 
 describe('Sidebar', () => {
-  it('muestra Facturas y Presupuestos deshabilitados como "Próximamente"', async () => {
+  it('muestra Facturas activa y Presupuestos deshabilitado como "Próximamente"', async () => {
     conSesion(crearSesion())
     renderApp('/clientes')
 
     const nav = await navegacion()
-    for (const etiqueta of ['Facturas', 'Presupuestos']) {
-      const entrada = within(nav).getByText(etiqueta).closest('[aria-disabled="true"]')
-      expect(entrada).not.toBeNull()
-      expect(entrada).toHaveTextContent('Próximamente')
-    }
+    expect(within(nav).getByRole('link', { name: 'Facturas' })).toHaveAttribute('href', '/facturas')
+    const presupuestos = within(nav).getByText('Presupuestos').closest('[aria-disabled="true"]')
+    expect(presupuestos).not.toBeNull()
+    expect(presupuestos).toHaveTextContent('Próximamente')
     expect(within(nav).getByRole('link', { name: 'Clientes' })).toHaveAttribute(
       'aria-current',
       'page',

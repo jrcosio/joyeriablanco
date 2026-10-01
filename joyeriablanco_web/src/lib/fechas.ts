@@ -59,3 +59,14 @@ export function inicioDia(fecha: string): string {
 export function finDia(fecha: string): string {
   return `${fecha}T23:59:59.999${desfaseMadrid(fecha)}`
 }
+
+/** Fecha de negocio AAAA-MM-DD → «29/09/2026», sin pasar por zonas horarias. */
+export function fechaCorta(fecha: string): string {
+  const [anio = '', mes = '', dia = ''] = fecha.split('-')
+  return `${dia}/${mes}/${anio}`
+}
+
+/** Año natural en curso en hora peninsular (el del listado de facturas por defecto, FR-035). */
+export function anioEnCurso(ahora: Date = new Date()): number {
+  return Number(claveDia(ahora).slice(0, 4))
+}

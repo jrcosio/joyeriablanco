@@ -1,41 +1,47 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Cambio de version: 1.1.0 -> 2.0.0
-Motivo del bump: MAJOR. Se redefine parte del principio I (NO NEGOCIABLE): desaparece la
-puerta de revision humana obligatoria entre fases. Decision explicita del responsable del
-proyecto (2026-09-27): "no me preguntes cada paso del sdd hazlo... y lo que me tengas que
-preguntar que sea para aclarar dudas".
+Cambio de version: 2.1.0 -> 2.2.0
+Motivo del bump: MINOR. Se concreta la restriccion "Numeracion" con una regla nueva y una
+excepcion explicita y acotada al "sin huecos". No se redefine ni elimina ningun principio.
+Decision explicita del responsable del proyecto (2026-09-28), durante el specify de 002-facturas:
+  - "Automatico + proximo numero": el numero nunca se introduce a mano.
+  - Ajuste del proximo numero "en cualquier momento, al alza", elegido sabiendo que deja huecos
+    dentro del sistema que habra que poder justificar.
 
 Principios modificados:
-  - I. Desarrollo dirigido por especificacion (SDD) - mismo titulo, cambio de fondo:
-      ANTES: "Entre fase y fase se PARA y se espera revision humana. No se encadenan comandos
-             sin que el artefacto anterior haya sido aprobado."
-      AHORA: las fases se encadenan sin aprobacion intermedia; solo se detiene la ejecucion
-             para consultar dudas que requieren decision humana (clarify, ambiguedades de
-             dominio/normativas, contradicciones con la spec). Cada fase termina con un commit
-             atomico en la rama de la feature. implement exige un tasks.md que haya superado
-             analyze sin problemas criticos (sustituye a "tasks.md aprobado").
-    Se mantienen: ciclo completo obligatorio, clarify y analyze no opcionales, parada y
-    correccion de la spec ante contradicciones durante implement, rama propia por feature.
+  - III. Inalterabilidad de los documentos emitidos: redaccion (PATCH dentro de este bump).
+    "Modificar ... incluido su numero" pasa a "tambien cuando el error esta en su numero"; el
+    numero se corrige anulando y reemitiendo, nunca editandolo.
 
 Secciones modificadas:
-  - Flujo de trabajo y puertas de calidad, punto 2: alineado con el nuevo principio I.
+  - Restricciones tecnicas > Numeracion:
+      + serie de rectificativas REC-AAAA-NNNN (ROF art. 6.1.a, 2.o);
+      + el numero nunca se introduce a mano; toda factura nueva recibe el siguiente de su serie;
+      + unica excepcion al "sin huecos": ajuste administrativo al alza del proximo numero de la
+        serie ordinaria del ano en curso, motivado, auditado, con aviso previo y seguro frente a
+        concurrencia;
+      - desaparece "La regla exacta de correlatividad ... la fija la spec" (ya fijada).
 
 Secciones anadidas: ninguna. Secciones eliminadas: ninguna.
 
 Artefactos dependientes:
-  - CLAUDE.md                       actualizado: "Como se trabaja aqui" sin paradas entre fases
-  - .specify/templates/*.md         sin cambios: leen la constitucion en tiempo de ejecucion
-  - .claude/skills/speckit-*        sin cambios: no imponen paradas por si mismos
+  - CLAUDE.md                       actualizado: "Numeracion"
+  - specs/002-facturas/spec.md      conforme: FR-006, FR-009, FR-010 y FR-024
+  - .specify/templates/*.md         sin cambios
 
 Historico:
+  - 2.1.0 (2026-09-28) principio III: borradores editables y "Modificar" como correccion
+    trazable; numeracion FAC-AAAA-NNNN sin reutilizacion.
+  - 2.0.0 (2026-09-27) principio I: fases encadenadas sin aprobacion intermedia.
   - 1.1.0 (2026-09-27) restriccion "Sistema de diseno" (docs/DESIGN.md normativo).
   - 1.0.0 (2026-09-12) adopcion inicial con los principios I-IX.
 
 TODO pendientes (no bloquean la ratificacion, se resuelven en el clarify de su feature):
   - TODO(MODALIDAD_VERIFACTU): elegir entre VERI*FACTU y no VERI*FACTU. El principio IV
     exige que el diseno soporte ambas, por lo que la eleccion no altera esta constitucion.
+    Estado (2026-09-28, specify de 002): pendiente de la asesoria; es una opcion de
+    Configuracion sin valor inicial y DEBE fijarse antes de la feature 004.
   - TODO(DECLARACION_RESPONSABLE): determinar quien la suscribe (art. 13 RRSIF). Pendiente
     de confirmacion por la asesoria.
 -->
@@ -100,13 +106,34 @@ No es una preferencia de diseño: lo impone el reglamento.
 Una factura emitida y su registro de facturación NO se editan ni se borran. La prohibición se
 impone a nivel de BASE DE DATOS (triggers/reglas y privilegios), no solo en la capa de aplicación.
 
-Las correcciones se realizan mediante factura rectificativa, registro de anulación o registro de
-subsanación.
+Los **borradores de factura** SÍ se pueden editar y eliminar. Un borrador todavía no es una
+factura expedida: no tiene número definitivo ni genera registro de facturación. La factura pasa a
+ser inalterable al **emitirse**, y en ese momento recibe su número y su registro de alta.
+
+La aplicación PUEDE ofrecer la acción **«Modificar»** sobre una factura emitida, también cuando el
+error está en su número. Esa acción NUNCA es un `UPDATE` ni un `DELETE`. Consiste en generar la corrección que
+prescriba la normativa para ese tipo de error:
+
+- Un registro de subsanación.
+- Un registro de anulación seguido de un nuevo registro de alta.
+- Una factura rectificativa.
+
+La versión original se conserva intacta y la corrección queda en un historial visible desde la
+propia factura. Qué corrección corresponde a cada caso se toma de la documentación oficial de la
+AEAT y se cita en la spec. Lo que no se pueda verificar en fuente oficial queda como pregunta
+abierta.
 
 Los presupuestos SÍ son editables mientras estén en estado `borrador`.
 
-**Razón**: una restricción que solo vive en el código de aplicación se salta con un `UPDATE` manual
-en una consola de base de datos.
+**Razón**:
+
+- Una restricción que solo vive en el código de aplicación se salta con un `UPDATE` manual en una
+  consola de base de datos.
+- La inalterabilidad no nace de esta constitución, sino del RRSIF, y la LGT tipifica como
+  infracción grave los sistemas que «permitan alterar transacciones ya registradas incumpliendo la
+  normativa aplicable» (art. 201 bis.1.d, verificado en BOE el 2026-09-28). Por eso ninguna
+  enmienda de este documento puede habilitar la sobrescritura: «Modificar» solo es admisible como
+  corrección trazable.
 
 ### IV. Cumplimiento Verifactu por diseño
 
@@ -223,6 +250,27 @@ frente a concurrencia mediante secuencia de base de datos o bloqueo explícito s
 contadores. Queda PROHIBIDO `MAX(numero)+1` sin lock. La estrategia elegida se justifica en la spec
 de la feature correspondiente.
 
+- **Formato**:
+  - Serie ordinaria: `FAC-AAAA-NNNN`.
+  - Serie de rectificativas, que es propia como exige el ROF (art. 6.1.a, 2.º): `REC-AAAA-NNNN`.
+  - En ambas, `AAAA` es el año natural de la fecha de expedición y `NNNN` un correlativo de
+    4 dígitos.
+- **Asignación**: el número de una factura NUNCA se introduce a mano. Toda factura nueva recibe el
+  siguiente número de su serie, incluidas la que sustituye a una anulada y la rectificativa.
+- **Número erróneo**: una factura emitida con un número erróneo se corrige mediante la corrección
+  trazable del principio III, anulándola y reemitiéndola con el siguiente número.
+- **Reutilización**: un número ya usado, incluido uno anulado, NO se reutiliza jamás.
+- **Única excepción al «sin huecos»**: un administrador puede ajustar **al alza** el próximo
+  número de la serie ordinaria del año en curso, en cualquier momento. Las condiciones son:
+  - El nuevo valor debe ser siempre superior al último número usado, incluidos los anulados.
+  - El motivo es obligatorio y queda en la auditoría.
+  - Antes de guardar, se avisa de cuántos números quedarán sin usar.
+  - El ajuste es seguro frente a emisiones concurrentes.
+
+  Los números que se saltan no se asignan después a ninguna factura. El responsable del proyecto
+  asume que esos huecos deben poder justificarse, por ejemplo por la continuación de la numeración
+  de otro sistema. Fuera de este ajuste, la regla «sin huecos y sin reutilización» es absoluta.
+
 **Precios**: las líneas se introducen sin IVA (base imponible); el servidor calcula cuota y total.
 
 ## Flujo de trabajo y puertas de calidad
@@ -257,4 +305,4 @@ subordinado a esta constitución.
 `docs/DESIGN.md` es la especificación normativa del sistema de diseño y está subordinado a esta
 constitución. Sus cambios materiales requieren aprobación explícita del responsable del proyecto.
 
-**Version**: 2.0.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-27
+**Version**: 2.2.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-28

@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 
+from app import __version__
 from app.api import salud
 from app.api.v1 import router as v1_router
 from app.core.config import get_settings
@@ -17,7 +18,7 @@ def create_app() -> FastAPI:
     docs = not settings.es_produccion
     app = FastAPI(
         title="Joyería Blanco — API de gestión",
-        version="0.1.0",
+        version=__version__,
         docs_url="/api/docs" if docs else None,
         redoc_url=None,
         openapi_url="/api/openapi.json" if docs else None,

@@ -1,16 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Eye, ScrollText } from 'lucide-react'
 import { useState } from 'react'
-import { Input, Label, TextField as AriaTextField } from 'react-aria-components'
 import { auditoriaQuery, TAMANO_PAGINA_AUDITORIA } from '../../api/queries/auditoria'
 import { usuariosConEliminadosQuery } from '../../api/queries/usuarios'
 import type { EventoSalida, TipoEvento } from '../../api/tipos'
 import { Button } from '../../components/ui/Button'
+import { CampoFecha } from '../../components/ui/CampoFecha'
 import { Card } from '../../components/ui/Card'
 import { Drawer } from '../../components/ui/Drawer'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
-import { campoCaja, campoContenedor, campoEtiqueta } from '../../components/ui/field'
 import { Pagination } from '../../components/ui/Pagination'
 import { Select } from '../../components/ui/Select'
 import { Skeleton } from '../../components/ui/Skeleton'
@@ -43,30 +42,6 @@ function objeto(evento: EventoSalida): string {
   if (typeof detalle.nombre === 'string') return detalle.nombre
   if (evento.cliente_id) return `Cliente ${evento.cliente_id.slice(-8)}`
   return '—'
-}
-
-function CampoFecha({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string | undefined
-  onChange: (v: string | undefined) => void
-}) {
-  return (
-    <AriaTextField
-      type="date"
-      value={value ?? ''}
-      onChange={(v) => {
-        onChange(v || undefined)
-      }}
-      className={campoContenedor}
-    >
-      <Label className={campoEtiqueta}>{label}</Label>
-      <Input className={`${campoCaja} [color-scheme:dark]`} />
-    </AriaTextField>
-  )
 }
 
 function texto(valor: unknown): string {

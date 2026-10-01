@@ -77,7 +77,8 @@ uv run pytest -k clientes         # un subconjunto
 uv run ruff check . && uv run ruff format --check . && uv run mypy .   # calidad (obligatoria)
 uv run alembic revision -m "descripcion"   # nueva migración (escrita a mano y revisada)
 uv run joyeria --help             # CLI: crear-admin, restablecer-admin, purgar-sesiones,
-                                  # cargar-datos-ejemplo, reiniciar-bd-e2e, exportar-openapi
+                                  # cargar-datos-ejemplo, verificar-cadena, reiniciar-bd-e2e,
+                                  # exportar-openapi
 
 # Web (dentro de joyeriablanco_web/)
 npm ci
@@ -137,11 +138,26 @@ concurrencia (secuencia de BD o bloqueo explícito sobre tabla de contadores).
 
 **`MAX(numero)+1` sin lock está prohibido.**
 
+- Series: ordinaria **`FAC-AAAA-NNNN`** y rectificativas **`REC-AAAA-NNNN`** (serie propia,
+  ROF art. 6.1.a).
+- **El número nunca se escribe a mano.** Toda factura nueva recibe el siguiente de su serie. Un
+  número erróneo se corrige anulando y reemitiendo, mediante corrección trazable (ver abajo).
+- Un número usado, **incluido uno anulado, no se reutiliza jamás**.
+- **Única excepción al «sin huecos»**: un administrador puede ajustar **al alza** el próximo número
+  de la serie ordinaria del año, siempre por encima del último usado, con motivo auditado, aviso
+  previo y seguro frente a concurrencia (constitución 2.2.0).
+
 ## Reglas innegociables de Verifactu
 
-- **Nada de `UPDATE` ni `DELETE`** sobre facturas ni sobre registros de facturación. La restricción
-  va **en la base de datos** (triggers/reglas y privilegios), no solo en la aplicación.
-- Las correcciones son factura rectificativa, registro de anulación o registro de subsanación.
+- **Nada de `UPDATE` ni `DELETE`** sobre facturas emitidas ni sobre registros de facturación. La
+  restricción va **en la base de datos** (triggers/reglas y privilegios), no solo en la aplicación.
+- Los **borradores** de factura sí se editan y se borran: no tienen número ni registro. La factura
+  es inalterable desde que se **emite**.
+- **«Modificar» una factura emitida** (incluido su número) es **siempre una corrección trazable**:
+  factura rectificativa, registro de anulación + nueva alta, o registro de subsanación, según diga
+  la documentación oficial para cada tipo de error. El original se conserva y la corrección queda
+  en un historial visible. Sobrescribir es ilegal (LGT art. 201 bis.1.d) aunque la UI diga
+  «Modificar».
 - Cada factura emitida genera un **registro de alta con huella SHA-256 encadenada** con la del
   registro anterior.
 - **Los formatos se toman de la documentación oficial de la AEAT y se citan en la spec** (URL +
