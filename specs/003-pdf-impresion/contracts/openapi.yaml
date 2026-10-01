@@ -1,0 +1,130 @@
+openapi: 3.1.0
+info:
+  title: Joyería Blanco — API de gestión (feature 003, PDF e impresión)
+  version: 0.3.0
+  description: |
+    Contrato de la feature 003. **Solo contiene las operaciones nuevas.** La API completa es la
+    unión de `specs/*/contracts/openapi.yaml` (002, research R-14), y el test de contrato compara
+    la aplicación con esa unión. Siguen vigentes las convenciones de 001 y 002: autenticación,
+    errores RFC 9457 y fechas RFC 3339.
+
+    **Respuestas PDF** (research R-8):
+    - Éxito: `200 application/pdf` con `Content-Disposition: inline; filename="…"` y `Cache-Control:
+      no-store`.
+    - Son `GET` de solo lectura. Exigen sesión, pero no CSRF ni `Origin` (001, R-6). La web las
+      abre con un enlace en una pestaña nueva.
+    - **Errores en una navegación**: si la petición es una navegación de documento
+      (`Sec-Fetch-Dest: document`, o, si falta, un `Accept` con `text/html`), el error se devuelve
+      como `text/html`. Es una página breve en español, con el mismo código de estado y sin datos
+      técnicos (FR-028). En cualquier otro caso, `application/problem+json` como el resto de la API.
+
+    **Ampliación de una operación de 002** (research R-9): `GET` y `PUT
+    /v1/configuracion/facturacion` siguen en el contrato de 002, que no se repite aquí. Sus esquemas
+    `ConfiguracionFacturacionEntrada` y `ConfiguracionFacturacionSalida` añaden, marcados
+    «ampliado en 003», el objeto `contacto` (`telefono`, `correo` y `web`) y `pie_factura`
+    (FR-024 a FR-026). En la entrada son opcionales: si faltan, se conservan los valores actuales.
+
+    **Catálogo de `type` de error nuevo** (`/problemas/...`):
+
+    | `type` | Estado | Notas |
+    |---|---|---|
+    | `duplicado-no-disponible` | 409 | Se pidió `duplicado=true` sobre una factura anulada (FR-033) |
+    | `listado-demasiado-grande` | 422 | El filtro supera las 5.000 filas. Lleva `limite` y `total` (FR-018) |
+
+    También se usan los de 001: `validacion`, `no-autenticado` y `no-encontrado`.
+servers:
+  - url: /api
+tags:
+  - name: impresion
+
+paths:
+  /v1/facturas/listado/pdf:
+    get:
+      tags: [impresion]
+      summary: PDF del listado completo del filtro, con totales de las vigentes (FR-018 a FR-022)
+      description: |
+        Mismos filtros, validación, orden y desempate que `GET /v1/facturas` (002), sin paginar.
+        A4 apaisado. Las filas son las de la vista del listado, borradores incluidos y marcados.
+        Al final lleva el desglose por tipo de IVA y los totales generales de las facturas vigentes,
+        y el recuento de las filas que quedan fuera de la suma (FR-021).
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: anio, in: query, schema: { oneOf: [{ type: integer, minimum: 2024, maximum: 9999 }, { type: string, enum: [todos] }] }, description: "Por defecto, el año en curso" }
+        - { name: mes, in: query, schema: { type: integer, minimum: 1, maximum: 12 } }
+        - { name: orden, in: query, schema: { type: string, enum: [recientes, antiguas, total_desc, total_asc], default: recientes } }
+      responses:
+        "200":
+          description: "PDF. `filename` es `facturas-{anio}.pdf`, `facturas-{anio}-{mes}.pdf` o `facturas-todos.pdf`"
+          headers:
+            Content-Disposition: { schema: { type: string }, example: 'inline; filename="facturas-2026-03.pdf"' }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoAutenticado" }
+        "422":
+          description: "`validacion`, o `listado-demasiado-grande` con `limite: 5000` y `total`"
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemaListadoDemasiadoGrande" }
+
+  /v1/facturas/{factura_id}/pdf:
+    get:
+      tags: [impresion]
+      summary: PDF de una factura emitida con su QR tributario (FR-001 a FR-017, FR-033)
+      description: |
+        A4 vertical. El QR va en la primera página, con la dirección de cotejo de la AEAT según la
+        modalidad de la factura y el entorno de la instalación (FR-016, FR-017). El emisor y el
+        destinatario salen de la copia guardada al emitir. El contacto y el pie, de la configuración
+        vigente. Un borrador no es una factura, así que su identificador responde 404.
+      parameters:
+        - { name: factura_id, in: path, required: true, schema: { type: string, format: uuid } }
+        - name: iban
+          in: query
+          schema: { type: boolean, default: false }
+          description: "Incluir el bloque de pago con el IBAN copiado en la factura. Se ignora si la factura no tiene IBAN (FR-010)"
+        - name: duplicado
+          in: query
+          schema: { type: boolean, default: false }
+          description: "Expedir como duplicado, con la expresión «DUPLICADO» (ROF art. 14.4). 409 si la factura está anulada (FR-033)"
+      responses:
+        "200":
+          description: "PDF. `filename` es el número de la factura"
+          headers:
+            Content-Disposition: { schema: { type: string }, example: 'inline; filename="FAC-2026-0005.pdf"' }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoAutenticado" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`duplicado-no-disponible`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+components:
+  schemas:
+    ProblemaListadoDemasiadoGrande:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, examples: ["/problemas/listado-demasiado-grande"] }
+        title: { type: string, examples: ["El listado es demasiado grande para imprimirlo"] }
+        status: { type: integer, enum: [422] }
+        detail: { type: string, examples: ["El listado tiene 6.120 facturas y el máximo para imprimir es 5.000. Acota el filtro, por ejemplo por año."] }
+        limite: { type: integer, enum: [5000] }
+        total: { type: integer, minimum: 5001 }
+        errores:
+          type: array
+          description: "Solo en `validacion` (001)"
+          items: { type: object }
+
+    # Ampliación de esquemas de 002 (se aplican en specs/002-facturas/contracts/openapi.yaml)
+    ContactoEmisor:
+      type: object
+      description: "Datos de contacto no fiscales de la joyería (FR-024, FR-025). No se copian en la factura"
+      properties:
+        telefono: { type: [string, "null"], maxLength: 30, pattern: "^[0-9 +()\\-]+$", description: "Al menos 6 dígitos (001, FR-055)" }
+        correo: { type: [string, "null"], maxLength: 254, format: email, description: "Se guarda en minúsculas" }
+        web: { type: [string, "null"], maxLength: 200, description: "Dominio o URL http(s)", examples: ["joyeriablanco.es"] }
+    PieFactura:
+      type: [string, "null"]
+      maxLength: 600
+      description: "Texto libre de varias líneas para el pie de las facturas impresas (FR-024)"

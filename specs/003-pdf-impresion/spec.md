@@ -76,6 +76,21 @@ que se añada el número de cuenta."
 - Q: ¿Qué frase va debajo del QR de las facturas VERI\*FACTU? → A: La larga, «Factura verificable
   en la sede electrónica de la AEAT» (FR-015).
 
+### Session 2026-10-01 (plan)
+
+Decisiones técnicas del plan que cambian el comportamiento descrito (research R-7 y R-8):
+
+- Q: ¿Cómo se abre el PDF? → A: Con un enlace a la API que se abre en una pestaña nueva. Los
+  errores se muestran en esa pestaña con una página en español, no dentro de la aplicación.
+  - El visor de PDF del navegador puede no funcionar con la política de seguridad de la aplicación,
+    y abrir la pestaña después de comprobar nada lo bloquean algunos navegadores.
+  - Afecta a FR-023, FR-028 y a los casos límite de sesión caducada, error, bloqueador y doble clic.
+- Q: ¿En qué formato sale el listado? → A: En A4 apaisado, para no recortar el nombre del cliente
+  (FR-022).
+  - La pregunta del límite estimaba «unas 110 páginas» para 5.000 filas. Medido en la prueba
+    técnica, son unas 190 en apaisado.
+  - Se generan en unos 12 segundos con la memoria acotada, así que el límite de 5.000 se mantiene.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Imprimir una factura con su QR (Priority: P1)
@@ -236,20 +251,22 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   el pie se imprimen tal cual, sin alterar el diseño ni el contenido del QR.
 - **Datos de contacto vacíos**: no queda ningún hueco ni ninguna etiqueta sin valor.
 - **Listado muy grande**: con el año «Todos», el listado puede tener miles de filas.
-  - Hasta 5.000 filas se genera, con su numeración de páginas. Mientras tanto se indica que se está
-    preparando, y el botón no admite un segundo clic.
+  - Hasta 5.000 filas se genera, con su numeración de páginas. La pestaña nueva muestra la carga
+    del navegador mientras tanto, y el botón no admite un segundo clic (FR-023).
   - Por encima de 5.000 no se genera, y se pide acotar el filtro (FR-018).
   - El límite se comprueba con el número de filas en el momento de generar. Si entre tanto se han
     emitido facturas y el filtro supera el límite, se rechaza con el mismo motivo.
 - **Listado con filtros manipulados en la dirección**: se aplican las mismas validaciones que en la
   pantalla. Un valor no válido se trata igual que en el listado (002, FR-032).
-- **Sesión caducada al imprimir**: se avisa dentro de la aplicación, igual que en cualquier otra
-  acción (001, sesión caducada). Nunca se abre una pestaña con un error técnico.
-- **Error al generar el PDF**: se muestra un aviso con la opción de reintentar. Nunca se abre un
-  documento a medias.
-- **Bloqueador de ventanas emergentes**: si el navegador impide abrir la pestaña nueva, se avisa y
-  se ofrece abrir o descargar el PDF desde el propio aviso.
-- **Doble clic en «Imprimir»**: abre un solo documento.
+- **Sesión caducada al imprimir**: la pestaña nueva muestra una página en español que explica que
+  la sesión ha caducado, con un enlace para volver a la aplicación e iniciar sesión (FR-028).
+  Nunca muestra un error técnico.
+- **Error al generar el PDF**: la pestaña nueva muestra una página en español que explica que no se
+  ha podido generar y que se puede volver a intentar. Nunca se abre un documento a medias.
+- **Bloqueador de ventanas emergentes**: no aplica. «Imprimir» e «Imprimir listado» son enlaces que
+  el usuario pulsa, y los navegadores no bloquean esas pestañas (plan, research R-8).
+- **Doble clic en «Imprimir»**: abre un solo documento, porque el botón ignora un segundo clic
+  durante unos segundos.
 - **Configuración sin emisor**: no puede haber facturas emitidas sin emisor (002, FR-004), así que
   toda factura imprimible tiene sus datos fiscales completos.
 
@@ -412,10 +429,12 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   - **Filas fuera de la suma**: cuántos borradores, anuladas y rectificadas hay.
   - **Cuadre**: las sumas DEBEN coincidir al céntimo con los desgloses y totales guardados en esas
     facturas (constitución II). La suma de las líneas por tipo es igual al total general.
-- **FR-022**: **Formato**: A4. Cada página lleva «Página n de m» y la cabecera de la tabla se
+- **FR-022**: **Formato**: A4 apaisado, para que quepan todas las columnas sin recortar el nombre
+  del cliente (plan, research R-7). Cada página lleva «Página n de m» y la cabecera de la tabla se
   repite. Una fila nunca se parte entre dos páginas.
-- **FR-023**: Mientras se genera un listado grande, la pantalla indica que se está preparando y no
-  admite otro clic en el mismo botón (casos límite).
+- **FR-023**: Tras pulsar «Imprimir» o «Imprimir listado», el botón indica «Preparando…» y no
+  admite otro clic durante unos segundos. La pestaña nueva muestra la carga del navegador hasta que
+  el PDF está listo (casos límite).
 
 #### Configuración: contacto y pie de factura
 
@@ -445,9 +464,11 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 - **FR-027**: El servidor DEBE exigir una sesión válida para generar cualquier PDF, y los permisos
   son los de la consulta: la factura y el listado, cualquier usuario autenticado. Los cambios de
   contacto y pie, solo un administrador.
-- **FR-028**: Ante una sesión caducada, un error de red o un fallo al generar, la aplicación DEBE
-  avisar con un mensaje comprensible y, salvo en la sesión caducada, ofrecer reintentar. Nunca se
-  abre una pestaña con un error técnico ni con un documento incompleto.
+- **FR-028**: Ante una sesión caducada, una factura que no existe, un duplicado no admitido, un
+  listado demasiado grande o un fallo al generar, la pestaña nueva DEBE mostrar una página en
+  español con un mensaje comprensible y un enlace para volver a la aplicación. Nunca muestra un
+  error técnico ni un documento incompleto. El resto de clientes de la API siguen recibiendo los
+  errores habituales (plan, research R-8).
 - **FR-029**: Los registros de actividad del servidor NO DEBEN contener datos personales ni
   importes al generar un PDF (002, FR-051). Solo pueden registrar el número de factura o los
   filtros del listado, sin el texto de búsqueda, y el tipo de documento.
