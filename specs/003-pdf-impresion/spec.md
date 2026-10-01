@@ -59,12 +59,30 @@ que se añada el número de cuenta."
   - El nombre, el NIF y el domicilio del emisor y del destinatario sí salen de la copia guardada al
     emitir (002, FR-016).
 
+### Session 2026-10-01 (clarify)
+
+- Q: ¿Se pueden expedir duplicados de una factura, por ejemplo si el cliente pierde el original?
+  → A: Sí. Al imprimir aparece la casilla «Duplicado», desmarcada. Si se marca, el PDF lleva la
+  expresión «DUPLICADO» (F-6, art. 14.4). Los clientes de una joyería pierden la factura y la
+  necesitan para el seguro o la garantía (FR-033).
+- Q: ¿Los totales del listado impreso se desglosan por tipo de IVA? → A: Sí. Una línea por tipo,
+  con su base y su cuota, incluida la base exenta, y después el total general. Es lo que necesita
+  la asesoría para la declaración del IVA (FR-021).
+- Q: ¿Se pone un límite al tamaño del listado impreso? → A: Sí, 5.000 filas. Por encima no se
+  genera, y se pide acotar el filtro, por ejemplo por año (FR-018).
+- Q: ¿La factura anulada impresa conserva su código QR? → A: Sí. Se reproduce tal como se expidió,
+  con el QR y la marca «ANULADA». Si se coteja, la AEAT responde «no encontrada», lo cual es
+  coherente con la anulación (FR-009; F-12, §9.1.2.1).
+- Q: ¿Qué frase va debajo del QR de las facturas VERI\*FACTU? → A: La larga, «Factura verificable
+  en la sede electrónica de la AEAT» (FR-015).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Imprimir una factura con su QR (Priority: P1)
 
 Un empleado abre una factura emitida desde el listado y pulsa «Imprimir». Si quiere que el cliente
-vea dónde transferir, marca antes «Incluir número de cuenta». En una pestaña nueva se abre la
+vea dónde transferir, marca antes «Incluir número de cuenta». Si el cliente ha perdido el original,
+marca «Duplicado». En una pestaña nueva se abre la
 factura en PDF, lista para imprimirla o guardarla. Lleva:
 - arriba, el código QR tributario;
 - los datos de la joyería y del cliente;
@@ -78,7 +96,7 @@ F-10, art. 20).
 cosas:
 - El PDF contiene todo el contenido obligatorio.
 - El QR, al leerlo, da la dirección oficial de cotejo con los datos del registro de alta.
-- El número de cuenta solo aparece si se marcó la casilla.
+- El número de cuenta y la expresión «DUPLICADO» solo aparecen si se marcó su casilla.
 
 **Acceptance Scenarios**:
 
@@ -116,6 +134,9 @@ cosas:
    y el pie al final. Si alguno de ellos está vacío, simplemente no aparece.
 10. **Given** un empleado, **When** imprime una factura, **Then** puede hacerlo igual que un
     administrador.
+11. **Given** un cliente que ha perdido su factura `FAC-2026-0005`, **When** se marca «Duplicado»
+    y se imprime, **Then** el PDF reproduce la factura con todo su contenido y su QR, y lleva la
+    expresión «DUPLICADO» en la primera página. Sin marcar la casilla, no la lleva.
 
 ---
 
@@ -146,10 +167,16 @@ de las vigentes.
    vigentes, **When** se imprime, **Then** cada fila lleva su marca igual que en pantalla: el
    borrador muestra «Borrador» en lugar del número. Los totales finales suman solo las vigentes e
    indican cuántas filas quedan fuera de la suma y por qué.
-5. **Given** una factura de oro de inversión en el filtro, **When** se imprime, **Then** su IVA
-   aparece como «Exenta», y su base y su total cuentan en los totales si está vigente.
+5. **Given** facturas vigentes al 21 % y al 10 % y una de oro de inversión en el filtro, **When** se
+   imprime, **Then** la fila de la exenta muestra «Exenta» en el IVA. Los totales llevan una línea
+   «IVA 21 %» con su base y su cuota, otra «IVA 10 %» y otra «Exenta» con su base y una cuota de
+   0,00 €, y después el total general.
 6. **Given** un filtro sin resultados, **When** se mira el listado, **Then** «Imprimir listado» está
    desactivado.
+7. **Given** un filtro con más de 5.000 facturas, por ejemplo «Todos los años» tras muchos años de
+   uso, **When** se mira el listado, **Then** «Imprimir listado» está desactivado, con la
+   explicación de que el listado impreso admite hasta 5.000 facturas y conviene acotar el filtro.
+   Si se pide por cualquier otra vía, el servidor lo rechaza con el mismo motivo.
 
 ---
 
@@ -195,9 +222,12 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 - **Factura que no existe**: se informa de que no existe, igual que en la consulta.
 - **Cambio de estado mientras se imprime**: el PDF refleja el estado de la factura en el momento en
   que se genera. Si después se anula, una nueva impresión ya lleva la marca.
-- **Factura anulada**: conserva su QR, porque el documento reproduce lo que se expidió. Según la
-  AEAT, el cotejo de una factura anulada responde «Factura no encontrada» (F-12, revisión 0.4.6 y
-  §9.1.2.1). La marca «ANULADA» lo deja claro en el papel.
+- **Factura anulada**: conserva su QR, porque el documento reproduce lo que se expidió
+  (Clarifications). Según la AEAT, el cotejo de una factura anulada responde «Factura no
+  encontrada» (F-12, revisión 0.4.6 y §9.1.2.1). La marca «ANULADA» lo deja claro en el papel. No
+  ofrece «Duplicado», porque una factura que no debió emitirse no se duplica (FR-033).
+- **Duplicado de una factura rectificada**: se admite. Lleva a la vez «DUPLICADO» y «RECTIFICADA
+  por REC-…».
 - **Rectificativa de una rectificativa**: identifica como rectificada a la rectificativa anterior,
   igual que en su consulta (002, casos límite).
 - **Destinatario extranjero**: se muestra su tipo de identificación, su número y su país, tal como
@@ -205,9 +235,12 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 - **Textos especiales**: tildes, eñes, comillas, «&» o saltos de línea en nombres, descripciones o en
   el pie se imprimen tal cual, sin alterar el diseño ni el contenido del QR.
 - **Datos de contacto vacíos**: no queda ningún hueco ni ninguna etiqueta sin valor.
-- **Listado muy grande**: con el año «Todos», el listado puede tener miles de filas. Se genera
-  igualmente, con su numeración de páginas. Se avisa de que puede tardar unos segundos y, mientras
-  tanto, el botón no admite un segundo clic.
+- **Listado muy grande**: con el año «Todos», el listado puede tener miles de filas.
+  - Hasta 5.000 filas se genera, con su numeración de páginas. Mientras tanto se indica que se está
+    preparando, y el botón no admite un segundo clic.
+  - Por encima de 5.000 no se genera, y se pide acotar el filtro (FR-018).
+  - El límite se comprueba con el número de filas en el momento de generar. Si entre tanto se han
+    emitido facturas y el filtro supera el límite, se rechaza con el mismo motivo.
 - **Listado con filtros manipulados en la dirección**: se aplican las mismas validaciones que en la
   pantalla. Un valor no válido se trata igual que en el listado (002, FR-032).
 - **Sesión caducada al imprimir**: se avisa dentro de la aplicación, igual que en cualquier otra
@@ -279,12 +312,21 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
     agrupado de cuatro en cuatro (002, FR-001).
   - Si la factura no tiene IBAN, la casilla no aparece y el PDF nunca lleva bloque de pago, aunque
     se pida por cualquier vía.
+- **FR-033**: **Duplicado** (F-6, art. 14; Clarifications):
+  - La consulta de una factura vigente o rectificada DEBE ofrecer junto a «Imprimir» la casilla
+    «Duplicado», desmarcada cada vez que se abre la consulta. Una factura anulada no la ofrece.
+  - Con la casilla marcada, el PDF lleva la expresión «DUPLICADO» en la primera página, visible y
+    sin tapar ningún dato (F-6, art. 14.4). Por lo demás, su contenido es idéntico al de la factura,
+    QR incluido.
+  - Es compatible con «Incluir número de cuenta» y con la marca «RECTIFICADA».
+  - Si se pide un duplicado de una factura anulada por cualquier vía, el servidor lo rechaza.
+  - Usarla corresponde a quien imprime: el sistema no comprueba si se ha perdido el original.
 - **FR-011**: **Formato**: A4 vertical. Si la factura ocupa varias páginas, cada página lleva el
   número de la factura y «Página n de m», y la cabecera de la tabla de líneas se repite. El QR va
   solo en la primera página (FR-013).
 - **FR-012**: El PDF se genera bajo demanda en cada impresión y no se almacena. Dos impresiones de la
-  misma factura con las mismas opciones y la misma configuración de contacto tienen el mismo
-  contenido.
+  misma factura con las mismas opciones (número de cuenta y duplicado) y la misma configuración de
+  contacto tienen el mismo contenido.
 
 #### Código QR tributario (F-12; F-10, arts. 20 y 21; F-6, art. 6.5)
 
@@ -303,7 +345,8 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 - **FR-015**: **Textos** (F-12, §3; F-10, art. 20.1.b; F-6, art. 6.5.b):
   - Encima del QR, y centrado respecto a él, DEBE figurar «QR tributario:».
   - En las facturas cuya modalidad es VERI\*FACTU, justo debajo del QR y centrada, DEBE figurar la
-    frase «Factura verificable en la sede electrónica de la AEAT», en una o varias líneas.
+    frase larga «Factura verificable en la sede electrónica de la AEAT», en una o varias líneas
+    (Clarifications). No se usa la frase corta «VERI\*FACTU».
   - En las de modalidad no VERI\*FACTU, ninguna frase.
   - Ambos textos usan un tipo y un tamaño de letra iguales o mayores que los del resto de datos de
     la factura.
@@ -342,6 +385,11 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
     año y mes), sin paginar y en el orden actual, con el mismo desempate (002, FR-034 y FR-035).
   - Se abre en una pestaña nueva, igual que la factura (FR-002).
   - Está desactivado cuando el filtro no tiene resultados.
+  - **Límite de 5.000 filas** (Clarifications):
+    - Si el filtro tiene más, el botón está desactivado y explica que el listado impreso admite
+      hasta 5.000 facturas y que conviene acotar el filtro, por ejemplo por año.
+    - El servidor DEBE rechazar con el mismo motivo cualquier petición que supere el límite en el
+      momento de generarla.
 - **FR-019**: **Columnas**: número, fecha de expedición, cliente, identificación fiscal, base
   imponible, IVA y total.
   - Todas las columnas aparecen siempre, sin depender del ancho de la pantalla.
@@ -354,10 +402,16 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   - El filtro aplicado, en palabras: búsqueda (o «Sin búsqueda»), año (o «Todos los años»), mes (o
     «Todos los meses») y orden.
   - El número de filas, y la fecha y la hora de generación.
-- **FR-021**: **Totales**, al final del listado:
-  - Número de facturas vigentes y suma de su base imponible, IVA y total.
-  - Debajo, cuántas filas quedan fuera de la suma: borradores, anuladas y rectificadas.
-  - Las sumas DEBEN coincidir al céntimo con las de los importes de esas facturas (constitución II).
+- **FR-021**: **Totales**, al final del listado, solo de las facturas vigentes del filtro
+  (Clarifications):
+  - **Desglose por tipo de IVA**: una línea por cada tipo aplicado, p. ej. «IVA 21 %» o «IVA 10 %»,
+    con su base imponible y su cuota. Las bases exentas de oro de inversión van en una línea
+    «Exenta», con una cuota de 0,00 €. Las líneas se ordenan de mayor a menor tipo, y la exenta va
+    al final.
+  - **Total general**: número de facturas vigentes y suma de su base imponible, IVA y total.
+  - **Filas fuera de la suma**: cuántos borradores, anuladas y rectificadas hay.
+  - **Cuadre**: las sumas DEBEN coincidir al céntimo con los desgloses y totales guardados en esas
+    facturas (constitución II). La suma de las líneas por tipo es igual al total general.
 - **FR-022**: **Formato**: A4. Cada página lleva «Página n de m» y la cabecera de la tabla se
   repite. Una fila nunca se parte entre dos páginas.
 - **FR-023**: Mientras se genera un listado grande, la pantalla indica que se está preparando y no
@@ -408,8 +462,9 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   «Sistema de diseño»). El texto del documento DEBE poder seleccionarse y copiarse: no se imprime
   como imagen.
 - **FR-031**: Los botones «Imprimir» e «Imprimir listado» DEBEN tener nombre accesible, p. ej.
-  «Imprimir factura FAC-2026-0005», y usarse por completo con teclado. La casilla del número de
-  cuenta tiene su etiqueta asociada.
+  «Imprimir factura FAC-2026-0005», y usarse por completo con teclado. Las casillas «Incluir número
+  de cuenta» y «Duplicado» tienen su etiqueta asociada. Cuando «Imprimir listado» está desactivado,
+  el motivo es accesible, no solo visual.
 - **FR-032**: Los datos de ejemplo del entorno de desarrollo DEBEN incluir teléfono, correo, web y
   pie de factura ficticios. Su carga sigue prohibida en producción (001, FR-045).
 
@@ -418,7 +473,7 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 - **Factura impresa**: representación en PDF de una factura emitida.
   - Se genera bajo demanda a partir de la factura y su registro de alta, que son inalterables, más
     los datos de contacto vigentes.
-  - Lleva, si procede, la marca de estado y el bloque de pago.
+  - Lleva, si procede, la marca de estado, la expresión «DUPLICADO» y el bloque de pago.
   - No se almacena.
 - **Código QR tributario**: la dirección de cotejo de la factura, formada con la modalidad de la
   factura, el entorno de la instalación y cuatro datos de su registro de alta.
@@ -441,15 +496,17 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   rectificativa por error, rectificativa por devolución total, anulada y rectificada) contienen
   cada dato obligatorio de FR-003 y FR-008 que les corresponde.
 - **SC-004**: En el 100 % de las pruebas, el número de cuenta aparece solo cuando se pidió y la
-  factura lo tiene.
-- **SC-005**: Un listado de 1.000 facturas está listo para imprimir en menos de 15 segundos. Sus
-  totales coinciden al céntimo con la suma de las vigentes calculada aparte, y el número de filas
+  factura lo tiene, y la expresión «DUPLICADO» solo cuando se pidió y la factura no está anulada.
+- **SC-005**: Un listado de 1.000 facturas está listo para imprimir en menos de 15 segundos, y uno
+  de 5.000, el máximo, en menos de 60 segundos. Sus totales por tipo y generales coinciden al
+  céntimo con la suma de los desgloses de las vigentes calculada aparte, y el número de filas
   coincide con el total que muestra la pantalla para ese filtro.
 - **SC-006**: Medido sobre el PDF, el QR mide entre 30 y 40 mm de lado y tiene al menos 2 mm de
   margen en blanco por los cuatro lados. «QR tributario:» y la frase VERI\*FACTU tienen un tamaño de
   letra igual o mayor que el de los datos de la factura.
-- **SC-007**: El servidor rechaza el 100 % de los intentos de un empleado de cambiar el contacto o
-  el pie, de pedir el PDF de un borrador o de generar un PDF sin sesión.
+- **SC-007**: El servidor rechaza el 100 % de estos intentos: que un empleado cambie el contacto o
+  el pie, pedir el PDF de un borrador, pedir el duplicado de una factura anulada, pedir un listado
+  de más de 5.000 filas o generar un PDF sin sesión.
 - **SC-008**: La factura y el listado impresos superan la revisión de conformidad con la sección
   «Papel» de `docs/DESIGN.md`. Los botones nuevos de la web superan la de `docs/DESIGN.md`, con sus
   colores solo de tokens y las esquinas a 0 px.
@@ -463,8 +520,8 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   responsable (Clarifications, 2026-10-01). Sus valores concretos (colores de papel derivados de los
   tokens existentes, escala tipográfica en puntos y márgenes) se fijan en el plan y se escriben en
   `docs/DESIGN.md` antes de implementarlos.
-- **Web**: los botones «Imprimir» e «Imprimir listado» y la casilla del número de cuenta usan los
-  componentes ya definidos: botón secundario y casilla de verificación.
+- **Web**: los botones «Imprimir» e «Imprimir listado» y las casillas «Incluir número de cuenta» y
+  «Duplicado» usan los componentes ya definidos: botón secundario y casilla de verificación.
 
 Desviaciones de `docs/DESIGN.md`: **ninguna**. La sección «Papel» es una enmienda aprobada, no una
 desviación.
@@ -488,8 +545,9 @@ consultas nuevas, y añade F-12.
       únicamente en aquellos casos en los que el sistema informático realice la remisión de todos
       los registros de facturación a la Agencia Estatal de Administración Tributaria».
   - **Art. 14**: duplicados. «Sólo podrán expedir un original de cada factura». Los duplicados solo
-    se admiten con varios destinatarios o por pérdida del original, y llevan la expresión
-    «duplicado» (ver Assumptions).
+    se admiten con varios destinatarios o por pérdida del original (art. 14.2), tienen la misma
+    eficacia que el original (art. 14.3) y llevan la expresión «duplicado» (art. 14.4). Base de
+    FR-033.
   - **Art. 15**: rectificativas (002, F-6).
 - **F-10**: Orden HAC/1177/2024 (BOE-A-2024-22138). Consultada en la API de datos abiertos del BOE
   el 2026-10-01:
@@ -546,7 +604,9 @@ consultas nuevas, y añade F-12.
 - **Idiomas**: factura en otros idiomas.
 - **Almacén de PDFs**: almacenamiento o histórico de los PDF generados.
 - **Filtros nuevos en el listado**: estado, cliente o rango de fechas (Clarifications).
-- **Duplicados del art. 14 de F-6** (ver Assumptions).
+- **Duplicados por varios destinatarios** (F-6, art. 14.2.a): exigen consignar en cada ejemplar la
+  porción de base y cuota de cada destinatario, y una factura de este sistema tiene un único
+  destinatario (002, FR-005). Solo se contempla el duplicado por pérdida del original (FR-033).
 
 ## Assumptions
 
@@ -554,20 +614,18 @@ consultas nuevas, y añade F-12.
   igual que consultarlos (002, Assumptions). Solo los administradores cambian el contacto y el pie.
 - **Impresiones no auditadas**: imprimir no cambia ningún dato y no deja evento en la auditoría.
   Solo queda constancia técnica en los registros de actividad, sin datos personales (FR-029).
-- **Copias y duplicados**: imprimir la misma factura varias veces produce copias del mismo
-  documento, que el art. 6.1 de F-6 contempla («Toda factura y sus copias»). El sistema no expide
-  duplicados del art. 14 de F-6 con la expresión «duplicado». Si hiciera falta uno por pérdida del
-  original, queda fuera de alcance.
-- **Frase VERI\*FACTU**: de las dos que admiten F-6 y F-10, se usa la larga, «Factura verificable en
-  la sede electrónica de la AEAT», porque en A4 hay sitio y es más clara para el cliente.
+- **Copias y duplicados**: imprimir la misma factura varias veces sin marcar «Duplicado» produce
+  copias del mismo documento, que el art. 6.1 de F-6 contempla («Toda factura y sus copias»). El
+  duplicado del art. 14, con su expresión, solo sale cuando quien imprime lo marca (FR-033).
+  Imprimir no lleva la cuenta de las copias ni de los duplicados expedidos.
 - **Tamaño del QR**: el plan fija un valor dentro de 30 a 40 mm y el margen en blanco recomendado de
   6 mm.
 - **Logotipo**: es el monograma «Blanco Joyeros» que ya usa la aplicación (001, FR-042). No se
   configura desde la aplicación.
 - **Idioma y moneda**: castellano y euros, como el resto del sistema.
-- **Volumen**: del orden de cientos a pocos miles de facturas al año (002, Assumptions). Un listado
-  de un año completo cabe en un documento razonable. El de «Todos los años» puede ser largo, y se
-  genera igualmente (casos límite).
+- **Volumen**: del orden de cientos a pocos miles de facturas al año (002, Assumptions). El listado
+  de un año completo cabe holgadamente en el límite de 5.000 filas (FR-018). El de «Todos los
+  años» puede superarlo, y entonces se pide acotar el filtro.
 - **Cotejo antes de la 004**: mientras no se remitan los registros, el cotejo de una factura
   VERI\*FACTU responderá que no consta en la AEAT. Es lo esperado hasta la feature 004 (002,
   Assumptions, «Remisión y validez»).
