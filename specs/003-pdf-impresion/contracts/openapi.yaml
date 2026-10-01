@@ -111,10 +111,6 @@ components:
         detail: { type: string, examples: ["El listado tiene 6.120 facturas y el máximo para imprimir es 5.000. Acota el filtro, por ejemplo por año."] }
         limite: { type: integer, enum: [5000] }
         total: { type: integer, minimum: 5001 }
-        errores:
-          type: array
-          description: "Solo en `validacion` (001)"
-          items: { type: object }
 
     # Ampliación de esquemas de 002 (se aplican en specs/002-facturas/contracts/openapi.yaml)
     ContactoEmisor:

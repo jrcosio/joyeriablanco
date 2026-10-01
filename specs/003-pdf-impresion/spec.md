@@ -14,12 +14,12 @@ que se añada el número de cuenta."
 
 **Referencias**:
 - Sistema de diseño normativo: [`docs/DESIGN.md`](../../docs/DESIGN.md), que esta feature amplía
-  con la sección «Papel» (Clarifications).
+  con la sección «Paper» (Clarifications).
 - Constitución 2.2.0: principios III, IV, V y VIII y restricciones «PDF» y «Sistema de diseño».
 - Features previas: [`specs/001-cimientos-clientes`](../001-cimientos-clientes/spec.md) y
   [`specs/002-facturas`](../002-facturas/spec.md). La 002 dejó para esta feature la factura en papel
   con el IBAN y la mención de la exención (002, FR-052, FR-053 y «Fuera de alcance»).
-- Sin mockup: la factura impresa sigue la sección «Papel» de `docs/DESIGN.md` y la disposición
+- Sin mockup: la factura impresa sigue la sección «Paper» de `docs/DESIGN.md` y la disposición
   oficial del QR (F-12, §3 y anexo).
 
 ## Clarifications
@@ -45,7 +45,7 @@ que se añada el número de cuenta."
 - Q: ¿Se añaden filtros al listado? → A: No. Se imprimen con los filtros actuales: búsqueda, año,
   mes y orden (002, FR-035).
 - Q: `docs/DESIGN.md` solo define un tema oscuro. ¿Cómo se diseña el papel? → A: Se enmienda
-  `docs/DESIGN.md` con una sección «Papel», aprobada por el responsable el 2026-10-01:
+  `docs/DESIGN.md` con una sección «Paper», aprobada por el responsable el 2026-10-01:
   - Fondo blanco, tinta oscura y el dorado como acento.
   - Bodoni Moda y Manrope.
   - Filetes de 1 px y esquinas a 0.
@@ -413,7 +413,8 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   - Genera un PDF con **todas** las filas que cumplen los filtros actuales de la pantalla (búsqueda,
     año y mes), sin paginar y en el orden actual, con el mismo desempate (002, FR-034 y FR-035).
   - Se abre en una pestaña nueva, igual que la factura (FR-002).
-  - Está desactivado cuando el filtro no tiene resultados. Si se pide por otra vía con un filtro
+  - Está desactivado mientras el listado de la pantalla carga y cuando el filtro no tiene
+    resultados. Si se pide por otra vía con un filtro
     sin resultados, el PDF se genera igualmente: la cabecera, la indicación «No hay facturas con
     este filtro» y los totales a 0,00 €.
   - **Límite de 5.000 filas** (Clarifications):
@@ -465,7 +466,7 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   - **Correo electrónico**: con validación de formato, guardado en minúsculas (001, FR-027 y
     FR-055). Como máximo 254 caracteres.
   - **Web**: un dominio o una dirección `http` o `https`, de 200 caracteres como máximo. Se
-    imprime sin el `https://`.
+    imprime sin el esquema (`https://` o `http://`) y sin la barra final.
   - **Pie de factura**: texto libre de varias líneas, de 600 caracteres como máximo, con sus saltos
     de línea.
 
@@ -494,7 +495,7 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 - **FR-029**: Los registros de actividad del servidor NO DEBEN contener datos personales ni
   importes al generar un PDF (002, FR-051). Solo pueden registrar el número de factura o los
   filtros del listado, sin el texto de búsqueda, y el tipo de documento.
-- **FR-030**: La factura y el listado impresos DEBEN cumplir la sección «Papel» de
+- **FR-030**: La factura y el listado impresos DEBEN cumplir la sección «Paper» de
   `docs/DESIGN.md`:
   - Fondo blanco, tinta oscura y el dorado como acento.
   - Bodoni Moda en el título y en el total de la factura; Manrope en los datos, con cifras
@@ -530,9 +531,9 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
 
 ### Measurable Outcomes
 
-- **SC-001**: Desde la consulta de una factura de hasta 20 líneas, el PDF aparece listo para
-  imprimir en menos de 3 segundos en el 95 % de los casos. Se mide en el entorno local de pruebas de
-  extremo a extremo.
+- **SC-001**: El PDF de una factura de hasta 20 líneas está listo para imprimir en menos de
+  3 segundos en el 95 % de las generaciones. Se mide con 20 generaciones seguidas en el entorno
+  local de pruebas.
 - **SC-002**: Al leer con un lector estándar el QR de facturas impresas de todos los tipos
   (ordinaria, exenta y rectificativa) y de ambas modalidades, el 100 % da exactamente la dirección
   oficial de FR-016, con los valores de su registro de alta.
@@ -554,22 +555,22 @@ emitida antes del cambio. Debe llevar los datos nuevos, y un empleado no puede c
   el pie, pedir el PDF de un borrador, pedir el duplicado de una factura anulada, pedir un listado
   de más de 5.000 filas o generar un PDF sin sesión.
 - **SC-008**: La factura y el listado impresos superan la revisión de conformidad con la sección
-  «Papel» de `docs/DESIGN.md`. Los botones nuevos de la web superan la de `docs/DESIGN.md`, con sus
+  «Paper» de `docs/DESIGN.md`. Los botones nuevos de la web superan la de `docs/DESIGN.md`, con sus
   colores solo de tokens y las esquinas a 0 px.
 - **SC-009**: Las pruebas de extremo a extremo cubren las historias P1 y P2 y pasan en su totalidad
   antes de cerrar la feature.
 
 ## Conformidad con el sistema de diseño
 
-- **Papel**: `docs/DESIGN.md` solo define el tema oscuro de la aplicación. Los documentos impresos
-  siguen la sección nueva «Papel», que esta feature añade a `docs/DESIGN.md` con la aprobación del
+- **Paper**: `docs/DESIGN.md` solo define el tema oscuro de la aplicación. Los documentos impresos
+  siguen la sección nueva «Paper (print and PDF)», que esta feature añade a `docs/DESIGN.md` con la aprobación del
   responsable (Clarifications, 2026-10-01). Sus valores concretos (colores de papel derivados de los
   tokens existentes, escala tipográfica en puntos y márgenes) se fijan en el plan y se escriben en
   `docs/DESIGN.md` antes de implementarlos.
 - **Web**: los botones «Imprimir» e «Imprimir listado» y las casillas «Incluir número de cuenta» y
   «Duplicado» usan los componentes ya definidos: botón secundario y casilla de verificación.
 
-Desviaciones de `docs/DESIGN.md`: **ninguna**. La sección «Papel» es una enmienda aprobada, no una
+Desviaciones de `docs/DESIGN.md`: **ninguna**. La sección «Paper» es una enmienda aprobada, no una
 desviación.
 
 ## Fuentes normativas citadas
@@ -639,7 +640,7 @@ consultas nuevas, y añade F-12.
 - **Otras features**:
   - La remisión de los registros a la AEAT (004). Hasta entonces, el cotejo de una factura
     VERI\*FACTU puede responder que no consta.
-  - El PDF de los presupuestos (005), que reutilizará la sección «Papel».
+  - El PDF de los presupuestos (005), que reutilizará la sección «Paper».
 - **Envío**: por correo electrónico o por cualquier otro canal.
 - **Factura electrónica estructurada** (F-10, art. 20.2), en la que la dirección del QR va como
   campo y no como imagen.
@@ -664,8 +665,8 @@ consultas nuevas, y añade F-12.
   copias del mismo documento, que el art. 6.1 de F-6 contempla («Toda factura y sus copias»). El
   duplicado del art. 14, con su expresión, solo sale cuando quien imprime lo marca (FR-033).
   Imprimir no lleva la cuenta de las copias ni de los duplicados expedidos.
-- **Tamaño del QR**: el plan fija un valor dentro de 30 a 40 mm y el margen en blanco recomendado de
-  6 mm.
+- **Tamaño del QR**: 35 × 35 mm, el centro del intervalo de 30 a 40 mm, con el margen en blanco
+  recomendado de 6 mm (plan, research R-2).
 - **Logotipo**: es el monograma «Blanco Joyeros» que ya usa la aplicación (001, FR-042). No se
   configura desde la aplicación.
 - **Idioma y moneda**: castellano y euros, como el resto del sistema.

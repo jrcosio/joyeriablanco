@@ -343,7 +343,7 @@ con ellos y con su emisor fiscal original. Un empleado recibe 403.
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [ ] T041 [P] Test lento `backend/tests/integration/test_pdf_rendimiento.py` (`@pytest.mark.lento`; SC-001, SC-005):
-  - Factura de 20 líneas en menos de 3 s.
+  - Factura de 20 líneas: 20 generaciones seguidas, con el percentil 95 por debajo de 3 s.
   - Listados de 1.000 y 5.000 filas sintéticas en menos de 15 s y 60 s.
   - Memoria de la generación de 5.000 filas medida en un subproceso (`resource.getrusage`) por debajo de 300 MB.
   - Ejecutarlo con `uv run pytest -m lento` y anotar los resultados en el quickstart.
