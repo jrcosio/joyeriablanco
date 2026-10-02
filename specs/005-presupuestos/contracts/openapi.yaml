@@ -1,0 +1,508 @@
+openapi: 3.1.0
+info:
+  title: Joyería Blanco — API de gestión (feature 005, presupuestos)
+  version: 0.5.0
+  description: |
+    Contrato de la feature 005. **Solo contiene las operaciones nuevas.** La API completa es la
+    unión de `specs/*/contracts/openapi.yaml` (002, research R-14), y el test de contrato compara
+    la aplicación con esa unión. Siguen vigentes las convenciones de 001, 002 y 003:
+    autenticación, CSRF, errores RFC 9457 y fechas RFC 3339. También siguen vigentes los importes
+    como cadena decimal, la `Idempotency-Key` y las respuestas PDF con página de error HTML.
+
+    **Un presupuesto no genera registros de facturación ni huella** (FR-005). La conversión crea
+    un borrador de factura vinculado (`POST /v1/presupuestos/{id}/conversion`). La factura se emite
+    con la operación de 002 `POST /v1/borradores-factura/{id}/emision`, que, si el borrador está
+    vinculado, cierra también el presupuesto en la misma transacción (research R-5).
+
+    **Ampliación de esquemas de 002** (research R-12). Las operaciones siguen en el contrato de 002;
+    los esquemas llevan la marca «ampliado en 005»:
+    - `BorradorSalida.presupuesto_origen` y `FacturaSalida.presupuesto_origen`
+      (`PresupuestoReferencia` o `null`).
+    - `ConfiguracionFacturacionEntrada` y `ConfiguracionFacturacionSalida`:
+      `validez_presupuesto_dias` y `pie_presupuesto` (FR-031). En la entrada son opcionales: si
+      faltan, se conservan los valores actuales.
+    - `POST /v1/borradores-factura/{id}/emision`, con un borrador vinculado:
+      - 422 `fecha-expedicion` si la fecha es anterior a la del presupuesto.
+      - 409 `presupuesto-no-modificable` si el presupuesto ya se cerró.
+
+    **Catálogo de `type` de error nuevo** (`/problemas/...`):
+
+    | `type` | Estado | Notas |
+    |---|---|---|
+    | `presupuesto-no-modificable` | 409 | Ya tiene un cierre (convertido, sustituido o anulado) o está en facturación. Lleva `estado` y, si está en facturación, `borrador_factura_id` (FR-017, FR-021) |
+
+    También se reutilizan:
+    - De 001: `validacion`, `no-autenticado`, `sin-permiso`, `csrf`, `origen`, `no-encontrado` y
+      `conflicto-version`.
+    - De 002: `emision-no-disponible` (aquí, sin la modalidad: FR-011), `cliente-no-facturable`,
+      `sin-cambios` e `idempotencia-conflicto`.
+    - De 003: `listado-demasiado-grande`.
+servers:
+  - url: /api
+tags:
+  - name: presupuestos
+  - name: borradores-presupuesto
+  - name: impresion
+
+paths:
+  /v1/presupuestos/parametros:
+    get:
+      tags: [presupuestos]
+      summary: Datos que necesita el modal del presupuesto (IVA vigente, validez por defecto, si se puede emitir y el próximo número)
+      responses:
+        "200":
+          description: Parámetros
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParametrosPresupuestoSalida" }
+
+  /v1/presupuestos/listado/pdf:
+    get:
+      tags: [impresion]
+      summary: PDF del listado completo del filtro, con los totales de los presupuestos que cuentan (FR-030)
+      description: |
+        Mismos filtros, validación, orden y desempate que `GET /v1/presupuestos`, sin paginar. A4
+        apaisado. Hasta 5.000 filas. Se declara antes de `/{presupuestoId}`.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: anio, in: query, schema: { oneOf: [{ type: integer, minimum: 2024, maximum: 9999 }, { type: string, enum: [todos] }] } }
+        - { name: mes, in: query, schema: { type: integer, minimum: 1, maximum: 12 } }
+        - { name: orden, in: query, schema: { type: string, enum: [recientes, antiguas, total_desc, total_asc], default: recientes } }
+      responses:
+        "200":
+          description: "PDF. `filename` es `presupuestos-{anio}.pdf`, `presupuestos-{anio}-{mes}.pdf` o `presupuestos-todos.pdf`"
+          headers:
+            Content-Disposition: { schema: { type: string }, example: 'inline; filename="presupuestos-2026-03.pdf"' }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoAutenticado" }
+        "422":
+          description: "`validacion` o `listado-demasiado-grande`"
+          content:
+            application/problem+json:
+              schema: { $ref: "../../003-pdf-impresion/contracts/openapi.yaml#/components/schemas/ProblemaListadoDemasiadoGrande" }
+
+  /v1/presupuestos:
+    get:
+      tags: [presupuestos]
+      summary: Listado de presupuestos y borradores con búsqueda, filtros y orden (FR-023 a FR-025)
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Coincidencia parcial en número, cliente e identificación, sin tildes ni mayúsculas" }
+        - { name: anio, in: query, schema: { oneOf: [{ type: integer, minimum: 2024, maximum: 9999 }, { type: string, enum: [todos] }] }, description: "Por defecto, el año en curso" }
+        - { name: mes, in: query, schema: { type: integer, minimum: 1, maximum: 12 } }
+        - { name: orden, in: query, schema: { type: string, enum: [recientes, antiguas, total_desc, total_asc], default: recientes } }
+        - { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Pagina" }
+        - { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Tamano" }
+      responses:
+        "200":
+          description: Página del listado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaginaPresupuestos" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+    post:
+      tags: [presupuestos]
+      summary: Emitir un presupuesto nuevo sin borrador previo (FR-006 a FR-011, FR-014)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }, { $ref: "../../002-facturas/contracts/openapi.yaml#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PresupuestoEntrada" }
+      responses:
+        "201":
+          description: Presupuesto emitido con el siguiente número PRE
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PresupuestoSalida" }
+        "200":
+          description: Repetición con una `Idempotency-Key` ya usada. Devuelve el mismo presupuesto
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PresupuestoSalida" }
+        "409": { description: "`emision-no-disponible` (faltan datos del emisor) o `idempotencia-conflicto`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { description: "`validacion` (fecha, validez o líneas) o `cliente-no-facturable` (cliente inactivo)", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/presupuestos/{presupuestoId}:
+    parameters: [{ $ref: "#/components/parameters/PresupuestoId" }]
+    get:
+      tags: [presupuestos]
+      summary: Detalle de un presupuesto emitido, con su estado visible, enlaces e historial (FR-017)
+      responses:
+        "200":
+          description: Presupuesto
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PresupuestoSalida" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+
+  /v1/presupuestos/{presupuestoId}/pdf:
+    parameters: [{ $ref: "#/components/parameters/PresupuestoId" }]
+    get:
+      tags: [impresion]
+      summary: PDF de un presupuesto emitido, sin QR tributario (FR-029)
+      description: |
+        A4 vertical. Título «PRESUPUESTO», leyenda «Documento sin validez fiscal. No es una
+        factura.», «Válido hasta» y la marca de su estado si está cerrado. Sin QR, sin frase
+        VERI*FACTU y sin dirección de la AEAT. Un borrador no es un presupuesto emitido: 404.
+      parameters:
+        - name: iban
+          in: query
+          schema: { type: boolean, default: false }
+          description: "Incluir el bloque de pago con el IBAN copiado al emitir. Se ignora si no lo tiene"
+      responses:
+        "200":
+          description: "PDF. `filename` es el número del presupuesto"
+          headers:
+            Content-Disposition: { schema: { type: string }, example: 'inline; filename="PRE-2026-0003.pdf"' }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoAutenticado" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/presupuestos/{presupuestoId}/modificacion:
+    parameters: [{ $ref: "#/components/parameters/PresupuestoId" }]
+    post:
+      tags: [presupuestos]
+      summary: Sustituir un presupuesto pendiente o caducado por uno nuevo (solo administradores, FR-015)
+      description: Devuelve el presupuesto NUEVO. El original queda sustituido por él.
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }, { $ref: "../../002-facturas/contracts/openapi.yaml#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ModificacionPresupuestoEntrada" }
+      responses:
+        "201":
+          description: Presupuesto nuevo con el siguiente número PRE
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PresupuestoSalida" }
+        "200":
+          description: Repetición con una `Idempotency-Key` ya usada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PresupuestoSalida" }
+        "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`presupuesto-no-modificable`, `emision-no-disponible` o `idempotencia-conflicto`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { description: "`validacion`, `cliente-no-facturable` o `sin-cambios`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/presupuestos/{presupuestoId}/anulacion:
+    parameters: [{ $ref: "#/components/parameters/PresupuestoId" }]
+    post:
+      tags: [presupuestos]
+      summary: Anular un presupuesto pendiente o caducado con un motivo (solo administradores, FR-016)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }, { $ref: "../../002-facturas/contracts/openapi.yaml#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnulacionPresupuestoEntrada" }
+      responses:
+        "200":
+          description: Presupuesto anulado, con su estado e historial actualizados. También en una repetición
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PresupuestoSalida" }
+        "403": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Prohibido" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`presupuesto-no-modificable` o `idempotencia-conflicto`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/presupuestos/{presupuestoId}/conversion:
+    parameters: [{ $ref: "#/components/parameters/PresupuestoId" }]
+    post:
+      tags: [presupuestos]
+      summary: Convertir en factura, creando un borrador de factura vinculado y precargado (FR-018)
+      description: |
+        Cualquier usuario autenticado. Sin cuerpo. Si el presupuesto ya tiene su borrador
+        vinculado, lo devuelve con 200 y no crea otro: la operación es idempotente por sí misma
+        (research R-5). No consume números ni genera registros. La factura se emite después con
+        `POST /v1/borradores-factura/{id}/emision` (002).
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      responses:
+        "201":
+          description: Borrador de factura creado y vinculado
+          content:
+            application/json:
+              schema: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/BorradorSalida" }
+        "200":
+          description: El presupuesto ya estaba en facturación. Devuelve su borrador vinculado
+          content:
+            application/json:
+              schema: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/BorradorSalida" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`presupuesto-no-modificable` (convertido, sustituido o anulado)", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+
+  /v1/borradores-presupuesto:
+    post:
+      tags: [borradores-presupuesto]
+      summary: Guardar un borrador de presupuesto nuevo; puede estar incompleto (FR-012)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BorradorPresupuestoEntrada" }
+      responses:
+        "201":
+          description: Borrador creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BorradorPresupuestoSalida" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+  /v1/borradores-presupuesto/{borradorId}:
+    parameters: [{ $ref: "../../002-facturas/contracts/openapi.yaml#/components/parameters/BorradorId" }]
+    get:
+      tags: [borradores-presupuesto]
+      summary: Borrador de presupuesto con sus líneas y totales previstos
+      responses:
+        "200":
+          description: Borrador
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BorradorPresupuestoSalida" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+    put:
+      tags: [borradores-presupuesto]
+      summary: Guardar cambios con concurrencia optimista (FR-013)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BorradorPresupuestoEdicionEntrada" }
+      responses:
+        "200":
+          description: Borrador actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BorradorPresupuestoSalida" }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`conflicto-version`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+    delete:
+      tags: [borradores-presupuesto]
+      summary: Borrar el borrador; no consume número (FR-012)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }]
+      responses:
+        "204": { description: Borrador eliminado (queda en la auditoría) }
+        "404": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+
+  /v1/borradores-presupuesto/{borradorId}/emision:
+    parameters: [{ $ref: "../../002-facturas/contracts/openapi.yaml#/components/parameters/BorradorId" }]
+    post:
+      tags: [borradores-presupuesto]
+      summary: Emitir el borrador con su contenido actual; lo sustituye por el presupuesto emitido (FR-014)
+      parameters: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/parameters/Csrf" }, { $ref: "../../002-facturas/contracts/openapi.yaml#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BorradorPresupuestoEdicionEntrada" }
+      responses:
+        "201":
+          description: Presupuesto emitido. El borrador deja de existir
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PresupuestoSalida" }
+        "200":
+          description: Repetición con una `Idempotency-Key` ya usada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PresupuestoSalida" }
+        "404": { description: "El borrador no existe o ya se emitió con otra clave", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
+        "409": { description: "`conflicto-version`, `emision-no-disponible` o `idempotencia-conflicto`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { description: "`validacion` o `cliente-no-facturable`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+
+components:
+  parameters:
+    PresupuestoId:
+      name: presupuestoId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  schemas:
+    EstadoPresupuesto:
+      type: string
+      enum: [pendiente, caducado, en_facturacion, convertido, sustituido, anulado]
+      description: "Estado visible (FR-001). `caducado` se deriva de `valido_hasta` y la fecha de hoy en Europe/Madrid (research R-3)"
+    EstadoListadoPresupuesto:
+      type: string
+      enum: [borrador, pendiente, caducado, en_facturacion, convertido, sustituido, anulado]
+    TipoCierrePresupuesto:
+      type: string
+      enum: [anulacion, sustitucion, conversion]
+
+    PresupuestoReferencia:
+      type: object
+      required: [id, num_serie]
+      properties:
+        id: { type: string, format: uuid }
+        num_serie: { type: string, examples: ["PRE-2026-0003"] }
+
+    ParametrosPresupuestoSalida:
+      type: object
+      required: [iva_por_defecto, emision_posible, faltan, proximo_numero, hoy, fecha_minima, validez_dias, mencion_exencion_oro_inversion]
+      properties:
+        iva_por_defecto: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/TipoIva" }
+        emision_posible: { type: boolean, description: "Datos del emisor completos. La modalidad no se exige (FR-011)" }
+        faltan: { type: array, items: { type: string } }
+        proximo_numero: { type: string, description: "Solo informativo", examples: ["PRE-2026-0004"] }
+        hoy: { type: string, format: date, description: "Fecha actual en Europe/Madrid" }
+        fecha_minima: { type: string, format: date, description: "28/10/2024 (FR-008)" }
+        validez_dias: { type: integer, minimum: 1, maximum: 365, description: "Validez por defecto de Configuración (FR-031)" }
+        mencion_exencion_oro_inversion: { type: string }
+
+    PresupuestoEntrada:
+      type: object
+      required: [fecha, valido_hasta, cliente_id, lineas]
+      additionalProperties: false
+      description: Sin totales, que calcula el servidor (FR-007)
+      properties:
+        fecha: { type: string, format: date, description: "Entre el 28/10/2024 y hoy (FR-008)" }
+        valido_hasta: { type: string, format: date, description: "No anterior a `fecha` (FR-009)" }
+        cliente_id: { type: string, format: uuid }
+        lineas: { type: array, minItems: 1, maxItems: 100, items: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/LineaEntrada" } }
+        oro_inversion: { allOf: [{ $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/OroInversion" }], default: false }
+
+    BorradorPresupuestoEntrada:
+      type: object
+      required: [fecha, valido_hasta, lineas]
+      additionalProperties: false
+      properties:
+        fecha: { type: string, format: date }
+        valido_hasta: { type: string, format: date }
+        cliente_id: { type: [string, "null"], format: uuid }
+        lineas: { type: array, maxItems: 100, items: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/LineaEntrada" } }
+        oro_inversion: { allOf: [{ $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/OroInversion" }], default: false }
+    BorradorPresupuestoEdicionEntrada:
+      allOf:
+        - $ref: "#/components/schemas/BorradorPresupuestoEntrada"
+        - type: object
+          required: [version, oro_inversion]
+          properties:
+            version: { type: integer, minimum: 1 }
+    BorradorPresupuestoSalida:
+      type: object
+      required: [id, version, fecha, valido_hasta, cliente, lineas, oro_inversion, mencion_exencion, totales_previstos, tipo_iva_previsto, creado_en, creado_por, actualizado_en, actualizado_por]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer }
+        fecha: { type: string, format: date }
+        valido_hasta: { type: string, format: date }
+        cliente: { oneOf: [{ $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/ClienteFacturaSalida" }, { type: "null" }] }
+        lineas:
+          type: array
+          items:
+            type: object
+            required: [orden, unidades, descripcion, precio_unitario, importe]
+            properties:
+              orden: { type: integer }
+              unidades: { type: string }
+              descripcion: { type: string }
+              precio_unitario: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/Importe" }
+              importe: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/Importe" }
+        oro_inversion: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/OroInversion" }
+        mencion_exencion: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/MencionExencion" }
+        totales_previstos: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/Totales" }
+        tipo_iva_previsto: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/TipoIva" }
+        creado_en: { type: string, format: date-time }
+        creado_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
+        actualizado_en: { type: string, format: date-time }
+        actualizado_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
+
+    ModificacionPresupuestoEntrada:
+      type: object
+      required: [motivo_texto, fecha, valido_hasta, cliente_id, lineas, oro_inversion]
+      additionalProperties: false
+      properties:
+        motivo_texto: { type: string, minLength: 1, maxLength: 500 }
+        fecha: { type: string, format: date, description: "Del presupuesto nuevo. La web propone hoy" }
+        valido_hasta: { type: string, format: date }
+        cliente_id: { type: string, format: uuid }
+        lineas: { type: array, minItems: 1, maxItems: 100, items: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/LineaEntrada" } }
+        oro_inversion: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/OroInversion" }
+
+    AnulacionPresupuestoEntrada:
+      type: object
+      required: [motivo_texto]
+      additionalProperties: false
+      properties:
+        motivo_texto: { type: string, minLength: 1, maxLength: 500, examples: ["Rechazado por el cliente"] }
+
+    CierrePresupuesto:
+      type: object
+      required: [tipo, creado_en, creado_por]
+      properties:
+        tipo: { $ref: "#/components/schemas/TipoCierrePresupuesto" }
+        motivo_texto: { type: [string, "null"] }
+        creado_en: { type: string, format: date-time }
+        creado_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
+        presupuesto_nuevo: { oneOf: [{ $ref: "#/components/schemas/PresupuestoReferencia" }, { type: "null" }], description: "En la sustitución" }
+        factura: { oneOf: [{ $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/FacturaReferencia" }, { type: "null" }], description: "En la conversión: la factura emitida" }
+        factura_vigente: { oneOf: [{ $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/FacturaReferencia" }, { type: "null" }], description: "Si esa factura se corrigió después, la vigente que la sustituye (spec, casos límite)" }
+
+    PresupuestoSalida:
+      type: object
+      required: [id, num_serie, estado, fecha, valido_hasta, emisor, cliente, lineas, totales, oro_inversion, mencion_exencion, emitido_en, emitido_por]
+      properties:
+        id: { type: string, format: uuid }
+        num_serie: { type: string, examples: ["PRE-2026-0003"] }
+        estado: { $ref: "#/components/schemas/EstadoPresupuesto" }
+        fecha: { type: string, format: date }
+        valido_hasta: { type: string, format: date }
+        emisor: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/DatosEmisor", description: "Copia al emitir, IBAN incluido (FR-010)" }
+        cliente: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/ClienteFacturaSalida", description: "Copia al emitir. El domicilio puede ser null (FR-011)" }
+        lineas: { type: array, items: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/LineaSalida" } }
+        totales: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/Totales" }
+        oro_inversion: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/OroInversion" }
+        mencion_exencion: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/MencionExencion" }
+        sustituye_a: { oneOf: [{ $ref: "#/components/schemas/PresupuestoReferencia" }, { type: "null" }] }
+        vigente_actual: { oneOf: [{ $ref: "#/components/schemas/PresupuestoReferencia" }, { type: "null" }], description: "Si está sustituido, el último presupuesto de la cadena de sustituciones" }
+        cierre: { oneOf: [{ $ref: "#/components/schemas/CierrePresupuesto" }, { type: "null" }] }
+        borrador_factura: { oneOf: [{ type: object, required: [id], properties: { id: { type: string, format: uuid } } }, { type: "null" }], description: "Si está en facturación, su borrador vinculado (FR-018)" }
+        emitido_en: { type: string, format: date-time }
+        emitido_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
+
+    PresupuestoResumenSalida:
+      type: object
+      required: [tipo_documento, id, num_serie, fecha, valido_hasta, cliente_nombre, identificacion, base, cuota, total, estado, oro_inversion]
+      properties:
+        tipo_documento: { type: string, enum: [borrador, presupuesto] }
+        id: { type: string, format: uuid }
+        num_serie: { type: [string, "null"], description: "null en un borrador (la web muestra «Borrador»)" }
+        fecha: { type: string, format: date }
+        valido_hasta: { type: string, format: date }
+        cliente_nombre: { type: [string, "null"] }
+        identificacion: { type: [string, "null"] }
+        base: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/Importe" }
+        cuota: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/Importe" }
+        total: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/Importe" }
+        estado: { $ref: "#/components/schemas/EstadoListadoPresupuesto" }
+        oro_inversion: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/OroInversion" }
+    PaginaPresupuestos:
+      type: object
+      required: [elementos, total, pagina, tamano]
+      properties:
+        elementos: { type: array, items: { $ref: "#/components/schemas/PresupuestoResumenSalida" } }
+        total: { type: integer, minimum: 0 }
+        pagina: { type: integer, minimum: 1 }
+        tamano: { type: integer, minimum: 1, maximum: 100 }
+
+    # Ampliación de esquemas de 002 (se aplican en specs/002-facturas/contracts/openapi.yaml)
+    ValidezPresupuestoDias:
+      type: integer
+      minimum: 1
+      maximum: 365
+      description: "Validez por defecto de los presupuestos, en días (FR-031). 30 al instalar"
+    PiePresupuesto:
+      type: [string, "null"]
+      maxLength: 600
+      description: "Pie de los presupuestos impresos. Si es null, se imprime el pie de factura (FR-031)"

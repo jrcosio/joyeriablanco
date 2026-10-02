@@ -76,6 +76,30 @@ que poner PROFORMA / Presupuesto o algo así. Busca cuál es la forma más corre
   **pie propio** y opcional (condiciones, variación del precio del oro…). Si está vacío, lleva el
   pie de factura (FR-031).
 
+### Session 2026-10-02 (plan)
+
+Decisiones técnicas del plan que fijan detalles del comportamiento descrito (research R-5, R-6,
+R-10 y R-12):
+
+- Q: ¿Cómo se evita que «Convertir en factura» cree dos borradores? → A: un presupuesto admite un
+  único borrador vinculado, y una conversión repetida devuelve el que ya existe (FR-018, FR-028).
+  No hace falta clave de operación.
+- Q: ¿Qué responde el sistema si se intenta modificar, anular o convertir un presupuesto cerrado o
+  en facturación? → A: un aviso único, «el presupuesto ya ha cambiado», con su estado actual y, si
+  está en facturación, el acceso a su borrador (FR-017, FR-021).
+- Q: ¿Qué número muestran las marcas «SUSTITUIDO por» y «CONVERTIDO en»? → A: «SUSTITUIDO por»
+  muestra el último presupuesto de la cadena de sustituciones, y «CONVERTIDO en», la factura que
+  se emitió en la conversión. Si esa factura se corrigió después, la consulta enlaza además la
+  vigente (FR-017, FR-029).
+- Q: ¿Qué tono tiene cada marca en pantalla? → A:
+  - Borrador y en facturación, ámbar.
+  - Caducado, rojo.
+  - Convertido, verde.
+  - Sustituido y anulado, neutro.
+
+  Se escribe en `docs/DESIGN.md` 1.3 junto con el aviso no fiscal y las marcas del papel
+  («Conformidad con el sistema de diseño»).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Crear, emitir y consultar presupuestos (Priority: P1)
@@ -709,7 +733,8 @@ presupuestos que suman.
   - Las marcas ANULADO, SUSTITUIDO y CONVERTIDO.
 
   Por eso se añaden a `docs/DESIGN.md` en el plan, con la aprobación del responsable, antes de
-  implementarlos, como hizo la 003 con la sección «Paper».
+  implementarlos, como hizo la 003 con la sección «Paper». Quedan escritos en `docs/DESIGN.md` 1.3
+  (2026-10-02), junto con el tono neutro de los chips, que la 002 ya usaba sin documentar.
 
 Desviaciones de `docs/DESIGN.md`: **ninguna**. Las ampliaciones son enmiendas aprobadas, no
 desviaciones.

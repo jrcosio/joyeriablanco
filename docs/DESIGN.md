@@ -287,13 +287,18 @@ The geometric framework adheres to absolute angularity:
 - **Paid / Approved / Active:** Background `success` @ 8%, border `success` @ 40%, text `success`.
 - **Pending / In Atelier:** Background `warning` @ 8%, border `warning` @ 40%, text `warning`.
 - **Overdue / Expired / Inactive:** Background `danger` @ 8%, border `danger` @ 40%, text `danger`.
+- **Neutral (Voided / Superseded):** Background `on-surface-variant` @ 8%, border
+  `on-surface-variant` @ 40%, text `on-surface-variant`. A discreet mark for documents that are
+  kept but no longer in force: voided or corrected invoices, and voided or superseded estimates.
+- **Estimates:** draft and «in invoicing» use the Pending tone, expired the Expired tone,
+  converted into an invoice the Approved tone, and voided or superseded the Neutral tone.
 
 ### Cards & Dossiers
 - Flat `surface-container` background bounded by a 1px rule. Sections within cards (e.g., client provenance, gemological certificate links) are segmented by hairline internal dividers with `space-md` internal margins.
 
 ## Paper (print and PDF)
 
-Printed documents (invoices, invoice listings and, later, estimates) are rendered as PDF on white
+Printed documents (invoices, estimates and their listings) are rendered as PDF on white
 paper. The application itself keeps its single dark theme; this section applies only to paper.
 
 - **Colors:** `paper` is the page; `paper-ink` (derived from `inverse-on-surface`) is the main
@@ -301,8 +306,9 @@ paper. The application itself keeps its single dark theme; this section applies 
   `paper-accent` (derived from `inverse-primary`) is the legible antique gold on white for the
   grand total and section accents. `paper-rule` (derived from `primary-container`) is the colour
   of every hairline and of the totals frame. `paper-alert` (derived from `error-container`) is
-  reserved for status marks such as «ANULADA», «RECTIFICADA» or «DUPLICADO». `paper-qr` is pure
-  black, for maximum contrast of the tax QR code on white.
+  reserved for status marks such as «ANULADA», «RECTIFICADA» or «DUPLICADO» on invoices, and
+  «ANULADO», «SUSTITUIDO» or «CONVERTIDO» on estimates. `paper-qr` is pure black, for maximum
+  contrast of the tax QR code on white; estimates never carry a QR code.
 - **Typography:** sizes are in points. `print-title` (Bodoni Moda) for the document title and
   `print-total` (Bodoni Moda) for the grand total; everything else in Manrope: `print-body` for
   data, `print-body-strong` for emphasised data, `print-heading` and `print-label` in uppercase
@@ -315,9 +321,18 @@ paper. The application itself keeps its single dark theme; this section applies 
   the grand total in Bodoni Moda inside a `paper-rule`-framed summary box.
 - **Status marks:** small uppercase `print-label` text in `paper-alert` inside a 1px `paper-alert`
   box with 0 radius. Marks never overlap other content (no watermarks).
+- **Non-fiscal notice (estimates):** directly under the document title, the sentence «Documento
+  sin validez fiscal. No es una factura.» in `print-body-strong` and `paper-ink`, inside a 1px
+  `paper-rule` box with 0 radius and `print-gutter` / 2 padding. It is information, not a status
+  mark, so it never uses `paper-alert`, and it is never a watermark.
 
 ## Changelog
 
+- **1.3 (2026-10-02):** Estimates as printed documents: the «Non-fiscal notice» and their status
+  marks in «Paper», and the Neutral tone and the estimate states in «Status Chips & Badges». The
+  Neutral tone was already used for voided and corrected invoices (feature 002) without being
+  documented; this corrects that inconsistency. No new tokens. Approved by the project owner
+  (feature 005 plan).
 - **1.2 (2026-10-01):** Paper tokens (`paper*` colours, `print-*` typography in points,
   `print-margin` and `print-gutter`) and the «Paper (print and PDF)» section for printed documents
   (feature 003). Approved by the project owner.
