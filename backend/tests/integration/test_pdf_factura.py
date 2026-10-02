@@ -580,6 +580,8 @@ async def test_sin_sesion_401_problema_json(client: AsyncClient) -> None:
 
     assert respuesta.status_code == 401
     assert respuesta.headers["content-type"].startswith("application/problem+json")
+    # Caddy no pone la CSP de la SPA en las rutas de PDF: la API la trae también en los errores
+    assert respuesta.headers["content-security-policy"] == CSP_PDF
 
 
 @pytest.mark.parametrize(

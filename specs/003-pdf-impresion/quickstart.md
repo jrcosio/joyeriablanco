@@ -79,6 +79,52 @@ Resultados esperados de `-m lento`:
 - Ninguno supera unos 300 MB de memoria residente por generación. La prueba previa dio 11,6 s y
   250 MB con 5.000 filas (R-7).
 
+## Resultado de la validación (2026-10-02)
+
+**Rendimiento** (`uv run pytest -m lento`; SC-001 y SC-005), en el contenedor de la API, que es
+Linux como el servidor:
+
+| Medida | Resultado | Objetivo |
+|---|---|---|
+| Factura de 20 líneas (20 generaciones) | p95 0,21 s, mediana 0,15 s | p95 < 3 s |
+| Listado de 1.000 filas | 3,7 s, 240 MB de pico, PDF de 0,32 MB | < 15 s |
+| Listado de 5.000 filas | 19,2 s, 265 MB de pico, PDF de 0,98 MB | < 60 s y unos 300 MB |
+
+En el Mac, los tiempos son parecidos (0,25 s, 3,6 s y 18,2 s) y la memoria algo mayor (294 MB con
+5.000 filas), por el asignador de macOS.
+
+**Validaciones de §2**:
+
+| # | Cómo se ha validado |
+|---|---|
+| 1 | `test_pdf_factura.py` (contenido completo, pie «Página n de m») y revisión visual de PDF generados con los datos de desarrollo: ordinaria, rectificativa, rectificada y anulada |
+| 2 | `test_qr.py` (vectores de F-12 §4 y §8, lectura con zxing-cpp y nivel M) y `test_pdf_factura.py` (valores del registro de alta). Además, el QR **pintado por Chromium** a partir de la plantilla real se capturó y se leyó con zxing-cpp: misma URL que el modelo y nivel M. **Pendiente del responsable**: escanearlo con un móvil |
+| 3 | `test_pdf_factura.py` (frase solo en VERI\*FACTU y `ValidarQRNoVerifactu` en no VERI\*FACTU) |
+| 4 | `test_pdf_factura.py` (árbol de cajas: 35 × 35 mm y 6 mm de margen en la primera página). **Pendiente del responsable**: medirlo en papel |
+| 5 y 6 | `test_pdf_factura.py`, `ImprimirFactura.test.tsx` y E2E `impresion.spec.ts` |
+| 7 | `test_pdf_factura.py` (DUPLICADO y 409 en una anulada, «Sustituida por» la vigente actual) y `ImprimirFactura.test.tsx` |
+| 8 y 9 | `test_pdf_factura.py` (rectificativa, devolución total, rectificada y exenta) |
+| 10 | `test_pdf_factura.py` (100 líneas: varias páginas, QR solo en la primera, pie en todas) |
+| 11 | `test_pdf_listado.py` (105 filas en los cuatro órdenes, filtros, totales por tipo cuadrados con el detalle de cada vigente, excluidas, generación por bloques) y E2E `impresion.spec.ts` |
+| 12 | `ImprimirListado.test.tsx` (desactivado con su motivo) y `test_pdf_listado.py` (422 `listado-demasiado-grande`, también en HTML) |
+| 13 | `test_pdf_factura.py` (página HTML con «Tu sesión ha caducado», sin JSON ni datos técnicos) y, contra Caddy, la misma página |
+| 14 y 15 | `test_configuracion_contacto.py` (validación, auditoría, conservación, versión, 403 y reimpresión con el contacto nuevo), `FacturacionPage.test.tsx` y E2E `configuracion-facturacion.spec.ts` |
+| 16 | Vitest de los componentes en móvil; la revisión visual a 360 px queda **pendiente del responsable** |
+
+**Producción**:
+- La imagen `prod` genera un PDF con el contenedor `read_only`, `cap_drop: ALL`, `/tmp` en tmpfs y
+  el usuario `app`: fuentes y logotipo empaquetados, y la caché de fontconfig en `/tmp/cache`.
+- Las cuatro comprobaciones nuevas de `verificar-produccion.sh` se ejecutaron contra Caddy con el
+  `Caddyfile` de producción, delante de la API de desarrollo, y pasaron:
+  - el PDF sin sesión responde 401;
+  - la respuesta lleva la CSP de la API con `object-src 'self'`;
+  - no lleva la CSP de la SPA;
+  - la SPA conserva `object-src 'none'`.
+- **Pendiente del responsable**:
+  - La simulación completa de producción, que necesita el `.env` de producción con
+    `AEAT_ENTORNO`.
+  - La comprobación del visor de PDF en Chrome, Firefox y Safari (§4).
+
 ## 4. Producción
 
 ```bash

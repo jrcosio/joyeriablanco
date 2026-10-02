@@ -89,7 +89,8 @@ npm run lint && npm run typecheck && npm run test && npm run build && npm run ch
 uv --directory ../backend run joyeria exportar-openapi && npm run gen:api  # regenerar tipos
 npx playwright test               # E2E: levanta api-e2e con BD propia y Vite en :5174
 
-# Producción (ver quickstart §4 y §5)
+# Producción (ver quickstart §4 y §5). El .env de producción necesita AEAT_ENTORNO
+# (pruebas | produccion): sin él la API no arranca (003, research R-3).
 docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 deploy/verificar-produccion.sh <dominio>
 ```

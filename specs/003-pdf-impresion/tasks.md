@@ -340,21 +340,21 @@ con ellos y con su emisor fiscal original. Un empleado recibe 403.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T041 [P] Test lento `backend/tests/integration/test_pdf_rendimiento.py` (`@pytest.mark.lento`; SC-001, SC-005):
+- [X] T041 [P] Test lento `backend/tests/integration/test_pdf_rendimiento.py` (`@pytest.mark.lento`; SC-001, SC-005):
   - Factura de 20 líneas: 20 generaciones seguidas, con el percentil 95 por debajo de 3 s.
   - Listados de 1.000 y 5.000 filas sintéticas en menos de 15 s y 60 s.
   - Memoria de la generación de 5.000 filas medida en un subproceso (`resource.getrusage`) por debajo de 300 MB.
   - Ejecutarlo con `uv run pytest -m lento` y anotar los resultados en el quickstart.
-- [ ] T042 [P] Documentación:
+- [X] T042 [P] Documentación:
   - `CLAUDE.md`: `AEAT_ENTORNO` en los comandos de producción.
   - `backend/app/resources/README.md`.
   - [quickstart.md](quickstart.md): la sección «Resultado de la validación» con las mediciones de T041.
   - Comprobar que la constitución no necesita enmienda: la restricción «PDF» ya fija WeasyPrint.
-- [ ] T043 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 16):
+- [ ] T043 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 16). *Hecho* (quickstart, «Resultado de la validación»): revisión visual de PDF reales, QR pintado por Chromium leído con zxing-cpp, imagen `prod` en solo lectura y comprobaciones de CSP contra Caddy. *Pendiente del responsable*: escaneo con un móvil, medición en papel, visor de PDF en cada navegador, revisión a 360 px y simulación completa de producción.
   - Escaneo real del QR con un móvil, medición en papel y visor en Chrome, Firefox y Safari.
   - Simulación de producción (`DOMINIO=localhost TLS_MODO=internal`) con `deploy/verificar-produccion.sh`.
   - Los resultados se anotan en el quickstart.
-- [ ] T044 Puertas de calidad completas antes de cerrar:
+- [X] T044 Puertas de calidad completas antes de cerrar:
   - **Backend**: `uv run pytest`, `uv run ruff check . && uv run ruff format --check . && uv run mypy .`
   - **Web**: `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens` y `npx playwright test`.
   - Revisar la conformidad con `docs/DESIGN.md` y con la sección «Paper» (SC-008).

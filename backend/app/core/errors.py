@@ -14,7 +14,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.pdf.respuestas import es_navegacion_pdf, pagina_error
+from app.core.pdf.respuestas import CSP_PDF, es_navegacion_pdf, es_ruta_pdf, pagina_error
 
 logger = logging.getLogger(__name__)
 
@@ -283,7 +283,10 @@ def _respuesta(request: Request, cuerpo: Mapping[str, Any], status: int) -> Resp
     # La pestaña nueva de «Imprimir» recibe una página en español, nunca JSON (003, FR-028, R-8).
     if es_navegacion_pdf(request):
         return pagina_error(cuerpo, status)
-    return JSONResponse(dict(cuerpo), status_code=status, media_type=MEDIA_TYPE)
+    respuesta = JSONResponse(dict(cuerpo), status_code=status, media_type=MEDIA_TYPE)
+    if es_ruta_pdf(request):  # Caddy no les pone la CSP de la SPA: la trae la API (R-8)
+        respuesta.headers["Content-Security-Policy"] = CSP_PDF
+    return respuesta
 
 
 def register_error_handlers(app: FastAPI) -> None:

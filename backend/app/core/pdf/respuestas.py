@@ -41,10 +41,14 @@ def respuesta_pdf(nombre: str, contenido: bytes) -> Response:
     )
 
 
+def es_ruta_pdf(request: Request) -> bool:
+    ruta = request.url.path
+    return ruta.startswith("/api/v1/") and ruta.endswith("/pdf")
+
+
 def es_navegacion_pdf(request: Request) -> bool:
     """¿Es la pestaña nueva de «Imprimir» pidiendo uno de los PDF?"""
-    ruta = request.url.path
-    if not (ruta.startswith("/api/v1/") and ruta.endswith("/pdf")):
+    if not es_ruta_pdf(request):
         return False
     destino = request.headers.get("sec-fetch-dest")
     if destino is not None:
