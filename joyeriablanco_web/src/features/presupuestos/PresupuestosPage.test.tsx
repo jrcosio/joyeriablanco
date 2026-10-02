@@ -97,6 +97,19 @@ describe('Listado de presupuestos (005, US1)', () => {
     expect(screen.getByRole('search', { name: 'Filtrar presupuestos' })).toBeInTheDocument()
   })
 
+  it('«Imprimir listado» abre el PDF del filtro actual, sin la página (US5, FR-030)', async () => {
+    conSesion(crearSesion())
+    conListado([filaPresupuesto()])
+    renderApp('/presupuestos?q=maria&anio=todos&mes=3&orden=total_desc&pagina=1')
+
+    const enlace = await screen.findByRole('link', { name: 'Imprimir listado' })
+    expect(enlace).toHaveAttribute(
+      'href',
+      '/api/v1/presupuestos/listado/pdf?q=maria&anio=todos&mes=3&orden=total_desc',
+    )
+    expect(enlace).toHaveAttribute('target', '_blank')
+  })
+
   it('estados vacíos: todavía ninguno, año sin presupuestos y sin resultados (FR-023)', async () => {
     conSesion(crearSesion())
     conListado([])

@@ -549,33 +549,36 @@ orden y los totales cuadran al céntimo. Los datos de ejemplo cubren todos los e
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T063 [P] [US5] Test `backend/tests/integration/test_pdf_listado_presupuestos.py` (FR-030, SC-011), como `test_pdf_listado.py`:
+- [X] T063 [P] [US5] Test `backend/tests/integration/test_pdf_listado_presupuestos.py` (FR-030, SC-011), como `test_pdf_listado.py`:
   - 105 filas en los cuatro órdenes, filtros y la cabecera con el filtro.
   - Las marcas.
   - **Totales**: los de pendientes, caducados, en facturación y convertidos, por tipo de IVA y al céntimo con los desgloses. «No se suman: …» con los borradores, los sustituidos y los anulados.
   - Sin resultados → «No hay presupuestos con este filtro».
   - Más de 5.000, con el límite reducido por `monkeypatch` → 422 `listado-demasiado-grande`, también en HTML.
   - Nombre del fichero `presupuestos-…`.
-- [ ] T064 [P] [US5] Ampliar `backend/tests/integration/test_datos_ejemplo.py` (FR-036):
+- [X] T064 [P] [US5] Ampliar `backend/tests/integration/test_datos_ejemplo.py` (FR-036):
   - Presupuestos en todos los estados, con sus facturas y borradores vinculados.
   - Idempotencia de la carga.
   - Prohibida en producción.
-- [ ] T065 [P] [US5] Test web: ampliar `joyeriablanco_web/src/features/documentos/ImprimirListado.test.tsx` (movido en T014) con el caso de presupuestos: su `href`, y desactivado con 0 filas o con más de 5.000, con su motivo.
+- [X] T065 [P] [US5] Test web: ampliar `joyeriablanco_web/src/features/documentos/ImprimirListado.test.tsx` (movido en T014) con el caso de presupuestos: su `href`, y desactivado con 0 filas o con más de 5.000, con su motivo.
+  - *Implementación*: el caso ya se añadió en T014. Aquí se suma, en `PresupuestosPage.test.tsx`, el enlace montado en la página con el filtro de la URL.
 
 ### Implementation for User Story 5
 
-- [ ] T066 [US5] Listado impreso en el backend:
+- [X] T066 [US5] Listado impreso en el backend:
   - `backend/app/repositories/presupuestos.py`: `list_presupuestos_impresion` y `totales_presupuestos`, con la SQL de `totales_vigentes` sobre `desgloses_presupuesto`.
   - `backend/app/services/impresion_presupuestos.py`: `build_listado_presupuestos` y `listado_presupuestos_pdf`, por bloques como en 003, con los textos de documentos-pdf.md.
-- [ ] T067 [US5] Router `GET /v1/presupuestos/listado/pdf`, declarado antes de `/{id}`. Quitarlo de `PENDIENTES_005`. Ampliar `deploy/verificar-produccion.sh` con la comprobación del listado de presupuestos (401 y CSP de la API).
-- [ ] T068 [US5] Web: «Imprimir listado» en `PresupuestosPage.tsx`, con el `ImprimirListado` parametrizado y `urlPdfListado('presupuestos', filtros)`. Hace pasar T065.
-- [ ] T069 [US5] Datos de ejemplo (data-model, «Datos de ejemplo»):
+- [X] T067 [US5] Router `GET /v1/presupuestos/listado/pdf`, declarado antes de `/{id}`. Quitarlo de `PENDIENTES_005`. Ampliar `deploy/verificar-produccion.sh` con la comprobación del listado de presupuestos (401 y CSP de la API).
+- [X] T068 [US5] Web: «Imprimir listado» en `PresupuestosPage.tsx`, con el `ImprimirListado` parametrizado y `urlPdfListado('presupuestos', filtros)`. Hace pasar T065.
+- [X] T069 [US5] Datos de ejemplo (data-model, «Datos de ejemplo»):
   - `backend/app/services/datos_ejemplo.py → _cargar_presupuestos`, enganchado en `_cargar_facturacion`, con `ResumenCarga.presupuestos` y `borradores_presupuesto`.
   - Usa los servicios reales (emitir, convertir, emitir el borrador, modificar y anular), con fechas pasadas para los caducados.
   - `backend/app/cli.py`: el resumen impreso. Hace pasar T064.
-- [ ] T070 [US5] E2E:
+  - *Implementación*: `cargar(…, presupuestos=30)` y la opción `--presupuestos` de la CLI. El test de facturas de 002 carga con `presupuestos=0`, porque las conversiones añaden facturas de hoy a sus recuentos exactos. La carga se considera hecha si ya hay registros o presupuestos.
+- [X] T070 [US5] E2E:
   - `joyeriablanco_web/e2e/presupuestos-listado.spec.ts`: búsqueda, año, mes, orden, paginación, marcas sembradas y el `href` del listado impreso.
   - Ajustar los recuentos de `e2e/facturas-listado.spec.ts` por las facturas que crean las conversiones de ejemplo.
+    - *Implementación*: no hizo falta. Ese spec no cuenta filas exactas, y la suite completa pasa (68/68) con los datos nuevos.
 
 **Checkpoint**: las cinco historias completas.
 

@@ -93,12 +93,15 @@ def cargar_datos_ejemplo(
         int, typer.Option(min=0, help="Número de facturas emitidas de los últimos 6 meses")
     ] = 50,
     borradores: Annotated[int, typer.Option(min=0, help="Número de borradores de factura")] = 5,
+    presupuestos: Annotated[
+        int, typer.Option(min=0, help="Número de presupuestos emitidos, en todos los estados")
+    ] = 30,
     contrasena_demo: Annotated[
         str | None,
         typer.Option(help="Contraseña conocida para los usuarios de ejemplo (solo desarrollo/E2E)"),
     ] = None,
 ) -> None:
-    """Carga usuarios, clientes y facturas ficticios. Se niega en producción (FR-045)."""
+    """Carga usuarios, clientes, facturas y presupuestos ficticios. Se niega en producción."""
     from app.services import datos_ejemplo
 
     resumen = _ejecutar(
@@ -107,6 +110,7 @@ def cargar_datos_ejemplo(
             clientes=clientes,
             facturas=facturas,
             borradores=borradores,
+            presupuestos=presupuestos,
             contrasena_demo=contrasena_demo,
         )
     )
@@ -117,6 +121,8 @@ def cargar_datos_ejemplo(
     typer.echo(f"Facturas de ejemplo emitidas: {resumen.facturas_emitidas}")
     typer.echo(f"Correcciones de ejemplo: {resumen.correcciones}")
     typer.echo(f"Borradores de ejemplo: {resumen.borradores_creados}")
+    typer.echo(f"Presupuestos de ejemplo emitidos: {resumen.presupuestos}")
+    typer.echo(f"Borradores de presupuesto de ejemplo: {resumen.borradores_presupuesto}")
     for nombre_usuario, temporal in resumen.contrasenas_temporales.items():
         _mostrar_temporal(nombre_usuario, temporal)
 

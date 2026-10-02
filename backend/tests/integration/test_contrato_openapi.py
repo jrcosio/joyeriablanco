@@ -20,9 +20,7 @@ CONTRATOS = sorted(SPECS.glob("*/contracts/openapi.yaml"))
 METODOS = {"get", "post", "put", "patch", "delete"}
 # Operaciones de 005 aún sin implementar: solo se excluyen del sentido «contrato → API». Cada ruta
 # nueva sale de la lista y T078 la elimina (tasks.md de 005).
-PENDIENTES_005 = {
-    ("/api/v1/presupuestos/listado/pdf", "get"),
-}
+PENDIENTES_005: set[tuple[str, str]] = set()
 
 
 def _normalizar(ruta: str) -> str:

@@ -6,6 +6,8 @@
   cumplen la estructura: el algoritmo de su carácter de control no está publicado (R-20.2).
 - Todo pasa por los servicios, así que cada alta queda validada y auditada. Las facturas se
   emiten con `emision.emit_factura`, de modo que sus registros quedan encadenados (002, R-16).
+- Los presupuestos (005, FR-036) se emiten, convierten, modifican y anulan también con sus
+  servicios. Las conversiones emiten facturas de hoy, encadenadas como las demás.
 """
 
 import random
@@ -35,6 +37,7 @@ from app.models.cliente import Cliente
 from app.models.factura import Factura
 from app.models.usuario import Usuario
 from app.repositories import configuracion_facturacion as configuracion_repo
+from app.repositories import presupuestos as presupuestos_repo
 from app.repositories import registros as registros_repo
 from app.repositories import usuarios as usuarios_repo
 from app.schemas.cliente import ClienteEntrada
@@ -44,8 +47,9 @@ from app.schemas.configuracion_facturacion import (
     DatosEmisorEntrada,
 )
 from app.services import borradores as borradores_srv
+from app.services import borradores_presupuesto as borradores_presupuesto_srv
 from app.services import clientes as clientes_srv
-from app.services import configuracion_facturacion, emision, usuarios
+from app.services import configuracion_facturacion, conversion, emision, presupuestos, usuarios
 
 if TYPE_CHECKING:
     from faker import Faker
@@ -147,6 +151,8 @@ class ResumenCarga:
     facturas_emitidas: int = 0
     correcciones: int = 0
     borradores_creados: int = 0
+    presupuestos: int = 0
+    borradores_presupuesto: int = 0
     ya_cargados: bool = False
     contrasenas_temporales: dict[str, str] = field(default_factory=dict)
 
@@ -433,12 +439,146 @@ async def _crear_borradores(
     return cantidad
 
 
+# Presupuestos de ejemplo (005, data-model «Datos de ejemplo»): por su posición en orden de fecha.
+DIAS_PRESUPUESTOS_CADUCADOS: Final = (40, 150)  # más antiguos que la validez de 30 días
+DIAS_PRESUPUESTOS_RECIENTES: Final = 25
+
+
+async def _cargar_presupuestos(
+    db: AsyncSession,
+    rng: random.Random,
+    resumen: ResumenCarga,
+    *,
+    cantidad: int,
+    demo: list[Usuario],
+    clientes: list[Cliente],
+) -> None:
+    """Unos 30 presupuestos de varios meses en todos los estados (FR-036).
+
+    La mitad más antigua caduca y la reciente sigue pendiente, salvo los que se cierran: tres
+    convertidos con su factura, dos en facturación con su borrador, dos sustituidos y dos anulados.
+    Además, tres borradores de presupuesto, el primero sin cliente.
+    """
+    activos = [c for c in clientes if c.activo]
+    facturables = [c for c in activos if c.direccion and c.localidad]
+    if cantidad < 12 or not facturables:
+        return
+    admin = demo[0]
+    validez = (await configuracion_repo.get(db)).validez_presupuesto_dias
+    hoy_madrid = hoy()
+
+    def clave() -> uuid.UUID:
+        return uuid.UUID(int=rng.getrandbits(128), version=4)
+
+    antiguos = cantidad // 2
+    fechas = sorted(
+        [
+            hoy_madrid - timedelta(days=rng.randrange(*DIAS_PRESUPUESTOS_CADUCADOS))
+            for _ in range(antiguos)
+        ]
+        + [
+            hoy_madrid - timedelta(days=rng.randrange(0, DIAS_PRESUPUESTOS_RECIENTES))
+            for _ in range(cantidad - antiguos)
+        ]
+    )
+    # Los recientes que se cierran, siempre con un cliente facturable para poder convertir.
+    recientes = list(range(antiguos, cantidad))
+    convertidos, en_facturacion = recientes[0:6:2], recientes[6:10:2]
+    sustituidos, anulados = recientes[1:5:2], [1, recientes[5]]
+    oro = recientes[-1]
+    emitidos: list[uuid.UUID] = []
+    for indice, fecha in enumerate(fechas):
+        se_convierte = indice in (*convertidos, *en_facturacion)
+        presupuesto, _ = await presupuestos.emit_presupuesto(
+            db,
+            presupuestos.DatosPresupuesto(
+                fecha=fecha,
+                valido_hasta=fecha + timedelta(days=validez),
+                cliente_id=rng.choice(facturables if se_convierte else activos).id,
+                lineas=_lineas_oro(rng) if indice == oro else _lineas(rng),
+                oro_inversion=indice == oro,
+            ),
+            actor=rng.choice(demo),
+            origen=ORIGEN,
+            clave=clave(),
+        )
+        emitidos.append(presupuesto.id)
+    resumen.presupuestos = len(emitidos)
+
+    for indice in (*convertidos, *en_facturacion):
+        borrador, _ = await conversion.create_borrador_conversion(
+            db, emitidos[indice], actor=rng.choice(demo), origen=ORIGEN
+        )
+        if indice not in convertidos:
+            continue
+        await borradores_srv.emit_borrador(
+            db,
+            borrador.id,
+            borradores_srv.DatosBorrador(
+                fecha_expedicion=hoy_madrid,
+                cliente_id=borrador.cliente_id,
+                lineas=tuple(
+                    emision.DatosLinea(linea.unidades, linea.descripcion, linea.precio_unitario)
+                    for linea in borrador.lineas
+                ),
+                oro_inversion=borrador.oro_inversion,
+            ),
+            version=borrador.version,
+            actor=admin,
+            origen=ORIGEN,
+            clave=clave(),
+        )
+    for indice in sustituidos:
+        original = await presupuestos_repo.get(db, emitidos[indice])
+        if original is None:
+            continue
+        await presupuestos.modify_presupuesto(
+            db,
+            original.id,
+            presupuestos.DatosPresupuesto(
+                fecha=hoy_madrid,
+                valido_hasta=hoy_madrid + timedelta(days=validez),
+                cliente_id=original.cliente_id,
+                lineas=_lineas(rng),
+            ),
+            motivo_texto=f"{MARCADOR} Cambio de pieza a petición del cliente.",
+            actor=admin,
+            origen=ORIGEN,
+            clave=clave(),
+        )
+        resumen.presupuestos += 1
+    for indice in anulados:
+        await presupuestos.annul_presupuesto(
+            db,
+            emitidos[indice],
+            motivo_texto=f"{MARCADOR} Rechazado por el cliente.",
+            actor=admin,
+            origen=ORIGEN,
+            clave=clave(),
+        )
+
+    for indice in range(3):
+        await borradores_presupuesto_srv.create_borrador(
+            db,
+            borradores_presupuesto_srv.DatosBorradorPresupuesto(
+                fecha=hoy_madrid,
+                valido_hasta=hoy_madrid + timedelta(days=validez),
+                cliente_id=None if indice == 0 else rng.choice(activos).id,
+                lineas=_lineas(rng),
+            ),
+            actor=rng.choice(demo),
+            origen=ORIGEN,
+        )
+    resumen.borradores_presupuesto = 3
+
+
 async def cargar(
     db: AsyncSession,
     *,
     clientes: int = 40,
     facturas: int = 50,
     borradores: int = 5,
+    presupuestos: int = 30,
     contrasena_demo: str | None = None,
     semilla: int = 2026,
 ) -> ResumenCarga:
@@ -449,7 +589,7 @@ async def cargar(
     rng = random.Random(semilla)  # noqa: S311 — datos ficticios, no criptográficos
     if await usuarios_repo.get_by_nombre_usuario(db, "admin.demo") is not None:
         # Datos de 001 ya cargados: se añade solo la facturación, si aún no hay ninguna.
-        if await registros_repo.exists_any(db):
+        if await registros_repo.exists_any(db) or await presupuestos_repo.exists_any(db):
             resumen.ya_cargados = True
             return resumen
         await _cargar_facturacion(
@@ -460,6 +600,7 @@ async def cargar(
             clientes=await _clientes_de_ejemplo(db),
             facturas=facturas,
             borradores=borradores,
+            presupuestos=presupuestos,
         )
         return resumen
 
@@ -492,7 +633,14 @@ async def cargar(
     await db.flush()
 
     await _cargar_facturacion(
-        db, rng, resumen, demo=demo, clientes=creados, facturas=facturas, borradores=borradores
+        db,
+        rng,
+        resumen,
+        demo=demo,
+        clientes=creados,
+        facturas=facturas,
+        borradores=borradores,
+        presupuestos=presupuestos,
     )
     return resumen
 
@@ -506,8 +654,10 @@ async def _cargar_facturacion(
     clientes: list[Cliente],
     facturas: int,
     borradores: int,
+    presupuestos: int,
 ) -> None:
-    """Configuración demo, facturas con correcciones y borradores (002, R-16)."""
+    """Configuración demo, facturas con correcciones y borradores (002, R-16), y presupuestos en
+    todos sus estados (005, FR-036). Los presupuestos van después: sus conversiones son de hoy."""
     admin = demo[0]
     await _configurar_facturacion(db, admin)
     emitidas = await _emitir_facturas(db, rng, cantidad=facturas, emisores=demo, clientes=clientes)
@@ -515,6 +665,9 @@ async def _cargar_facturacion(
     resumen.correcciones = await _corregir(db, rng, facturas=emitidas, admin=admin)
     resumen.borradores_creados = await _crear_borradores(
         db, rng, cantidad=borradores, autores=demo, clientes=clientes
+    )
+    await _cargar_presupuestos(
+        db, rng, resumen, cantidad=presupuestos, demo=demo, clientes=clientes
     )
 
 

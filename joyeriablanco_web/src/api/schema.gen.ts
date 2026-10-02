@@ -510,6 +510,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/presupuestos/listado/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Imprimir Listado
+         * @description Listado completo del filtro en PDF, con los totales de los que se suman (005, US5).
+         */
+        get: operations["imprimir_listado_api_v1_presupuestos_listado_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/presupuestos": {
         parameters: {
             query?: never;
@@ -3282,6 +3302,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParametrosPresupuestoSalida"];
+                };
+            };
+        };
+    };
+    imprimir_listado_api_v1_presupuestos_listado_pdf_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                /** @description Por defecto, el año en curso */
+                anio?: number | "todos" | null;
+                mes?: number | null;
+                orden?: "recientes" | "antiguas" | "total_desc" | "total_asc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF listo para imprimir o guardar (003, research R-8) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -11,7 +11,9 @@ import { ErrorState } from '../../components/ui/ErrorState'
 import { Pagination } from '../../components/ui/Pagination'
 import { anioEnCurso } from '../../lib/fechas'
 import type { FiltrosDocumentos as Filtros } from '../../lib/filtros-documentos'
+import { urlPdfListado } from '../../lib/impresion'
 import { FiltrosDocumentos } from '../documentos/FiltrosDocumentos'
+import { ImprimirListado } from '../documentos/ImprimirListado'
 import { TablaPresupuestos } from './TablaPresupuestos'
 
 const claseBotonPrimario =
@@ -83,7 +85,10 @@ function SinPresupuestos({
   )
 }
 
-/** Pantalla Presupuestos (US1): filtros, tabla y paginación, como la de facturas (FR-023). */
+/**
+ * Pantalla Presupuestos (US1): filtros, tabla y paginación, como la de facturas (FR-023), con
+ * «Imprimir listado» del filtro actual (US5, FR-030).
+ */
 export function PresupuestosPage({
   filtros,
   onFiltros,
@@ -129,7 +134,20 @@ export function PresupuestosPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Presupuestos" actions={<NuevoPresupuesto />} />
+      <PageHeader
+        title="Presupuestos"
+        actions={
+          <>
+            <NuevoPresupuesto />
+            <ImprimirListado
+              href={urlPdfListado('presupuestos', filtros)}
+              documentos="presupuestos"
+              total={lista.data?.total}
+              cargando={lista.isPending || lista.isPlaceholderData}
+            />
+          </>
+        }
+      />
       <FiltrosDocumentos filtros={filtros} onChange={onFiltros} etiqueta="Filtrar presupuestos" />
       <Card className="overflow-hidden bg-surface-container-low" aria-live="polite">
         {contenido}

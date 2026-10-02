@@ -19,6 +19,7 @@ from sqlalchemy import (
     Select,
     Text,
     Uuid,
+    and_,
     column,
     exists,
     func,
@@ -77,6 +78,13 @@ async def estado(session: AsyncSession, presupuesto_id: uuid.UUID) -> str:
         await session.execute(select(func.estado_presupuesto(presupuesto_id)))
     ).scalar_one()
     return valor
+
+
+async def exists_any(session: AsyncSession) -> bool:
+    """¿Hay algún presupuesto emitido? (idempotencia de los datos de ejemplo)."""
+    return bool(
+        (await session.execute(select(exists().where(Presupuesto.id.isnot(None))))).scalar()
+    )
 
 
 async def has_documentos(session: AsyncSession, cliente_id: uuid.UUID) -> bool:
@@ -201,3 +209,74 @@ async def list_presupuestos_impresion(
 ) -> list[FilaListado]:
     """Todas las filas del filtro, sin paginar, en el orden y con el desempate de la pantalla."""
     return await _filas(session, _consulta(_filtros(q=q, anio=anio, mes=mes), orden))
+
+
+# ------------------------------------------------------------------- listado impreso (US5)
+
+_v = v_listado.c
+# Los que se suman en los totales del listado impreso (FR-030, Clarifications): pendientes (también
+# los caducados, que en la BD son pendientes), en facturación y convertidos.
+ESTADOS_SUMADOS: Final = ("pendiente", "en_facturacion", "convertido")
+
+
+@dataclass(frozen=True, slots=True)
+class DesgloseSumado:
+    tipo_iva: Decimal | None  # None: base exenta de oro de inversión
+    base: Decimal
+    cuota: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class TotalesPresupuestos:
+    desglose: list[DesgloseSumado]
+    sumados: int
+    base: Decimal
+    cuota: Decimal
+    total: Decimal
+    borradores: int
+    sustituidos: int
+    anulados: int
+
+
+async def totales_presupuestos(
+    session: AsyncSession, *, q: str | None, anio: int | None, mes: int | None
+) -> TotalesPresupuestos:
+    """Totales del filtro por tipo de IVA, como `facturas.totales_vigentes` de 003 (FR-030)."""
+    condiciones = _filtros(q=q, anio=anio, mes=mes)
+    sumado = and_(_v.tipo_documento == "presupuesto", _v.estado.in_(ESTADOS_SUMADOS))
+    desglose = await session.execute(
+        select(
+            DesglosePresupuesto.tipo_iva,
+            func.sum(DesglosePresupuesto.base),
+            func.sum(DesglosePresupuesto.cuota),
+        )
+        .select_from(v_listado)
+        .join(DesglosePresupuesto, DesglosePresupuesto.presupuesto_id == _v.id)
+        .where(sumado, *condiciones)
+        .group_by(DesglosePresupuesto.tipo_iva)
+        .order_by(DesglosePresupuesto.tipo_iva.desc().nulls_last())
+    )
+    cero = Decimal("0.00")
+    resumen = (
+        await session.execute(
+            select(
+                func.count().filter(sumado),
+                func.coalesce(func.sum(_v.base).filter(sumado), cero),
+                func.coalesce(func.sum(_v.cuota).filter(sumado), cero),
+                func.coalesce(func.sum(_v.total).filter(sumado), cero),
+                func.count().filter(_v.tipo_documento == "borrador"),
+                func.count().filter(_v.estado == "sustituido"),
+                func.count().filter(_v.estado == "anulado"),
+            ).where(*condiciones)
+        )
+    ).one()
+    return TotalesPresupuestos(
+        desglose=[DesgloseSumado(tipo, base, cuota) for tipo, base, cuota in desglose],
+        sumados=int(resumen[0]),
+        base=Decimal(resumen[1]),
+        cuota=Decimal(resumen[2]),
+        total=Decimal(resumen[3]),
+        borradores=int(resumen[4]),
+        sustituidos=int(resumen[5]),
+        anulados=int(resumen[6]),
+    )

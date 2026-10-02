@@ -1,6 +1,7 @@
 """/v1/presupuestos (005): parámetros del modal, listado, emisión y detalle (US1), PDF (US2),
-conversión en factura (US3), y modificación y anulación (US4). El router valida, delega en los
-servicios y serializa (constitución V)."""
+conversión en factura (US3), modificación y anulación (US4) y listado impreso (US5).
+
+El router valida, delega en los servicios y serializa (constitución V)."""
 
 import uuid
 from typing import Annotated, Any, Literal
@@ -157,6 +158,22 @@ async def obtener_parametros(db: DbDep) -> ParametrosPresupuestoSalida:
         validez_dias=parametros.validez_dias,
         mencion_exencion_oro_inversion=MENCION_EXENCION_ORO_INVERSION,
     )
+
+
+# Declarada antes de `/{presupuesto_id}`: si no, «listado» se tomaría por un identificador.
+@router.get("/listado/pdf", response_class=Response, responses=RESPUESTA_PDF)
+async def imprimir_listado(
+    db: DbDep,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    anio: Annotated[AnioListado | None, Query(description="Por defecto, el año en curso")] = None,
+    mes: Annotated[int | None, Query(ge=1, le=12)] = None,
+    orden: Literal["recientes", "antiguas", "total_desc", "total_asc"] = "recientes",
+) -> Response:
+    """Listado completo del filtro en PDF, con los totales de los que se suman (005, US5)."""
+    documento = await impresion_presupuestos.listado_presupuestos_pdf(
+        db, servicio.FiltrosPresupuestos(q=q, anio=anio, mes=mes, orden=orden)
+    )
+    return respuesta_pdf(documento.nombre, documento.contenido)
 
 
 @router.get("")
