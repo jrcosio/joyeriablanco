@@ -9,10 +9,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.core.pdf.respuestas import es_navegacion_pdf, pagina_error
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +205,22 @@ class IdempotenciaConflicto(ProblemaError):
     detalle_por_defecto = "Esa clave de operación ya se usó en otra operación o documento."
 
 
+class DuplicadoNoDisponible(ProblemaError):
+    """Duplicado de una factura anulada (003, FR-033; ROF art. 14)."""
+
+    status, tipo, titulo = 409, "duplicado-no-disponible", "Duplicado no disponible"
+    detalle_por_defecto = (
+        "La factura está anulada: no se puede expedir un duplicado de una factura que no debió "
+        "emitirse."
+    )
+
+
+class ListadoDemasiadoGrande(ProblemaError):
+    """El filtro supera el máximo de filas del listado impreso (003, FR-018)."""
+
+    status, tipo, titulo = 422, "listado-demasiado-grande", "Listado demasiado grande"
+
+
 class LimiteOrigen(ProblemaError):
     status, tipo, titulo = 429, "limite-origen", "Demasiados intentos"
     detalle_por_defecto = (
@@ -261,34 +279,37 @@ def errores_de_validacion(errores: Sequence[Mapping[str, Any]]) -> list[CampoErr
 # --------------------------------------------------------------------------- manejadores
 
 
-def _respuesta(cuerpo: Mapping[str, Any], status: int) -> JSONResponse:
+def _respuesta(request: Request, cuerpo: Mapping[str, Any], status: int) -> Response:
+    # La pestaña nueva de «Imprimir» recibe una página en español, nunca JSON (003, FR-028, R-8).
+    if es_navegacion_pdf(request):
+        return pagina_error(cuerpo, status)
     return JSONResponse(dict(cuerpo), status_code=status, media_type=MEDIA_TYPE)
 
 
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ProblemaError)
-    async def _problema(_: Request, exc: ProblemaError) -> JSONResponse:
-        return _respuesta(exc.body(), exc.status)
+    async def _problema(request: Request, exc: ProblemaError) -> Response:
+        return _respuesta(request, exc.body(), exc.status)
 
     @app.exception_handler(RequestValidationError)
-    async def _validacion(_: Request, exc: RequestValidationError) -> JSONResponse:
+    async def _validacion(request: Request, exc: RequestValidationError) -> Response:
         problema = DatosNoValidos(errores=errores_de_validacion(exc.errors()))
-        return _respuesta(problema.body(), problema.status)
+        return _respuesta(request, problema.body(), problema.status)
 
     @app.exception_handler(StarletteHTTPException)
-    async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    async def _http(request: Request, exc: StarletteHTTPException) -> Response:
         if exc.status_code == 404:
             problema: ProblemaError = NoEncontrado()
-            return _respuesta(problema.body(), 404)
+            return _respuesta(request, problema.body(), 404)
         cuerpo = {
             "type": "/problemas/http",
             "title": "Petición no válida" if exc.status_code < 500 else "Error del servidor",
             "status": exc.status_code,
         }
-        return _respuesta(cuerpo, exc.status_code)
+        return _respuesta(request, cuerpo, exc.status_code)
 
     @app.exception_handler(Exception)
-    async def _interno(_: Request, exc: Exception) -> JSONResponse:
+    async def _interno(request: Request, exc: Exception) -> Response:
         logger.exception("Error no controlado: %s", type(exc).__name__)
         cuerpo = {
             "type": "/problemas/interno",
@@ -296,4 +317,4 @@ def register_error_handlers(app: FastAPI) -> None:
             "status": 500,
             "detail": "Se ha producido un error inesperado. Inténtalo de nuevo.",
         }
-        return _respuesta(cuerpo, 500)
+        return _respuesta(request, cuerpo, 500)

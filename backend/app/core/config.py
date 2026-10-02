@@ -14,6 +14,8 @@ from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 
+from app.domain.tipos import EntornoAeat
+
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
 _REPO_DIR = _BACKEND_DIR.parent
 
@@ -22,13 +24,6 @@ class Entorno(StrEnum):
     DESARROLLO = "desarrollo"
     E2E = "e2e"
     TEST = "test"
-    PRODUCCION = "produccion"
-
-
-class EntornoAeat(StrEnum):
-    """Entorno de la AEAT de la dirección de cotejo del QR (003, FR-017, research R-3)."""
-
-    PRUEBAS = "pruebas"
     PRODUCCION = "produccion"
 
 

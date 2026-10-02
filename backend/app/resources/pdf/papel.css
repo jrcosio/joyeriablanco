@@ -131,7 +131,8 @@ ul {
   text-align: right;
 }
 
-/* Marcas de estado: recuadro de 1 px, sin superponerse a nada (FR-009, FR-033). */
+/* Marcas de estado: recuadro de 1 px, sin superponerse a nada (FR-009, FR-033). El texto va tal
+   cual lo fija la spec («ANULADA», «Sustituida por…»): sin text-transform. */
 .marcas {
   margin-top: 2mm;
 }
@@ -147,7 +148,6 @@ ul {
   font-weight: var(--print-label-weight);
   line-height: var(--print-label-line);
   letter-spacing: var(--print-label-tracking);
-  text-transform: uppercase;
 }
 
 .marca-fila {
@@ -160,7 +160,6 @@ ul {
   font-size: var(--print-label-size);
   font-weight: var(--print-label-weight);
   letter-spacing: var(--print-label-tracking);
-  text-transform: uppercase;
 }
 
 /* ----------------------------------------------------------------- tablas de datos */
@@ -278,6 +277,11 @@ table.datos td.derecha {
 .rejilla-datos > div {
   margin-left: var(--print-gutter);
   text-align: right;
+  white-space: nowrap;
+}
+
+.identificacion .titulo {
+  white-space: nowrap;
 }
 
 .rectificacion {

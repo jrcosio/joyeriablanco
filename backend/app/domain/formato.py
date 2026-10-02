@@ -114,6 +114,11 @@ def format_iban(iban: str) -> str:
     return " ".join(compacto[i : i + 4] for i in range(0, len(compacto), 4))
 
 
+def format_web(web: str) -> str:
+    """La web como se imprime: sin `https://` ni `http://` y sin la barra final (FR-024)."""
+    return re.sub(r"^https?://", "", web.strip(), flags=re.IGNORECASE).rstrip("/")
+
+
 def nombre_mes(mes: int) -> str:
     return MESES[mes - 1]
 

@@ -1,0 +1,142 @@
+{#
+  Factura impresa (003, FR-003 a FR-016). Disposición: contracts/documentos-pdf.md, «Factura».
+  Solo pinta el modelo `f` (services/impresion.py → FacturaImpresa): ningún cálculo ni consulta.
+#}
+{% extends "base.html" %}
+{% block titulo %}Factura {{ f.num_serie }}{% endblock %}
+{% block autor %}{{ f.emisor.nombre }}{% endblock %}
+{% block clase_cuerpo %}doc-factura{% endblock %}
+{% block contenido %}
+<header class="cabecera">
+  {# QR tributario al principio de la factura, una sola vez (F-12 §3; R-2) #}
+  <div class="qr-bloque">
+    <p class="qr-texto">QR tributario:</p>
+    <div id="qr">{{ f.qr.svg }}</div>
+    {% if f.qr.frase %}
+    <p class="qr-texto">{{ f.qr.frase }}</p>
+    {% endif %}
+  </div>
+  <div class="emisor">
+    <img class="logo" src="marca/logo.png" alt="">
+    <p class="emisor-nombre">{{ f.emisor.nombre }}</p>
+    <p>{{ f.emisor.identificacion }}</p>
+    {% for linea in f.emisor.domicilio %}
+    <p>{{ linea }}</p>
+    {% endfor %}
+    {% if not f.contacto.vacio %}
+    <ul class="contacto pequeno">
+      {% if f.contacto.telefono %}<li>{{ f.contacto.telefono }}</li>{% endif %}
+      {% if f.contacto.correo %}<li>{{ f.contacto.correo }}</li>{% endif %}
+      {% if f.contacto.web %}<li>{{ f.contacto.web }}</li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+</header>
+
+<section class="identificacion">
+  <div>
+    <h1 class="titulo">{{ f.titulo }}</h1>
+    {% if f.marcas %}
+    <p class="marcas">{% for marca in f.marcas %}<span class="marca">{{ marca }}</span>{% endfor %}</p>
+    {% endif %}
+  </div>
+  <dl class="rejilla-datos">
+    <div>
+      <dt class="etiqueta">Número</dt>
+      <dd class="numero-factura fuerte cifra">{{ f.num_serie }}</dd>
+    </div>
+    <div>
+      <dt class="etiqueta">Fecha de expedición</dt>
+      <dd class="cifra">{{ f.fecha_expedicion }}</dd>
+    </div>
+    {% if f.fecha_operacion %}
+    <div>
+      <dt class="etiqueta">Fecha de la operación</dt>
+      <dd class="cifra">{{ f.fecha_operacion }}</dd>
+    </div>
+    {% endif %}
+  </dl>
+</section>
+
+{% if f.rectificacion %}
+<section class="rectificacion">
+  <p>Rectifica a <span class="fuerte">{{ f.rectificacion.num_serie }}</span> de {{ f.rectificacion.fecha }}</p>
+  <p>Causa: {{ f.rectificacion.causa }}</p>
+  <p class="pequeno">Rectificación por sustitución</p>
+</section>
+{% endif %}
+
+<section class="cliente">
+  <h2 class="etiqueta-seccion">Cliente</h2>
+  <p class="fuerte">{{ f.destinatario.nombre }}</p>
+  <p>{{ f.destinatario.identificacion }}</p>
+  {% for linea in f.destinatario.domicilio %}
+  <p>{{ linea }}</p>
+  {% endfor %}
+</section>
+
+<section class="detalle">
+  {% if f.devolucion_total %}
+  <p class="devolucion">{{ f.devolucion_total }}</p>
+  {% else %}
+  <table class="datos lineas">
+    <colgroup>
+      <col class="col-unidades"><col class="col-descripcion"><col class="col-precio"><col class="col-importe">
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="derecha">Unidades</th>
+        <th>Descripción</th>
+        <th class="derecha">Precio unitario</th>
+        <th class="derecha">Importe</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for linea in f.lineas %}
+      <tr>
+        <td class="derecha cifra">{{ linea.unidades }}</td>
+        <td>{{ linea.descripcion }}</td>
+        <td class="derecha cifra">{{ linea.precio_unitario }}</td>
+        <td class="derecha cifra">{{ linea.importe }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+<div class="totales-bloque">
+  <table class="totales">
+    {% for d in f.desglose %}
+    <tr><td>{{ d.etiqueta_base }}</td><td class="derecha cifra">{{ d.base }}</td></tr>
+    <tr><td>{{ d.etiqueta_cuota }}</td><td class="derecha cifra">{{ d.cuota }}</td></tr>
+    {% endfor %}
+    {% if f.desglose | length > 1 %}
+    <tr><td>Base imponible total</td><td class="derecha cifra">{{ f.base_total }}</td></tr>
+    <tr><td>IVA total</td><td class="derecha cifra">{{ f.cuota_total }}</td></tr>
+    {% endif %}
+    <tr class="total">
+      <td class="etiqueta">Total</td>
+      <td class="derecha cifra importe-total">{{ f.importe_total }}</td>
+    </tr>
+  </table>
+  {% if f.rectificacion %}
+  <p class="importe-rectificacion pequeno">Importe de la rectificación: base {{ f.rectificacion.base_rectificada }} · IVA {{ f.rectificacion.cuota_rectificada }}</p>
+  {% endif %}
+</div>
+
+{% if f.mencion_exencion %}
+<p class="mencion">{{ f.mencion_exencion }}</p>
+{% endif %}
+
+{% if f.iban %}
+<section class="pago">
+  <h2 class="etiqueta-seccion">Pago por transferencia</h2>
+  <p><span class="etiqueta">IBAN</span> <span class="iban">{{ f.iban }}</span></p>
+</section>
+{% endif %}
+
+{% if f.pie %}
+<section class="pie-factura pequeno">{{ f.pie }}</section>
+{% endif %}
+{% endblock %}

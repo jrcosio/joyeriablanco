@@ -141,7 +141,7 @@ cuenta» y «Duplicado».
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T014 [P] [US1] ⚖️ Test `backend/tests/unit/domain/test_qr.py` (R-1, R-2; SC-002):
+- [X] T014 [P] [US1] ⚖️ Test `backend/tests/unit/domain/test_qr.py` (R-1, R-2; SC-002):
   - Vectores de F-12:
     - §4: `numserie=12345678&G33` → `numserie=12345678%26G33`.
     - §8.1 a §8.4: las cuatro URL, con `nif=89890001K`, `numserie=12345678-G33` y `fecha=01-09-2024`, salvo `importe=241.40` frente a `241.4` (research R-1).
@@ -149,7 +149,7 @@ cuenta» y «Duplicado».
   - Validaciones: ASCII de 32 a 126, `nif` de 9, `numserie` de hasta 60, fecha `DD-MM-AAAA` y 12 cifras enteras. Un incumplimiento → `ValueError`.
   - Base según `Modalidad` × `EntornoAeat`.
   - `qr_svg(url)`: la matriz de segno, rasterizada con numpy y leída con `zxingcpp.read_barcodes`, devuelve exactamente la URL con `ec_level == "M"`. Un `boost_error` accidental haría fallar este caso.
-- [ ] T015 [P] [US1] Test `backend/tests/integration/test_pdf_factura.py`. Las facturas se emiten con los servicios reales (`facturacion_datos.py`) y el texto se extrae con pypdf:
+- [X] T015 [P] [US1] Test `backend/tests/integration/test_pdf_factura.py`. Las facturas se emiten con los servicios reales (`facturacion_datos.py`) y el texto se extrae con pypdf:
   - **Contenido** (SC-003): en una ordinaria, una exenta, una REC R4, una REC de devolución total («Devolución total de la factura …»), una anulada con y sin reemisión y una rectificada:
     - cada dato de FR-003 y FR-008;
     - la mención exacta de `MENCION_EXENCION_ORO_INVERSION`;
@@ -165,7 +165,7 @@ cuenta» y «Duplicado».
   - **Respuesta**: `application/pdf`, `Content-Disposition: inline; filename="FAC-AAAA-NNNN.pdf"`, `Cache-Control: no-store` y la CSP de PDF de R-8.
   - **Errores**: sin sesión → 401. El id de un borrador → 404. Con `Sec-Fetch-Dest: document`, los errores son `text/html` con el mensaje de R-8, la CSP con el *hash* del estilo y sin `type` ni trazas (FR-028).
   - **Logs** (FR-029): `caplog` no contiene el nombre, el NIF ni los importes del cliente.
-- [ ] T016 [P] [US1] Tests web (Vitest + MSW):
+- [X] T016 [P] [US1] Tests web (Vitest + MSW):
   - `joyeriablanco_web/src/lib/impresion.test.ts`: `urlPdfFactura`, con y sin opciones.
   - `joyeriablanco_web/src/features/facturas/ImprimirFactura.test.tsx`:
     - El enlace tiene `target="_blank"`, `rel="noopener"` y el nombre «Imprimir factura FAC-…».
@@ -176,39 +176,39 @@ cuenta» y «Duplicado».
 
 ### Implementation for User Story 1
 
-- [ ] T017 [P] [US1] `backend/app/domain/qr.py`: `build_cotejo_url(modalidad, entorno, *, nif, num_serie, fecha_expedicion, importe_total)` y `qr_svg(url, *, color)`, según R-1 y R-2. Usan `format_amount` de `domain/huella.py`, `urlencode(..., quote_via=quote)` y `segno.make(url, error="m", micro=False, boost_error=False).svg_inline(border=0, omitsize=True, …)`.
-- [ ] T018 [P] [US1] `backend/app/domain/tipos.py`: `TEXTO_CAUSA_RECTIFICACION` con los literales de `joyeriablanco_web/src/lib/facturacion.ts` (R-6), y las etiquetas de los tipos de identificación de L7 si no están ya.
-- [ ] T019 [US1] `backend/app/core/errors.py`:
+- [X] T017 [P] [US1] `backend/app/domain/qr.py`: `build_cotejo_url(modalidad, entorno, *, nif, num_serie, fecha_expedicion, importe_total)` y `qr_svg(url, *, color)`, según R-1 y R-2. Usan `format_amount` de `domain/huella.py`, `urlencode(..., quote_via=quote)` y `segno.make(url, error="m", micro=False, boost_error=False).svg_inline(border=0, omitsize=True, …)`.
+- [X] T018 [P] [US1] `backend/app/domain/tipos.py`: `TEXTO_CAUSA_RECTIFICACION` con los literales de `joyeriablanco_web/src/lib/facturacion.ts` (R-6), y las etiquetas de los tipos de identificación de L7 si no están ya.
+- [X] T019 [US1] `backend/app/core/errors.py`:
   - `DuplicadoNoDisponible` (409, `duplicado-no-disponible`) y `ListadoDemasiadoGrande` (422, con `limite` y `total`).
   - En `register_error_handlers`: si la ruta es de PDF (`…/pdf`) y la petición es una navegación (`Sec-Fetch-Dest: document`, o `Accept` con `text/html` si falta), responder con `error.html` renderizado (`HTMLResponse`), el mismo estado y la CSP con el *hash* del estilo (R-8).
   - `backend/app/resources/pdf/error.html` según contracts/documentos-pdf.md.
-- [ ] T020 [US1] `backend/app/services/impresion.py` → `build_factura_impresa(db, factura_id, *, iban, duplicado) -> FacturaImpresa`, con los modelos de vista de data-model:
+- [X] T020 [US1] `backend/app/services/impresion.py` → `build_factura_impresa(db, factura_id, *, iban, duplicado) -> FacturaImpresa`, con los modelos de vista de data-model:
   - Reutiliza `services/facturas.get_factura`, el registro `alta`, `Settings.entorno_aeat` y la configuración vigente para el contacto y el pie.
   - Lanza `DuplicadoNoDisponible` en una anulada.
   - `factura_pdf(db, …) -> DocumentoPdf(nombre, contenido)`.
   - Registra en `app.impresion` el tipo, el número y la duración, sin datos personales.
-- [ ] T021 [US1] `backend/app/resources/pdf/factura.html`, más los estilos propios en `papel.css`, según contracts/documentos-pdf.md, «Factura»:
+- [X] T021 [US1] `backend/app/resources/pdf/factura.html`, más los estilos propios en `papel.css`, según contracts/documentos-pdf.md, «Factura»:
   - Cabecera con el QR a la izquierda y el emisor a la derecha.
   - Identificación con las marcas, rectificación, cliente, detalle con la variante de devolución total, totales con la mención y el importe rectificado, pago y pie.
   - `@page` con «{número} · Página n de m».
   - `render_factura(modelo) -> bytes` en `core/pdf/render.py`, bajo `LIMITE_FACTURAS`.
-- [ ] T022 [US1] Ruta `GET /v1/facturas/{factura_id}/pdf` en `backend/app/api/v1/facturas.py`:
+- [X] T022 [US1] Ruta `GET /v1/facturas/{factura_id}/pdf` en `backend/app/api/v1/facturas.py`:
   - Parámetros `iban: bool = False` y `duplicado: bool = False`.
   - `Response(media_type="application/pdf")` con `Content-Disposition` y la CSP de PDF de R-8.
   - `responses={200: {"content": {"application/pdf": {}}}}`.
   - Se quita de `PENDIENTES_003`.
-- [ ] T023 [US1] Web:
+- [X] T023 [US1] Web:
   - Regenerar los tipos (`exportar-openapi` + `gen:api`).
   - `joyeriablanco_web/src/lib/impresion.ts` → `urlPdfFactura`.
   - `joyeriablanco_web/src/features/facturas/ImprimirFactura.tsx`: enlace con `claseBotonSecundario` e icono `Printer`, casillas `Casilla` en un `role="group"` «Opciones de impresión», y la ventana de 2 s con «Preparando…».
   - Montarlo en el pie de `FacturaConsultaModal` (`FacturaConsulta.tsx`), después de «Cerrar», en toda factura emitida.
   - En móvil, apilado (contracts/ui-rutas.md).
-- [ ] T024 [US1] E2E `joyeriablanco_web/e2e/impresion.spec.ts` (SC-009):
+- [X] T024 [US1] E2E `joyeriablanco_web/e2e/impresion.spec.ts` (SC-009):
   - Abrir una factura de los datos de ejemplo y leer el `href` de «Imprimir».
   - Con `page.request.get(href)`, comprobar `application/pdf` y que empieza por `%PDF`.
   - Con «Incluir número de cuenta» y «Duplicado» marcadas, el `href` lleva `iban=true&duplicado=true` y el PDF también se descarga.
   - Como empleado, el botón también está.
-- [ ] T025 [US1] Producción (R-8):
+- [X] T025 [US1] Producción (R-8):
   - `deploy/caddy/Caddyfile`: *matchers* `@pdf path_regexp ^/api/v1/facturas/(listado|[^/]+)/pdf$` y `@nopdf not path_regexp …`. La CSP global se aplica solo con `@nopdf`, y el resto de cabeceras, a todo.
   - `deploy/verificar-produccion.sh`: una ruta de PDF sin sesión responde 401 con `object-src 'self'` y sin la CSP global, y `/` conserva `object-src 'none'`.
 

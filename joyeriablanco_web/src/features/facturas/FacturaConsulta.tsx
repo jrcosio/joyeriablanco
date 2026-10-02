@@ -7,6 +7,7 @@ import type { FacturaSalida } from '../../api/tipos'
 import { useSesion } from '../../auth/session'
 import { Alerta } from '../../components/forms/Alerta'
 import { Button } from '../../components/ui/Button'
+import { claseEnlaceSecundario } from '../../components/ui/enlace'
 import { Chip } from '../../components/ui/Chip'
 import { ModalDocumento } from '../../components/ui/ModalDocumento'
 import { Skeleton } from '../../components/ui/Skeleton'
@@ -18,15 +19,9 @@ import { useClaveOperacion } from '../../lib/idempotencia'
 import { nombreConEstado } from '../../lib/usuarios'
 import { AnularFacturaDialog } from './AnularFacturaDialog'
 import { EnlacesFactura, HistorialFactura } from './HistorialFactura'
+import { ImprimirFactura } from './ImprimirFactura'
 import { FichaDestinatario } from './ResumenCliente'
 import { TotalesFactura } from './TotalesFactura'
-
-// Enlace con el aspecto del botón secundario (DESIGN.md §Buttons): «Modificar» abre otra ruta.
-const claseBotonSecundario =
-  'inline-flex h-11 items-center justify-center gap-2 border border-primary-container bg-transparent ' +
-  'px-6 label-lg text-on-surface transition-colors duration-150 hover:bg-primary-container/8 ' +
-  'outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 ' +
-  'focus-visible:outline-tertiary'
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
@@ -181,8 +176,9 @@ export function FacturaDetalle({ factura }: { factura: FacturaSalida }) {
 }
 
 /**
- * Modal de consulta de una factura emitida (FR-038): «Cerrar» y, si está vigente y quien la mira
- * es administrador, «Anular» y «Modificar». Tras anular sigue en la factura, ya anulada (FR-049).
+ * Modal de consulta de una factura emitida (FR-038): «Cerrar», «Imprimir» con sus casillas (003,
+ * US1) y, si está vigente y quien la mira es administrador, «Anular» y «Modificar». Tras anular
+ * sigue en la factura, ya anulada (FR-049).
  */
 export function FacturaConsultaModal({
   facturaId,
@@ -239,6 +235,7 @@ export function FacturaConsultaModal({
           <Button variant="ghost" onPress={onCerrar} className="sm:mr-auto">
             Cerrar
           </Button>
+          {factura ? <ImprimirFactura factura={factura} /> : null}
           {factura && corregible ? (
             <>
               <Button
@@ -254,7 +251,7 @@ export function FacturaConsultaModal({
                 to="/facturas/$facturaId/modificar"
                 params={{ facturaId: factura.id }}
                 search
-                className={claseBotonSecundario}
+                className={claseEnlaceSecundario}
               >
                 Modificar
               </Link>

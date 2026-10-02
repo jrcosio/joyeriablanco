@@ -3,7 +3,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.core.config import Entorno, EntornoAeat, Settings
+from app.core.config import Entorno, Settings
+from app.domain.tipos import EntornoAeat
 
 
 def _produccion(**extra: object) -> Settings:

@@ -360,6 +360,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/facturas/{factura_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Imprimir Factura
+         * @description Factura en PDF con su QR tributario (003, US1). Cualquier sesión, como la consulta.
+         */
+        get: operations["imprimir_factura_api_v1_facturas__factura_id__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/facturas/{factura_id}/anulacion": {
         parameters: {
             query?: never;
@@ -2313,6 +2333,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    imprimir_factura_api_v1_facturas__factura_id__pdf_get: {
+        parameters: {
+            query?: {
+                /** @description Incluir el IBAN copiado en la factura */
+                iban?: boolean;
+                /** @description Expedir como duplicado (ROF art. 14); 409 si está anulada */
+                duplicado?: boolean;
+            };
+            header?: never;
+            path: {
+                factura_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF listo para imprimir o guardar (003, research R-8) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
             /** @description Validation Error */

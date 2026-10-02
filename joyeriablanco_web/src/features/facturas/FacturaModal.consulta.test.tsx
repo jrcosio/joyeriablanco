@@ -119,6 +119,31 @@ describe('Consulta de una factura emitida (US5)', () => {
     expect(within(modal).queryByRole('link', { name: 'Modificar' })).toBeNull()
   })
 
+  it('cualquiera puede imprimirla en una pestaña nueva (003, FR-001)', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    conFactura([crearFactura()])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0005' })
+    const imprimir = within(modal).getByRole('link', { name: 'Imprimir factura FAC-2026-0005' })
+    expect(imprimir).toHaveAttribute('href', `/api/v1/facturas/${ID}/pdf`)
+    expect(imprimir).toHaveAttribute('target', '_blank')
+    expect(within(modal).getByRole('checkbox', { name: 'Duplicado' })).not.toBeChecked()
+    expect(within(modal).queryByRole('checkbox', { name: 'Incluir número de cuenta' })).toBeNull()
+  })
+
+  it('una anulada se imprime, pero sin la casilla de duplicado (003, FR-033)', async () => {
+    conSesion(admin)
+    conFactura([crearFactura({ estado: 'anulada' })])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0005' })
+    expect(
+      within(modal).getByRole('link', { name: 'Imprimir factura FAC-2026-0005' }),
+    ).toBeInTheDocument()
+    expect(within(modal).queryByRole('checkbox', { name: 'Duplicado' })).toBeNull()
+  })
+
   it('un administrador puede anular o modificar la vigente', async () => {
     conSesion(admin)
     conFactura([crearFactura()])

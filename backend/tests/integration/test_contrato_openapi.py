@@ -21,7 +21,6 @@ METODOS = {"get", "post", "put", "patch", "delete"}
 # Operaciones de 003 aún sin implementar: solo se excluyen del sentido «contrato → API». Cada ruta
 # nueva sale de la lista y T033 la elimina (tasks.md de 003).
 PENDIENTES_003 = {
-    ("/api/v1/facturas/{}/pdf", "get"),
     ("/api/v1/facturas/listado/pdf", "get"),
 }
 

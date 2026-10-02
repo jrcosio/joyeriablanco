@@ -39,6 +39,15 @@ sesion=$("${CURL[@]}" -o /dev/null -w "%{http_code}" "$BASE/api/v1/sesion")
 comprobar "/api/v1/sesion sin cookie responde 401" '[[ "$sesion" == 401 ]]'
 docs=$("${CURL[@]}" -o /dev/null -w "%{http_code}" "$BASE/api/docs")
 comprobar "Documentación interactiva de la API desactivada" '[[ "$docs" == 404 ]]'
+# PDF (003, research R-8): sin sesión responde 401 con la CSP propia de la API, no con la global.
+pdf=$("${CURL[@]}" -D - -o /dev/null "$BASE/api/v1/facturas/listado/pdf")
+comprobar "PDF sin sesión responde 401" 'grep -q "^HTTP/[0-9.]* 401" <<<"$pdf"'
+comprobar "PDF con la CSP de la API (object-src 'self')" \
+  'grep -qi "^content-security-policy:.*object-src '"'"'self'"'"'" <<<"$pdf"'
+comprobar "PDF sin la CSP global de la SPA" \
+  '! grep -qi "^content-security-policy:.*script-src '"'"'self'"'"'" <<<"$pdf"'
+comprobar "La SPA mantiene object-src 'none'" \
+  'grep -qi "^content-security-policy:.*object-src '"'"'none'"'"'" <<<"$cabeceras"'
 spa=$("${CURL[@]}" -o /dev/null -w "%{http_code}" "$BASE/clientes")
 comprobar "Las rutas de la SPA se sirven (fallback a index.html)" '[[ "$spa" == 200 ]]'
 

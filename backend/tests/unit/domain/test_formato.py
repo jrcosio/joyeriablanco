@@ -18,6 +18,7 @@ from app.domain.formato import (
     format_identificacion,
     format_porcentaje,
     format_unidades,
+    format_web,
     nombre_mes,
     nombre_pais,
 )
@@ -112,3 +113,15 @@ def test_meses_y_paises_en_espanol() -> None:
 )
 def test_identificacion(tipo: str, pais: str, numero: str, esperado: str) -> None:
     assert format_identificacion(tipo, pais, numero) == esperado
+
+
+@pytest.mark.parametrize(
+    ("web", "esperado"),
+    [
+        ("joyeriablanco.es", "joyeriablanco.es"),
+        ("https://www.joyeriablanco.es/", "www.joyeriablanco.es"),
+        ("HTTP://joyeriablanco.es/tienda/", "joyeriablanco.es/tienda"),
+    ],
+)
+def test_web_sin_esquema_ni_barra_final(web: str, esperado: str) -> None:
+    assert format_web(web) == esperado
