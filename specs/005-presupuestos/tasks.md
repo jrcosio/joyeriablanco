@@ -59,7 +59,7 @@ demás.
 - [ ] T001 Test de contrato para 005 (002 R-14) en `backend/tests/integration/test_contrato_openapi.py`:
   - Lista `PENDIENTES_005` con las 14 operaciones de [contracts/openapi.yaml](contracts/openapi.yaml), excluidas solo del sentido «contrato → API».
   - `test_hay_un_contrato_por_feature` incluye `005-presupuestos`: la lista esperada pasa a los cuatro primeros contratos.
-  - Ejecutarlo y dejarlo en verde. Las tareas T030, T041, T052, T060 y T067 vacían la lista, y T078 la elimina.
+  - Hoy el test está en rojo en la rama, porque ya recoge el contrato de 005 sin implementación. Ejecutarlo y dejarlo en verde. Las tareas T030, T041, T052, T060 y T067 vacían la lista, y T078 la elimina.
 - [ ] T002 [P] Tipos de dominio (research R-3, R-4) en `backend/app/domain/tipos.py`:
   - `Serie.PRESUPUESTO = "PRE"`.
   - `EstadoPresupuesto`: `borrador`, `pendiente`, `caducado`, `en_facturacion`, `convertido`, `sustituido` y `anulado`.
@@ -97,30 +97,34 @@ deben quedar en verde (T020).
   - `parse_num_serie("PRE-2026-0003")` funciona.
   - `PRE-2026-12345` crece en cifras.
   - Los casos FAC y REC siguen igual.
-- [ ] T005 Test `backend/tests/integration/test_presupuestos_inalterables.py` (R-2, R-6, FR-004, SC-006), con `conexion` y `conexion_owner` e inserciones SQL crudas en un nuevo `backend/tests/integration/presupuestos_sql.py`:
+- [ ] T005 [P] Test `backend/tests/integration/test_presupuestos_inalterables.py` (R-2, R-6, FR-004, SC-006), con `conexion` y `conexion_owner` e inserciones SQL crudas en un nuevo `backend/tests/integration/presupuestos_sql.py`:
   - **Solo inserción**: UPDATE, DELETE y TRUNCATE en `presupuestos`, `lineas_presupuesto`, `desgloses_presupuesto` y `cierres_presupuesto` fallan con 42501 para `jb_app` y por trigger para `jb_owner`, con el mensaje «Los presupuestos emitidos son inalterables».
   - **Contador**: `contadores_factura` acepta la serie `PRE`, pero no otra, y la fila PRE solo sube.
   - **Cierres**: `uq_cierres_presupuesto_presupuesto_id` impide un segundo cierre. El `CHECK` por tipo rechaza las combinaciones no válidas de data-model.
-  - **Trigger `cierres_presupuesto_validar`**: rechaza la anulación y la sustitución con un borrador de factura vinculado.
-  - **Trigger `borradores_factura_validar_vinculo`**: rechaza el vínculo con un presupuesto cerrado. `uq_borradores_factura_presupuesto_id` impide dos borradores.
+  - **Trigger `cierres_presupuesto_validar`**: rechaza la anulación y la sustitución con un borrador de factura vinculado, con la restricción `tg_cierres_presupuesto_en_facturacion`.
+  - **Trigger `borradores_factura_validar_vinculo`**: rechaza el vínculo con un presupuesto cerrado (`tg_borradores_factura_presupuesto_cerrado`). `uq_borradores_factura_presupuesto_id` impide dos borradores.
   - **`estado_presupuesto()`**: devuelve `pendiente`, `en_facturacion`, `convertido`, `sustituido` y `anulado` en los casos de data-model.
   - **Vista**: `v_listado_presupuestos` tiene las columnas de data-model.
-  - **Migración**: `alembic downgrade 0007` y `upgrade head` en la BD de test, sin errores y con los `CHECK` restaurados `NOT VALID`.
+  - **Migración**: la ida y vuelta (`downgrade base` y `upgrade head`) ya la hace `_esquema_limpio` de `tests/conftest.py` al empezar cada sesión, así que este test no la repite.
 
 ### Implementación
 
-- [ ] T006 Migración `backend/alembic/versions/0008_presupuestos.py` (data-model completo), en SQL a mano y con el patrón de la 0005:
-  - **Tablas nuevas**:
-    - `impedir_modificacion_presupuesto()`.
-    - `borradores_presupuesto` y `lineas_borrador_presupuesto`.
-    - `presupuestos`, `lineas_presupuesto`, `desgloses_presupuesto` y `cierres_presupuesto`, con sus `CHECK`, índices, REVOKE y triggers. Las cuatro van en un `_TABLAS_INALTERABLES` propio.
-  - **Lógica en la BD**: `estado_presupuesto()`, `validar_cierre_presupuesto()` y su trigger, y `v_listado_presupuestos`.
-  - **DDL sobre 002**:
-    - `borradores_factura.presupuesto_id` con su FK, su `UNIQUE` y el trigger `validar_vinculo_presupuesto()`.
-    - `ck_contadores_factura_serie` con `PRE`.
-    - `configuracion_facturacion.validez_presupuesto_dias` y `pie_presupuesto`, con `ck_config_contacto_sin_vacios` rehecho.
-    - `ck_eventos_auditoria_tipo` con `_TIPOS_0008`.
-  - **`downgrade`**: completo, con los `CHECK` de 002 restaurados `NOT VALID`.
+- [ ] T006 Migración `backend/alembic/versions/0008_presupuestos.py` (data-model completo), en SQL a mano y con el patrón de la 0005, **en este orden** (las funciones `LANGUAGE sql` se validan al crearlas):
+  1. **Función** `impedir_modificacion_presupuesto()`.
+  2. **Tablas nuevas**:
+     - `borradores_presupuesto` y `lineas_borrador_presupuesto`.
+     - `presupuestos`, `lineas_presupuesto`, `desgloses_presupuesto` y `cierres_presupuesto`, con sus `CHECK` e índices.
+  3. **DDL sobre 002**:
+     - `borradores_factura.presupuesto_id`, con su FK y su `UNIQUE`.
+     - `ck_contadores_factura_serie` con `PRE`.
+     - `configuracion_facturacion.validez_presupuesto_dias` y `pie_presupuesto`, con `ck_config_contacto_sin_vacios` rehecho.
+     - `ck_eventos_auditoria_tipo` con `_TIPOS_0008`.
+  4. **Funciones**: `estado_presupuesto()`, `validar_cierre_presupuesto()` y `validar_vinculo_presupuesto()`. Los triggers lanzan `check_violation` con `USING CONSTRAINT` (R-6).
+  5. **Vista** `v_listado_presupuestos`.
+  6. **Triggers**:
+     - `cierres_presupuesto_validar` y `borradores_factura_validar_vinculo`.
+     - Los de solo inserción y el REVOKE de las cuatro tablas, que van en un `_TABLAS_INALTERABLES` propio.
+  7. **`downgrade`**: completo y en el orden inverso, con los `CHECK` de 002 restaurados `NOT VALID`.
 - [ ] T007 [P] Modelos ORM (data-model, «Modelos ORM»):
   - `backend/app/models/presupuesto.py`: `Presupuesto`, `LineaPresupuesto` y `DesglosePresupuesto`.
   - `backend/app/models/borrador_presupuesto.py`: `BorradorPresupuesto` y `LineaBorradorPresupuesto`, con `version_id_col`.
@@ -163,8 +167,17 @@ deben quedar en verde (T020).
   - Comprobar `test_pdf_factura.py`, `test_pdf_listado.py`, `test_pdf_render.py` y `test_tokens_papel.py` en verde, con el texto extraído idéntico al anterior.
 - [ ] T013 Ayudantes de prueba del backend:
   - `backend/tests/integration/facturacion_datos.py`: `configurar_facturacion` con validez, `cuerpo_presupuesto(...)`, `emitir_presupuesto(client, csrf, ...)` y `crear_borrador_presupuesto(...)`.
-  - `_TABLAS_CON_TRIGGERS` y `limpiar_facturacion_confirmada`: las tablas nuevas, con los cierres antes que las facturas y los presupuestos.
-- [ ] T014 [P] Generalización web (R-13), sin cambio de comportamiento:
+  - `limpiar_facturacion_confirmada`: sustituir el *slice* por índice por una lista explícita, en este orden por las FK:
+    1. `cierres_presupuesto`.
+    2. `correcciones_factura`, `registros_facturacion`, `desgloses_factura`, `lineas_factura` y `facturas`.
+    3. `borradores_factura`.
+    4. `desgloses_presupuesto`, `lineas_presupuesto` y `presupuestos`.
+    5. `borradores_presupuesto`.
+    6. `contadores_factura`.
+
+    Desactivar los triggers de las tablas que los tengan (`_TABLAS_CON_TRIGGERS`, con las nuevas).
+  - Restablecer también `validez_presupuesto_dias` y `pie_presupuesto` de la configuración.
+- [ ] T014 Generalización web (R-13), sin cambio de comportamiento:
   - Nuevo `joyeriablanco_web/src/features/documentos/` con lo que hoy está en `src/features/facturas/` y no es propio de la factura:
     - `LineasDocumento.tsx` (antes `LineasFactura`, tipado con `Control<{ lineas: ValorLinea[] }>`).
     - `TotalesDocumento.tsx`, `SelectorCliente.tsx` y `ResumenCliente.tsx` (aviso por props).
@@ -173,9 +186,11 @@ deben quedar en verde (T020).
     - `FiltrosDocumentos.tsx` (placeholder y `aria-label` por props).
     - `TablaDocumentos.tsx` (celdas de número y acción por props, mismos anchos).
     - `CamposDocumento.tsx`.
-  - `src/features/facturas/*` los importan.
+    - `ImprimirListado.tsx` (+ test): el documento, los textos y la URL por props.
+  - El esquema zod de búsqueda, hoy local en `src/routes/_app/facturas.tsx`, pasa a `src/lib/filtros-documentos.ts`.
+  - `src/features/facturas/*` y `routes/_app/facturas.tsx` los importan.
   - Comprobar `npm run test`, `npm run typecheck` y `npm run check:tokens` en verde, y los E2E de facturas sin cambios.
-- [ ] T015 [P] `joyeriablanco_web/src/lib/impresion.ts` (+ `.test.ts`):
+- [ ] T015 `joyeriablanco_web/src/lib/impresion.ts` (+ `.test.ts`), después de T014, porque toca los mismos usos:
   - La base por tipo de documento: `urlPdfFactura` igual que hoy, `urlPdfPresupuesto(id, { iban })` y `urlPdfListado('facturas' | 'presupuestos', filtros)`.
   - Las llamadas de facturas, actualizadas.
 - [ ] T016 [P] Ayudantes de prueba de la web:
@@ -211,11 +226,12 @@ ampliada.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T021 [P] [US1] Test `backend/tests/integration/test_presupuestos_borradores.py` (FR-012, FR-013):
+- [ ] T021 [P] [US1] Test `backend/tests/integration/test_presupuestos_borradores.py` (FR-012, FR-013, FR-034):
   - Crear incompleto, sin cliente o sin líneas.
   - Editar con versión y conflicto 409.
   - Cliente desactivado ya elegido que se conserva.
-  - Borrar: definitivo, auditado y sin consumir número.
+  - Borrar: definitivo y sin consumir número.
+  - Auditoría: `borrador_presupuesto_creado`, `borrador_presupuesto_editado` (con su *diff*) y `borrador_presupuesto_eliminado`.
   - `valido_hasta < fecha` → 422 en el campo.
   - Fecha futura o anterior al 28/10/2024 → 422 en el campo.
 - [ ] T022 [P] [US1] ⚖️ Test `backend/tests/integration/test_presupuestos_emision.py` (FR-002 a FR-011, FR-014, FR-028, SC-004):
@@ -227,7 +243,9 @@ ampliada.
     - Sin los datos del emisor → 409 `emision-no-disponible`, pero sin la modalidad se emite.
     - Cliente inactivo → 422 `cliente-no-facturable`.
     - Cliente sin domicilio → se emite con el domicilio a NULL.
-  - **Idempotencia**: repetir con la misma clave → 200 y el mismo presupuesto. La clave en otra operación → 409.
+    - Fecha futura, anterior al 28/10/2024, o validez anterior a la fecha → 422 en el campo.
+  - **Idempotencia**: repetir con la misma clave → 200 y el mismo presupuesto. La clave en otra operación (también una de `anular`) → 409 `idempotencia-conflicto`.
+  - **Sin ajuste de PRE** (FR-003): `POST /v1/configuracion/facturacion/contador` solo mueve la serie FAC, y el contador PRE no cambia.
   - **Auditoría**: `presupuesto_emitido`.
 - [ ] T023 [P] [US1] ⚖️ Test `backend/tests/integration/test_numeracion_presupuestos.py` (FR-002, FR-003, SC-002), con commit real y `limpiar_facturacion_confirmada`, como `test_numeracion_concurrencia.py`:
   - 10 sesiones × 20 emisiones dan PRE 1 a 200, sin huecos ni duplicados.
@@ -242,7 +260,7 @@ ampliada.
   - Borradores con el cliente de la ficha.
   - Estados y caducidad con `hoy` simulado (monkeypatch de `hoy()`).
   - 25 por página por defecto y 100 como máximo.
-- [ ] T025 [P] [US1] Ampliar los tests de clientes, en `backend/tests/integration/test_clientes*.py` o donde se prueba `delete_cliente` (FR-033): un cliente con solo un borrador de presupuesto, o con un presupuesto emitido, → 409 `cliente-con-documentos`.
+- [ ] T025 [P] [US1] Ampliar `backend/tests/integration/test_clientes_ciclo_vida.py` (FR-033): un cliente con solo un borrador de presupuesto, o con un presupuesto emitido, → 409 `cliente-con-documentos`.
 - [ ] T026 [P] [US1] Tests web:
   - `joyeriablanco_web/src/features/presupuestos/PresupuestosPage.test.tsx`: listado, marcas con su tono y su texto, estados vacíos de FR-023, filtros en la URL y acciones con nombre accesible.
   - `PresupuestoModal.test.tsx`: nuevo, guardar borrador, emitir con confirmación, validez propuesta y recalculada, error de validez en el campo, aviso del cliente sin domicilio y que nunca se envían totales.
@@ -255,24 +273,27 @@ ampliada.
 - [ ] T027 [P] [US1] Repositorios:
   - `backend/app/repositories/borradores_presupuesto.py`: `get(for_update=)`, `save`, `delete` y `MENSAJE_CONFLICTO`.
   - `backend/app/repositories/presupuestos.py`:
+    - `lock_presupuestos(db)`: un `pg_advisory_xact_lock` con clave constante (R-6).
     - `insert_emitido`, `get` y `get_by_idempotency_key`.
     - `estado` (la función SQL) y `has_documentos(cliente_id)`.
     - `v_listado`, `count_listado` y `list_presupuestos`, con `repositories/listado.py`.
+  - `backend/app/repositories/cierres_presupuesto.py`: `insert`, `get_by_presupuesto`, `get_by_factura` y `get_by_idempotency_key`. Las lecturas las usan ya el detalle y el PDF.
 - [ ] T028 [US1] Servicios (R-7):
   - `backend/app/services/presupuestos.py`:
     - `missing_for_presupuesto(config)` y `check_fecha_presupuesto(fecha, valido_hasta)`.
-    - `emit_presupuesto(..., operacion, origen_id)`, con idempotencia, `contadores.assign_numero(Serie.PRESUPUESTO, …)`, copias con `contenido.py`, líneas, desglose y evento.
-    - `get_presupuesto` → `DetallePresupuesto`, con el estado visible, `sustituye_a`, `vigente_actual`, cierre y borrador vinculado (estos dos, vacíos hasta US3 y US4).
+    - `find_previous_presupuesto(db, clave, operacion, origen)`, sobre presupuestos y cierres (R-7).
+    - `emit_presupuesto(..., operacion, origen_id, bloqueado=False)`: `lock_presupuestos` antes de la clave, `contadores.assign_numero(Serie.PRESUPUESTO, …)`, copias con `contenido.py`, líneas, desglose y evento.
+    - `get_presupuesto` → `DetallePresupuesto`: el estado visible, `sustituye_a`, `vigente_actual` (último de la cadena de sustituciones), el cierre con su factura y la factura vigente, y el borrador vinculado. Se lee de forma genérica, aunque los cierres no existan hasta US3 y US4.
     - `list_presupuestos`.
-  - `backend/app/services/borradores_presupuesto.py`: CRUD con versión y `emit_borrador_presupuesto`, copiado del patrón de `services/borradores.py`.
+  - `backend/app/services/borradores_presupuesto.py`: CRUD con versión y `emit_borrador_presupuesto`, copiado del patrón de `services/borradores.py`, en el orden de R-7 (`lock_presupuestos` → clave → borrador `FOR UPDATE`).
 - [ ] T029 [P] [US1] Esquemas `backend/app/schemas/presupuesto.py` y `backend/app/schemas/borrador_presupuesto.py`, según el contrato:
-  - `PresupuestoEntrada`, `BorradorPresupuestoEntrada`, `BorradorPresupuestoEdicionEntrada`, `BorradorPresupuestoSalida`, `PresupuestoSalida`, `PresupuestoResumenSalida`, `PresupuestoReferencia`, `CierrePresupuestoSalida` y `ParametrosPresupuestoSalida`.
+  - `PresupuestoEntrada`, `BorradorPresupuestoEntrada`, `BorradorPresupuestoEdicionEntrada`, `BorradorPresupuestoSalida`, `PresupuestoSalida`, `PresupuestoResumenSalida`, `PresupuestoReferencia` (con `fecha`), `CierrePresupuestoSalida` y `ParametrosPresupuestoSalida`.
   - Importes con `schemas/importes.py`.
 - [ ] T030 [US1] Routers:
   - `backend/app/api/v1/presupuestos.py`: `GET /parametros` (declarado antes de `/{id}`), `GET ""`, `POST ""` con `Idempotency-Key` y `GET /{id}`.
   - `backend/app/api/v1/borradores_presupuesto.py`: CRUD y `POST /{id}/emision`.
   - Registro en `backend/app/api/v1/__init__.py`.
-  - Quitar de `PENDIENTES_005` las 8 operaciones implementadas.
+  - Quitar de `PENDIENTES_005` las 9 operaciones implementadas: 4 de presupuestos y 5 de borradores.
 - [ ] T031 [US1] `backend/app/services/documentos.py`: `DocumentosDeFacturacion` suma `presupuestos.has_documentos` y los borradores de presupuesto. Hace pasar T025.
 - [ ] T032 [US1] Regenerar los tipos (T017) y crear las queries:
   - `joyeriablanco_web/src/api/queries/presupuestos.ts`:
@@ -320,6 +341,7 @@ leyenda, la validez y el contenido, y que no hay ningún elemento fiscal.
     - El desglose y los totales al céntimo, y la mención si es de oro de inversión.
     - «PRE-… · Página 1 de 1».
   - **Ausencias**: ni `<svg`, ni «QR tributario», ni `FRASE_VERIFACTU` ni «VERI\*FACTU», ni `aeat.es` ni `agenciatributaria`.
+  - **Marcas**: un pendiente y un caducado no llevan ninguna. Los demás estados se prueban en T045 y T056, cuando existen sus cierres.
   - **Variantes**:
     - IBAN solo con `iban=true` y si lo tiene.
     - Pie de presupuesto, o el de factura si está vacío.
@@ -334,8 +356,8 @@ leyenda, la validez y el contenido, y que no hay ningún elemento fiscal.
 
 - [ ] T039 [US2] `backend/app/services/impresion_presupuestos.py` (R-10):
   - `PresupuestoImpreso`, **sin campo `qr`**.
-  - `build_presupuesto_impreso(db, id, *, iban)`, con las marcas de R-10 y el pie de R-9.
-  - `presupuesto_pdf`, con el limitador de documentos de 003.
+  - `build_presupuesto_impreso(db, id, *, iban)`, con el pie de R-9 y las marcas de R-10 leídas con `services/presupuestos.get_presupuesto` (T028): «ANULADO», «SUSTITUIDO por {vigente_actual}» y «CONVERTIDO en {factura del cierre}».
+  - `presupuesto_pdf`, con el limitador de documentos de 003 (`LIMITE_FACTURAS`, sin renombrar).
 - [ ] T040 [US2] Plantilla `backend/app/resources/pdf/presupuesto.html` (contracts/documentos-pdf.md, «Presupuesto»):
   - Extiende `base.html`, usa las macros de `_documento.html` y no tiene bloque de QR.
   - El aviso va en `.aviso-no-fiscal`.
@@ -368,6 +390,7 @@ leyenda, la validez y el contenido, y que no hay ningún elemento fiscal.
     - Precargado con el cliente, las líneas y `oro_inversion`, con la fecha de hoy y el IVA vigente.
     - Sin números consumidos y con el evento `borrador_factura_creado` con `presupuesto_id`.
     - El estado pasa a `en_facturacion`.
+    - Con el cliente desactivado después de emitir el presupuesto, el borrador se crea igualmente con ese cliente, y su emisión responde `cliente-no-facturable`.
   - **Repetición**: devuelve 200 con el mismo borrador. **20 conversiones simultáneas** → un borrador.
   - **Cerrados**: convertir uno convertido, sustituido o anulado → 409 `presupuesto-no-modificable`.
   - **Caducado**: se convierte.
@@ -376,32 +399,44 @@ leyenda, la validez y el contenido, y que no hay ningún elemento fiscal.
     - Eventos `factura_emitida` y `presupuesto_convertido`.
     - El borrador desaparece y el estado pasa a `convertido`.
     - `FacturaSalida.presupuesto_origen` y `PresupuestoSalida.cierre.factura`.
+    - **PDF del presupuesto**: lleva «CONVERTIDO en {FAC del cierre}». Si después se anula y se reemite la factura, sigue mostrando la factura del cierre, y `cierre.factura_vigente` apunta a la nueva.
   - **20 emisiones simultáneas del borrador**, con la misma clave y con claves distintas: una sola factura, el contador FAC +1 y la cadena +1.
   - **Fecha**: anterior a la del presupuesto → 422 `fecha-expedicion`, sin número.
   - **Cliente y configuración**: cliente desactivado o sin domicilio, o sin modalidad → error, sin número, y el presupuesto sigue en facturación.
   - **Eliminar el borrador**: el presupuesto vuelve a `pendiente` y se puede volver a convertir.
-  - **Carrera entre conversión y anulación**, con un hilo cada una: solo una tiene efecto. También con el trigger y la unicidad, forzados con SQL directo.
+  - **Carreras**, con un hilo cada una: conversión frente a anulación, y conversión frente a modificación. Solo una tiene efecto. También con el trigger y la unicidad, forzados con SQL directo.
   - **Importes** ⚖️:
     - Con el mismo IVA, la factura coincide al céntimo con el presupuesto.
     - Con el IVA por defecto cambiado, la misma base y la cuota recalculada.
     - Oro de inversión: factura exenta.
   - **Encadenamiento** ⚖️: con conversiones intercaladas entre emisiones directas, anulaciones y rectificativas, `services/integridad` (`verificar-cadena`) informa de una cadena íntegra.
 - [ ] T046 [P] [US3] Tests web:
-  - `joyeriablanco_web/src/features/presupuestos/ConvertirPresupuestoDialog.test.tsx`: la confirmación, el aviso de caducado, la navegación al borrador con el aviso, las invalidaciones de presupuestos, facturas y clientes, y el 409 con un borrador ya existente que lo abre.
+  - `joyeriablanco_web/src/features/presupuestos/ConvertirPresupuestoDialog.test.tsx`:
+    - La confirmación y el aviso de caducado.
+    - La navegación al borrador con el aviso.
+    - Las invalidaciones de presupuestos, facturas y clientes.
+    - Una respuesta 200 con el borrador existente navega a él.
+    - Un 409 `presupuesto-no-modificable` muestra el aviso y recarga.
   - `PresupuestoConsulta.test.tsx`: el estado «En facturación», con el aviso, «Abrir borrador de factura» y sin Modificar ni Anular.
-  - `joyeriablanco_web/src/features/facturas/FacturaModal.borrador.test.tsx` y `FacturaModal.consulta.test.tsx`: «Procede del presupuesto PRE-…» con su enlace, el aviso tras emitir, y la invalidación de `['presupuestos']` al emitir y al eliminar.
+  - `joyeriablanco_web/src/features/facturas/FacturaModal.borrador.test.tsx` y `FacturaModal.consulta.test.tsx`:
+    - «Procede del presupuesto PRE-…» con su enlace.
+    - La fecha mínima del campo de fecha es la del presupuesto (`presupuesto_origen.fecha`).
+    - El aviso tras emitir.
+    - La invalidación de `['presupuestos']` al emitir y al eliminar.
 
 ### Implementation for User Story 3
 
-- [ ] T047 [P] [US3] Repositorios:
-  - `backend/app/repositories/cierres_presupuesto.py`: `insert`, `get_by_presupuesto`, `get_by_factura` y `get_by_idempotency_key`.
-  - `backend/app/repositories/presupuestos.py`: `lock_cierres(db)`, un `pg_advisory_xact_lock` con clave constante (R-6).
-  - `backend/app/repositories/borradores.py`: `get_by_presupuesto(presupuesto_id)`.
+- [ ] T047 [P] [US3] `backend/app/repositories/borradores.py`: `get_by_presupuesto(presupuesto_id)`. El cerrojo y los cierres ya están en T027.
 - [ ] T048 [US3] `backend/app/core/errors.py`:
   - `PresupuestoNoModificable(estado, borrador_factura_id=None)`, 409 `presupuesto-no-modificable`.
-  - Traducción de la violación de `uq_cierres_presupuesto_presupuesto_id` y `uq_borradores_factura_presupuesto_id`, y de los dos triggers, a ese error, sin exponer detalles técnicos.
+  - Traducción **por el nombre de la restricción** a ese error, sin exponer detalles técnicos:
+    - Las unicidades `uq_cierres_presupuesto_presupuesto_id` y `uq_borradores_factura_presupuesto_id`.
+    - Los triggers, con `tg_cierres_presupuesto_en_facturacion` y `tg_borradores_factura_presupuesto_cerrado` (R-6).
 - [ ] T049 [US3] `backend/app/services/conversion.py` (R-5, R-6):
-  - `create_borrador_conversion(db, presupuesto_id, *, actor, origen) -> tuple[BorradorFactura, bool]`: `lock_cierres`, estado, el existente o uno nuevo, y auditoría.
+  - `create_borrador_conversion(db, presupuesto_id, *, actor, origen) -> tuple[BorradorFactura, bool]`:
+    - `lock_presupuestos` y estado.
+    - El borrador existente, o uno nuevo creado **directamente** con el `cliente_id` del presupuesto, sin `_check_cliente`, aunque esté desactivado.
+    - Auditoría.
   - `close_conversion(db, borrador, factura, *, actor, origen)`: inserta el cierre y el evento.
   - `check_fecha_conversion(borrador, fecha)`.
 - [ ] T050 [US3] Enganche en 002, en `backend/app/services/borradores.py → emit_borrador`. Si `borrador.presupuesto_id`:
@@ -445,30 +480,40 @@ siguiente número, los dos se enlazan y no se reutiliza ningún número.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T056 [P] [US4] Test `backend/tests/integration/test_presupuestos_cierres.py` (FR-015 a FR-017, FR-021, FR-028):
+- [ ] T056 [P] [US4] Test `backend/tests/integration/test_presupuestos_cierres.py` (FR-005, FR-015 a FR-017, FR-021, FR-028, SC-010):
   - **Modificar**:
     - Siguiente PRE, original `sustituido` con su cierre y su motivo, y el nuevo con `sustituye_a`.
     - `vigente_actual` en cadenas de dos sustituciones.
-    - Validez propuesta del sustituto (FR-015).
-    - `sin-cambios` con los mismos campos.
+    - **`sin-cambios`** (Clarifications, analyze): solo con la fecha cambiada → 422. Con cualquier cambio del cliente copiado, las líneas, el oro de inversión, el IVA que se aplicaría o «Válido hasta» → se emite.
     - Desde un caducado, ampliando la validez.
+    - La fecha fuera de límites o la validez anterior a la fecha → 422 en el campo.
   - **Anular**: con motivo y estado `anulado`. Sin motivo → 422.
+  - **Sin efectos fiscales**: modificar y anular no cambian la cadena de registros ni el contador FAC.
   - **Permisos y estados**:
     - Un empleado → 403.
     - Sobre uno cerrado → 409.
     - Sobre uno en facturación → 409 con `borrador_factura_id`.
-  - **Idempotencia** de las dos operaciones.
+  - **Idempotencia**:
+    - Repetir con la misma clave **después del commit** devuelve 200 con el mismo resultado, no un 409.
+    - El doble envío simultáneo con la misma clave da un solo presupuesto nuevo o un solo cierre.
+    - La clave de `anular` reutilizada en `modificar` → 409 `idempotencia-conflicto`.
+  - **PDF**: «SUSTITUIDO por {último de la cadena}» y «ANULADO», con el número correcto.
   - **Auditoría**: `presupuesto_modificado` y `presupuesto_anulado`.
 - [ ] T057 [P] [US4] Tests web:
-  - `joyeriablanco_web/src/features/presupuestos/ModificarPresupuestoModal.test.tsx`: precarga, fecha de hoy, motivo obligatorio, aviso y navegación al nuevo, y `sin-cambios`.
+  - `joyeriablanco_web/src/features/presupuestos/ModificarPresupuestoModal.test.tsx`:
+    - La precarga y la fecha de hoy.
+    - La validez propuesta del sustituto (FR-015): la del original, o la fecha más la validez por defecto si la del original es anterior.
+    - El motivo obligatorio.
+    - El aviso y la navegación al nuevo.
+    - `sin-cambios`.
   - `AnularPresupuestoDialog.test.tsx`: motivo obligatorio y estado tras anular.
   - `HistorialPresupuesto.test.tsx`: las tres clases de cierre y «Sustituye a».
 
 ### Implementation for User Story 4
 
-- [ ] T058 [US4] `backend/app/services/presupuestos.py` (R-7):
-  - `modify_presupuesto`: `AdminSession`, `lock_cierres`, estado, borrador vinculado, `sin-cambios`, emisión con `modificar`, cierre `sustitucion` y evento.
-  - `annul_presupuesto`: idempotencia sobre el cierre (`anular`) y evento.
+- [ ] T058 [US4] `backend/app/services/presupuestos.py` (R-7), en el orden `lock_presupuestos` → `find_previous_presupuesto` (si hay resultado previo, se devuelve) → estado → borrador vinculado → cierre:
+  - `modify_presupuesto`: `AdminSession`, `sin-cambios` con la regla de R-7 (la fecha no cuenta), `emit_presupuesto(…, operacion=modificar, bloqueado=True)`, cierre `sustitucion` y evento.
+  - `annul_presupuesto`: cierre `anulacion` con su clave y evento.
   - Orden de lectura de R-6: primero el borrador vinculado y después el cierre.
 - [ ] T059 [P] [US4] Esquemas `ModificacionPresupuestoEntrada` y `AnulacionPresupuestoEntrada`, en `backend/app/schemas/presupuesto.py`.
 - [ ] T060 [US4] Routers en `backend/app/api/v1/presupuestos.py`: `POST /{id}/modificacion` (201 o 200) y `POST /{id}/anulacion` (200), solo `AdminSession` y con `Idempotency-Key`. Quitarlos de `PENDIENTES_005`.
@@ -508,7 +553,7 @@ orden y los totales cuadran al céntimo. Los datos de ejemplo cubren todos los e
   - Presupuestos en todos los estados, con sus facturas y borradores vinculados.
   - Idempotencia de la carga.
   - Prohibida en producción.
-- [ ] T065 [P] [US5] Test web: ampliar `ImprimirListado.test.tsx` (`features/documentos/`, o el de facturas parametrizado) para presupuestos, con su `href`, y desactivado con 0 filas o con más de 5.000, con su motivo.
+- [ ] T065 [P] [US5] Test web: ampliar `joyeriablanco_web/src/features/documentos/ImprimirListado.test.tsx` (movido en T014) con el caso de presupuestos: su `href`, y desactivado con 0 filas o con más de 5.000, con su motivo.
 
 ### Implementation for User Story 5
 
@@ -552,7 +597,7 @@ orden y los totales cuadran al céntimo. Los datos de ejemplo cubren todos los e
 - [ ] T076 Puertas de calidad completas antes de cerrar:
   - **Backend**: `uv run pytest`, `uv run pytest -m lento`, `uv run ruff check . && uv run ruff format --check . && uv run mypy .` y `uv run joyeria verificar-cadena` sobre los datos de ejemplo.
   - **Web**: `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens` y `npx playwright test`.
-- [ ] T077 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 17). El escaneo de un PDF real, la revisión visual del papel y la vista a 360 px quedan **pendientes del responsable** si no se pueden hacer en el entorno.
+- [ ] T077 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 18), con el paso cronometrado de SC-001. La revisión visual del papel, el visor de PDF de cada navegador y la vista a 360 px quedan **pendientes del responsable** si no se pueden hacer en el entorno.
 - [ ] T078 Contrato completo: eliminar `PENDIENTES_005` de `backend/tests/integration/test_contrato_openapi.py` y dejar el test en verde. Debe quedar vacía tras T067.
 
 ---
@@ -584,7 +629,7 @@ orden y los totales cuadran al céntimo. Los datos de ejemplo cubren todos los e
 - **Fase 2**:
   - T003, T004 y T005 (tests).
   - T007 y T008.
-  - T014, T015 y T016, que son de la web, mientras avanza el backend T010 a T013. Después de T017, T018 y T019.
+  - T014 y T016, que son de la web, mientras avanza el backend T010 a T013. T015 va después de T014, y T018 y T019 después de T017.
 - **US1**: los tests T021 a T026 en paralelo. T027 y T029 en paralelo.
 - **US2 y US3**: pueden avanzar en paralelo tras US1, porque tocan ficheros distintos salvo
   `api/v1/presupuestos.py`, en el que hay que coordinar los commits.

@@ -46,6 +46,7 @@ cd joyeriablanco_web && npm ci && npm run dev           # http://localhost:5173
 | 15 | Intentar borrar un cliente que solo tiene un borrador de presupuesto | Se rechaza con el motivo y se sugiere desactivarlo | FR-033 |
 | 16 | Presupuestos: filtrar por mes e «Imprimir listado» | PDF apaisado con todas las filas, sus marcas y los totales de los pendientes, caducados, en facturación y convertidos. Debajo, «No se suman: …» | FR-030 |
 | 17 | Listado y modal a 360 px, y a 768, 1024, 1280, 1440 y 1536 px | Sin desplazamiento horizontal y con las acciones visibles | SC-009 |
+| 18 | Cronometrar como empleado: desde «Nuevo presupuesto» hasta emitir uno de tres líneas para un cliente existente; y desde su consulta hasta emitir la factura convertida, sin cambios | Menos de 2 minutos y menos de 1 minuto, respectivamente | SC-001 |
 
 ## 3. Pruebas automáticas
 
@@ -69,7 +70,8 @@ Tests de cobertura obligatoria (constitución VII; research R-14):
   importes.
 - `tests/integration/test_conversion_presupuesto.py`: conversión, también simultánea, idempotente
   y frente a la anulación.
-- El encadenamiento con conversiones, en el mismo fichero y en `test_integridad*`.
+- El encadenamiento con conversiones, en el mismo fichero, con `test_verificar_cadena.py` y
+  `test_cadena_registros.py` de 002 en verde.
 
 ## 4. Producción
 

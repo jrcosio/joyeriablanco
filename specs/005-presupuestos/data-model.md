@@ -65,7 +65,9 @@ En la aplicación, las dos columnas entran en `CAMPOS_AUDITADOS`
 
 - **Trigger** `borradores_factura_validar_vinculo` (BEFORE INSERT OR UPDATE OF `presupuesto_id`):
   rechaza el vínculo si el presupuesto ya tiene un cierre (R-6).
-- **Mensaje y código**: «El presupuesto ya está cerrado», con `ERRCODE` `check_violation`.
+- **Mensaje y código**: «El presupuesto ya está cerrado», con `ERRCODE` `check_violation` y
+  `CONSTRAINT = 'tg_borradores_factura_presupuesto_cerrado'` (R-6), que es lo que traduce
+  `core/errors.py`.
 
 La aplicación nunca cambia `presupuesto_id` después de crear el borrador: los `PUT` de 002 no lo
 incluyen.
@@ -173,7 +175,8 @@ fiscal (R-1).
 
 **Trigger** `cierres_presupuesto_validar` (BEFORE INSERT): rechaza una `anulacion` o una
 `sustitucion` si existe un `borradores_factura` con ese `presupuesto_id` (FR-021). Mensaje: «El
-presupuesto está en facturación». `ERRCODE`: `check_violation`.
+presupuesto está en facturación». `ERRCODE`: `check_violation`, con
+`CONSTRAINT = 'tg_cierres_presupuesto_en_facturacion'` (R-6).
 
 ## Estado derivado (R-3)
 

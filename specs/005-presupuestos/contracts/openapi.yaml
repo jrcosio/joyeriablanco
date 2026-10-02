@@ -342,10 +342,11 @@ components:
 
     PresupuestoReferencia:
       type: object
-      required: [id, num_serie]
+      required: [id, num_serie, fecha]
       properties:
         id: { type: string, format: uuid }
         num_serie: { type: string, examples: ["PRE-2026-0003"] }
+        fecha: { type: string, format: date, description: "Fecha del presupuesto. El borrador de factura vinculado la usa como fecha mínima de expedición (FR-019)" }
 
     ParametrosPresupuestoSalida:
       type: object
@@ -437,7 +438,7 @@ components:
       properties:
         motivo_texto: { type: string, minLength: 1, maxLength: 500, examples: ["Rechazado por el cliente"] }
 
-    CierrePresupuesto:
+    CierrePresupuestoSalida:
       type: object
       required: [tipo, creado_en, creado_por]
       properties:
@@ -466,7 +467,7 @@ components:
         mencion_exencion: { $ref: "../../002-facturas/contracts/openapi.yaml#/components/schemas/MencionExencion" }
         sustituye_a: { oneOf: [{ $ref: "#/components/schemas/PresupuestoReferencia" }, { type: "null" }] }
         vigente_actual: { oneOf: [{ $ref: "#/components/schemas/PresupuestoReferencia" }, { type: "null" }], description: "Si está sustituido, el último presupuesto de la cadena de sustituciones" }
-        cierre: { oneOf: [{ $ref: "#/components/schemas/CierrePresupuesto" }, { type: "null" }] }
+        cierre: { oneOf: [{ $ref: "#/components/schemas/CierrePresupuestoSalida" }, { type: "null" }] }
         borrador_factura: { oneOf: [{ type: object, required: [id], properties: { id: { type: string, format: uuid } } }, { type: "null" }], description: "Si está en facturación, su borrador vinculado (FR-018)" }
         emitido_en: { type: string, format: date-time }
         emitido_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }

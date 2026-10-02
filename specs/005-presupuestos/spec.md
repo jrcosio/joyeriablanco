@@ -84,9 +84,10 @@ R-10 y R-12):
 - Q: ¿Cómo se evita que «Convertir en factura» cree dos borradores? → A: un presupuesto admite un
   único borrador vinculado, y una conversión repetida devuelve el que ya existe (FR-018, FR-028).
   No hace falta clave de operación.
-- Q: ¿Qué responde el sistema si se intenta modificar, anular o convertir un presupuesto cerrado o
-  en facturación? → A: un aviso único, «el presupuesto ya ha cambiado», con su estado actual y, si
-  está en facturación, el acceso a su borrador (FR-017, FR-021).
+- Q: ¿Qué responde el sistema si se intenta modificar o anular un presupuesto cerrado o en
+  facturación, o convertir uno cerrado? → A: un aviso único, «el presupuesto ya ha cambiado», con
+  su estado actual y, si está en facturación, el acceso a su borrador (FR-017, FR-021). Convertir
+  uno que ya está en facturación no es un error: abre su borrador (FR-018).
 - Q: ¿Qué número muestran las marcas «SUSTITUIDO por» y «CONVERTIDO en»? → A: «SUSTITUIDO por»
   muestra el último presupuesto de la cadena de sustituciones, y «CONVERTIDO en», la factura que
   se emitió en la conversión. Si esa factura se corrigió después, la consulta enlaza además la
@@ -99,6 +100,14 @@ R-10 y R-12):
 
   Se escribe en `docs/DESIGN.md` 1.3 junto con el aviso no fiscal y las marcas del papel
   («Conformidad con el sistema de diseño»).
+
+### Session 2026-10-02 (analyze)
+
+- Q: Al «Modificar», ¿qué cuenta como cambio para no rechazarlo con «no hay cambios»? → A:
+  **Contenido y validez**. Cuentan los datos del cliente tal como se copiarían, las líneas, la
+  casilla de oro de inversión, el tipo de IVA que se aplicaría y «Válido hasta». La fecha sola no
+  cuenta, porque el modal propone la de hoy. Es la regla de las rectificativas de 002, con la
+  validez añadida (FR-015).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -281,8 +290,9 @@ comprueba lo siguiente:
    - `PRE-2026-0003` queda marcado «Sustituido por PRE-2026-0008».
    - `PRE-2026-0008` indica «Sustituye a PRE-2026-0003».
    - Ambos lo muestran en su historial, con el motivo, el autor y la fecha.
-3. **Given** una modificación sin ningún cambio, **When** se intenta guardar, **Then** se rechaza
-   con el aviso de que no hay cambios.
+3. **Given** una modificación sin ningún cambio en el contenido ni en «Válido hasta», aunque la
+   fecha propuesta sea la de hoy, **When** se intenta guardar, **Then** se rechaza con el aviso de
+   que no hay cambios.
 4. **Given** un presupuesto que el cliente rechaza, **When** un administrador pulsa «Anular» e
    indica el motivo, **Then** queda marcado «Anulado», con el motivo en su historial, y su número no
    vuelve a usarse.
@@ -346,8 +356,9 @@ presupuestos que suman.
   - Si otro usuario lo emite o lo elimina a la vez, se aplican las reglas de los borradores de
     factura (002, casos límite).
 - **Factura convertida que después se corrige**: la factura se anula o se rectifica como cualquier
-  otra (002, FR-023 a FR-027). El presupuesto sigue convertido y su acceso directo lleva a la
-  factura vigente que la sustituye, si la hay. Un presupuesto no se convierte dos veces.
+  otra (002, FR-023 a FR-027). El presupuesto sigue convertido. Su acceso directo lleva a la
+  factura que se emitió en la conversión y, si esta se corrigió, también a la vigente que la
+  sustituye. Un presupuesto no se convierte dos veces.
 - **Caducidad**: un presupuesto pendiente pasa a mostrarse «Caducado» el día siguiente a su fecha
   de validez, en hora de España peninsular. La caducidad no es una operación: no genera auditoría
   ni cambia el presupuesto, que se puede seguir consultando, imprimiendo, modificando, anulando y
@@ -424,7 +435,7 @@ presupuestos que suman.
   - Fecha de validez («Válido hasta»).
   - Cliente destinatario, elegido entre los clientes activos.
   - Al menos una línea y un total mayor que cero.
-  - Autor y fechas de creación y emisión.
+  - Autor y fecha de emisión.
 
   Un borrador puede guardarse incompleto. Los requisitos se comprueban al emitir.
 - **FR-007**: Las líneas, el IVA, los importes y el redondeo DEBEN ser exactamente los de la factura
@@ -477,8 +488,15 @@ presupuestos que suman.
   - Al guardar se pide un motivo de texto libre, obligatorio.
   - Se emite un presupuesto nuevo con el siguiente número `PRE`, y el original queda sustituido por
     él.
-  - Si no hay ningún cambio respecto al original, se rechaza. Se comparan el cliente, la fecha,
-    «Válido hasta», las líneas y la casilla de oro de inversión.
+  - Si no hay ningún cambio respecto al original, se rechaza (Clarifications, analyze). Se
+    comparan:
+    - los datos del cliente tal como se copiarían;
+    - las líneas;
+    - la casilla de oro de inversión;
+    - el tipo de IVA que se aplicaría;
+    - «Válido hasta».
+
+    La fecha sola no cuenta como cambio.
 - **FR-016**: Solo un administrador DEBE poder «Anular» un presupuesto pendiente o caducado que no
   esté en facturación, con un motivo de texto libre obligatorio, p. ej. «Rechazado por el cliente».
   La anulación no emite nada.

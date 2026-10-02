@@ -130,7 +130,10 @@ specs/005-presupuestos/
 │   ├── ui-rutas.md      # /presupuestos*, ampliaciones de facturas y Configuración
 │   └── documentos-pdf.md# presupuesto y listado de presupuestos impresos
 ├── checklists/
-│   └── requirements.md
+│   ├── requirements.md
+│   ├── fiscal-conversion.md
+│   ├── api.md
+│   └── impresion-ui.md
 └── tasks.md             # /speckit.tasks
 ```
 
@@ -185,12 +188,14 @@ backend/
     ├── unit/domain/test_presupuestos.py, test_numeracion.py (+PRE)
     └── integration/
         ├── facturacion_datos.py                # + datos de presupuesto y limpieza de las tablas nuevas
+        ├── presupuestos_sql.py                 # inserciones SQL crudas para los tests de la BD (nuevo)
         ├── test_numeracion_presupuestos.py      # ⚖ obligatorio
         ├── test_conversion_presupuesto.py      # ⚖ obligatorio
         ├── test_presupuestos_borradores.py, test_presupuestos_emision.py,
         ├── test_presupuestos_cierres.py, test_presupuestos_inalterables.py,
         ├── test_listado_presupuestos.py, test_pdf_presupuesto.py,
-        ├── test_pdf_listado_presupuestos.py, test_configuracion_presupuestos.py
+        ├── test_pdf_listado_presupuestos.py, test_configuracion_presupuestos.py,
+        ├── test_presupuestos_rendimiento.py    # marca «lento» (SC-008)
         └── test_contrato_openapi.py            # + 005
 
 joyeriablanco_web/

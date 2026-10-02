@@ -127,7 +127,7 @@ los documentos preparatorios «debidamente vinculada». Con una función propia,
 **Decisión**: en dos pasos, y cada uno en una transacción.
 
 **1. `POST /v1/presupuestos/{id}/conversion`** (`services/conversion.create_borrador_conversion`):
-1. Toma `presupuestos.lock_cierres(db)`, un `pg_advisory_xact_lock` con clave constante (R-6).
+1. Toma `presupuestos.lock_presupuestos(db)`, un `pg_advisory_xact_lock` con clave constante (R-6).
 2. Lee el presupuesto y su estado. Si tiene un cierre, responde 409 `presupuesto-no-modificable`.
 3. Si ya está en facturación, devuelve **200** con su borrador. Una repetición o un doble clic no
    crean otro.
@@ -137,6 +137,10 @@ los documentos preparatorios «debidamente vinculada». Con una función propia,
 
    Lo audita como `borrador_factura_creado`, con el presupuesto de origen en el detalle, y
    devuelve **201** con `BorradorSalida`.
+
+   El borrador se crea **directamente** con el `cliente_id` del presupuesto, sin pasar por
+   `_check_cliente` de `services/borradores.py`, aunque el cliente se haya desactivado después.
+   La emisión lo rechazará con `cliente-no-facturable` hasta que se cambie o se reactive (US3-8).
 
    No exige la configuración emisible ni un cliente facturable: un borrador se guarda incompleto
    (002, FR-019), y eso se comprueba al emitir.
@@ -174,20 +178,28 @@ los documentos preparatorios «debidamente vinculada». Con una función propia,
 
 **Decisión**:
 - **Por qué un cerrojo consultivo**: `jb_app` no tiene UPDATE sobre `presupuestos`, y PostgreSQL
-  lo exige para `SELECT … FOR UPDATE`. Las operaciones que cierran o bloquean un presupuesto
-  (convertir, modificar y anular) toman antes `lock_cierres`, un `pg_advisory_xact_lock` con una
-  clave constante («JBPRES»). Con el volumen de la joyería, un cerrojo global no compite.
+  lo exige para `SELECT … FOR UPDATE`. Toda operación que emite o cierra un presupuesto toma
+  **primero** `lock_presupuestos`, un `pg_advisory_xact_lock` con una clave constante («JBPRES»):
+  emitir, emitir un borrador, modificar, anular y convertir. Con el volumen de la joyería, un
+  cerrojo global no compite.
+- **El cerrojo va antes de buscar la clave de idempotencia**, igual que `lock_chain` en 002. Si no,
+  dos peticiones simultáneas con la misma clave pasarían las dos la búsqueda: en la emisión directa
+  chocarían con `uq_presupuestos_clave_idempotencia` y, desde un borrador, la segunda recibiría un
+  404.
 - **Orden fijo de cerrojos**, sin ciclos posibles:
 
   | Operación | Cerrojos, en orden |
   |---|---|
-  | Emitir un presupuesto | contador PRE |
-  | Emitir un borrador de presupuesto | borrador de presupuesto `FOR UPDATE` → contador PRE |
-  | Modificar | `lock_cierres` → contador PRE |
-  | Anular | `lock_cierres` |
-  | Convertir (crear el borrador) | `lock_cierres` |
-  | Emitir el borrador vinculado (002) | cadena → borrador de factura `FOR UPDATE` → contador FAC |
+  | Emitir un presupuesto | `lock_presupuestos` → clave → contador PRE |
+  | Emitir un borrador de presupuesto | `lock_presupuestos` → clave → borrador de presupuesto `FOR UPDATE` → contador PRE |
+  | Modificar | `lock_presupuestos` → clave → estado → contador PRE |
+  | Anular | `lock_presupuestos` → clave → estado |
+  | Convertir (crear el borrador) | `lock_presupuestos` → estado |
+  | Emitir el borrador vinculado (002) | cadena → clave → borrador de factura `FOR UPDATE` → contador FAC |
 
+  La emisión del borrador vinculado no toma `lock_presupuestos`: no puede competir con una
+  anulación ni con una modificación, porque estas se rechazan mientras el borrador exista. Las
+  barreras siguientes lo garantizan en la BD.
 - **Barreras en la BD**, que valen aunque la aplicación fallara:
   - `cierres_presupuesto.presupuesto_id` es `UNIQUE`: como mucho, un cierre.
   - `borradores_factura.presupuesto_id` es `UNIQUE`: como mucho, un borrador vinculado.
@@ -195,6 +207,9 @@ los documentos preparatorios «debidamente vinculada». Con una función propia,
     anulación o una sustitución si existe un borrador vinculado (FR-021).
   - Trigger `validar_vinculo_presupuesto` (BEFORE INSERT o UPDATE de `presupuesto_id` en
     `borradores_factura`): rechaza el vínculo con un presupuesto que ya tiene cierre.
+  - Los dos triggers lanzan `check_violation` con `USING CONSTRAINT = 'tg_cierres_presupuesto_en_facturacion'`
+    y `'tg_borradores_factura_presupuesto_cerrado'`. Así, `core/errors.py` traduce por el nombre
+    de la restricción, igual que las unicidades, y no por el texto del mensaje.
 - **Orden de lectura** en anular y modificar: primero se mira si hay borrador vinculado y después
   si hay cierre. En `READ COMMITTED`, si la emisión del borrador termina entre las dos lecturas, la
   segunda ve su cierre.
@@ -202,7 +217,7 @@ los documentos preparatorios «debidamente vinculada». Con una función propia,
   violación de unicidad o desde el trigger, y su transacción se deshace entera: sin números
   consumidos.
 
-**Razón**: así se cumplen FR-020 y FR-021 y el SC-003 sin depender del orden de llegada.
+**Razón**: así se cumplen FR-020, FR-021, FR-028 y el SC-003 sin depender del orden de llegada.
 
 **Alternativas descartadas**:
 - Dar UPDATE a `jb_app` para poder usar `FOR UPDATE`: debilita la inalterabilidad.
@@ -210,39 +225,72 @@ los documentos preparatorios «debidamente vinculada». Con una función propia,
 
 ## R-7. Emisión, modificación y anulación del presupuesto
 
-**Decisión**: `services/presupuestos.py`, con la forma de `services/emision.py`:
+**Decisión**: `services/presupuestos.py`, con la forma de `services/emision.py`.
+
+- **Idempotencia, común a todas las operaciones**: `find_previous_presupuesto(db, clave, operacion,
+  origen)`.
+  - Busca la clave en `presupuestos.clave_idempotencia` (`emitir`, `emitir_borrador` y
+    `modificar`) y en `cierres_presupuesto.clave_idempotencia` (`anular`).
+  - Si la encuentra con la misma operación y el mismo origen, devuelve el resultado previo. Si
+    la encuentra con otra operación o con otro origen, responde 409 `idempotencia-conflicto`.
+  - El ámbito es el de los presupuestos. Las claves de facturas y correcciones las sigue
+    comprobando `emision.find_previous`. Cada modal genera su propia clave UUID, así que no se
+    cruzan.
 - **`emit_presupuesto`**:
-  1. Idempotencia: `find_previous` sobre `presupuestos.clave_idempotencia`, con operación
-     `emitir`, `emitir_borrador` o `modificar` y su origen.
-  2. Comprobaciones:
+  1. `lock_presupuestos` (R-6).
+  2. Idempotencia: `find_previous_presupuesto`, con la operación `emitir`, `emitir_borrador` o
+     `modificar` y su origen.
+  3. Comprobaciones:
      - los datos del emisor completos, con un nuevo `missing_for_presupuesto` que no pide la
        modalidad (FR-011); si faltan, 409 `emision-no-disponible` con `faltan`;
      - el cliente activo; si no, 422 `cliente-no-facturable` con `faltan: ["activo"]`;
      - al menos una línea y un total mayor que cero;
      - la fecha entre el 28/10/2024 y hoy, y la validez no anterior a la fecha (422 `validacion`
        en el campo).
-  3. Cálculo con `domain/importes.compute_totals` y el IVA vigente.
-  4. Número PRE.
-  5. Copia de las partes (R-8).
-  6. Inserción de la cabecera, las líneas y el desglose.
-  7. Evento `presupuesto_emitido`.
-- **`modify_presupuesto`** (solo `AdminSession`):
-  1. `lock_cierres`.
-  2. Estado `pendiente` o `caducado`, sin borrador vinculado.
-  3. Si el contenido es igual, 422 `sin-cambios`. Se comparan cliente, fecha, validez, líneas y
-     oro de inversión.
-  4. Emisión del nuevo con la operación `modificar` y el original como origen.
-  5. Cierre `sustitucion` con `motivo_texto` y el presupuesto nuevo.
-  6. Evento `presupuesto_modificado`.
-- **`annul_presupuesto`** (solo `AdminSession`): `lock_cierres`, el mismo estado y el cierre
-  `anulacion` con su motivo. La idempotencia va sobre `cierres_presupuesto.clave_idempotencia`
-  (`anular`), y genera el evento `presupuesto_anulado`.
-- **Borradores de presupuesto** (`services/borradores_presupuesto.py`): copia de
-  `services/borradores.py` con `valido_hasta`, con versión optimista, conflicto, borrado auditado
-  y emisión con `emitir_borrador`.
+  4. Cálculo con `domain/importes.compute_totals` y el IVA vigente.
+  5. Número PRE.
+  6. Copia de las partes (R-8).
+  7. Inserción de la cabecera, las líneas y el desglose.
+  8. Evento `presupuesto_emitido`.
 
-**Razón**: es el ciclo de 002 sin la parte fiscal. Las mismas respuestas de error permiten
-reutilizar en la web el tratamiento de errores del modal.
+  `emit_presupuesto` recibe un parámetro `bloqueado=True` cuando el cerrojo ya lo tomó quien lo
+  llama, igual que `cadena_bloqueada` en 002.
+- **`modify_presupuesto`** (solo `AdminSession`):
+  1. `lock_presupuestos`.
+  2. `find_previous_presupuesto` con la operación `modificar` y el original como origen. Si hay
+     una petición previa, se devuelve el presupuesto nuevo que creó, **antes de mirar el estado**:
+     tras la primera, el original ya está sustituido.
+  3. Estado `pendiente` o `caducado`, sin borrador vinculado (R-6, orden de lectura).
+  4. **«Sin cambios»** (Clarifications, analyze): se responde 422 `sin-cambios` si coinciden:
+     - el cliente, tal como quedaría copiado, comparado con la copia del original;
+     - las líneas (unidades, descripción y precio, en su orden);
+     - la casilla de oro de inversión;
+     - el tipo de IVA que se aplicaría;
+     - «Válido hasta».
+
+     **La fecha no cuenta**, porque el modal propone la de hoy. Es la regla de `_sin_cambios` de
+     002 con la validez añadida.
+  5. Emisión del nuevo con `emit_presupuesto(…, operacion=modificar, origen=original,
+     bloqueado=True)`.
+  6. Cierre `sustitucion` con `motivo_texto` y el presupuesto nuevo.
+  7. Evento `presupuesto_modificado`.
+- **`annul_presupuesto`** (solo `AdminSession`):
+  1. `lock_presupuestos`.
+  2. `find_previous_presupuesto` con `anular` y el presupuesto como origen. Si hay una petición
+     previa, se devuelve el presupuesto ya anulado.
+  3. Estado `pendiente` o `caducado`, sin borrador vinculado.
+  4. Cierre `anulacion` con su motivo y su clave.
+  5. Evento `presupuesto_anulado`.
+- **Borradores de presupuesto** (`services/borradores_presupuesto.py`): copia de
+  `services/borradores.py` con `valido_hasta`, con versión optimista, conflicto y borrado
+  auditado. La emisión sigue el orden `lock_presupuestos` → clave (`emitir_borrador`) → borrador
+  `FOR UPDATE` → `emit_presupuesto(…, bloqueado=True)` → borrado del borrador.
+
+**Razón**:
+- Es el ciclo de 002 sin la parte fiscal. Las mismas respuestas de error permiten reutilizar en la
+  web el tratamiento de errores del modal.
+- Buscar la clave antes de mirar el estado es lo que hace que una repetición devuelva el mismo
+  resultado (FR-028) en vez de un 409.
 
 **Alternativas descartadas**:
 - Abstraer la emisión de factura y de presupuesto en un servicio genérico: el camino fiscal (cadena,
@@ -270,7 +318,9 @@ Las suites de 002 y 003 deben pasar antes y después:
      - `DocumentoPdf`, `ParteImpresa`, `ContactoImpreso`, `LineaImpresa` y `DesgloseImpreso`.
      - `domicilio`, `contacto` y `desglose_impreso`.
      - `emisor` y `destinatario`, tipados con un `Protocol` `CopiaPartes` que cumplen `Factura` y
-       `Presupuesto`.
+       `Presupuesto`. Sus miembros son `@property` de solo lectura, y los de domicilio son
+       `str | None`: así mypy estricto acepta los dos, aunque la factura tenga el domicilio
+       obligatorio y el presupuesto no (invarianza de los atributos mutables).
    - **`resources/pdf/_documento.html`**, con las macros de la cabecera del emisor, el cliente, la
      tabla de líneas, los totales, el pago y el pie. `factura.html` las usa y conserva su QR.
    - **`papel.css`**:
@@ -328,8 +378,8 @@ factura.
     igual que en 003.
   - `GET /v1/presupuestos/listado/pdf`, declarada antes de `/{id}`, devuelve
     `presupuestos-{anio}[-{mes}].pdf` o `presupuestos-todos.pdf`.
-- **Generación**: con los limitadores de 003, `LIMITE_FACTURAS` para el documento y
-  `LIMITE_LISTADOS` para el listado, que se renombran sin cambiar sus valores.
+- **Generación**: con los limitadores de 003, que se reutilizan sin renombrar: `LIMITE_FACTURAS`
+  para el documento y `LIMITE_LISTADOS` para el listado.
 
 **Razón**: cumple FR-029 y SC-007. Que el modelo no tenga `qr` garantiza en el tipo que el
 presupuesto nunca lleve QR (F-13).
@@ -405,7 +455,10 @@ hace.
     `CargandoModal`, `AvisoCambioIva` y `EnlaceImprimir`.
   - `documento-valores.ts`: `ValorLinea`, el esquema zod de línea, `lineasCuerpo`,
     `lineasCalculo`, `campoDelServidor` y `etiquetaCliente`.
-  - `FiltrosDocumentos`, con `placeholder` y `aria-label` por props.
+  - `FiltrosDocumentos`, con `placeholder` y `aria-label` por props, y el esquema zod de búsqueda
+    (`q`, `anio`, `mes`, `orden` y `pagina`), que hoy es una constante local de
+    `routes/_app/facturas.tsx`. Pasa a `src/lib/filtros-documentos.ts`.
+  - `ImprimirListado`, con el documento, los textos y la URL por props.
   - `TablaDocumentos`, con las celdas de número y acción por props y los mismos anchos medidos.
 
   Es un movimiento sin cambio de comportamiento, en la fase fundacional, con los tests de facturas
@@ -419,8 +472,8 @@ hace.
   - `PresupuestosPage`, `PresupuestoModal` (nuevo y borrador) y `PresupuestoConsulta`, con su
     historial.
   - `ConvertirPresupuestoDialog`, `ModificarPresupuestoModal` y `AnularPresupuestoDialog`.
-  - `ImprimirPresupuesto` (casilla IBAN), `ImprimirListado` parametrizado y
-    `MarcaPresupuesto` (chip).
+  - `ImprimirPresupuesto` (casilla IBAN) y `MarcaPresupuesto` (chip). El listado impreso usa el
+    `ImprimirListado` de `features/documentos/`.
 - **Rutas** (`routes/_app/presupuestos*`): las de [`contracts/ui-rutas.md`](contracts/ui-rutas.md).
   Tras convertir, se navega a `/facturas/borradores/$borradorId` con el aviso.
 - **Queries**: `api/queries/presupuestos.ts` y `borradoresPresupuesto.ts`.
