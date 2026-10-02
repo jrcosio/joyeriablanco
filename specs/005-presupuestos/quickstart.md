@@ -68,8 +68,9 @@ Tests de cobertura obligatoria (constitución VII; research R-14):
 - `tests/integration/test_numeracion_presupuestos.py`: numeración PRE bajo concurrencia.
 - `tests/unit/domain/test_importes.py` y `tests/integration/test_presupuestos_emision.py`:
   importes.
-- `tests/integration/test_conversion_presupuesto.py`: conversión, también simultánea, idempotente
-  y frente a la anulación.
+- `tests/integration/test_conversion_presupuesto.py`: conversión, también simultánea e idempotente,
+  con las barreras de la BD. Las carreras frente a anular y modificar, en
+  `tests/integration/test_presupuestos_cierres.py`.
 - El encadenamiento con conversiones, en el mismo fichero, con `test_verificar_cadena.py` y
   `test_cadena_registros.py` de 002 en verde.
 
@@ -84,3 +85,63 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 docker compose -f docker-compose.prod.yml exec api alembic upgrade head
 deploy/verificar-produccion.sh <dominio>
 ```
+
+## Resultado de la validación (2026-10-03)
+
+**Pruebas automáticas** (§3), todas en verde en el equipo de desarrollo:
+
+| Puerta | Resultado |
+|---|---|
+| `uv run pytest` | 847 pruebas |
+| `uv run pytest -m lento` | 5 pruebas (las de 003 y las dos de esta feature) |
+| `ruff check`, `ruff format --check` y `mypy` | Sin avisos |
+| `joyeria verificar-cadena` sobre los datos de E2E, con sus conversiones | «Cadena íntegra (60 registros)» |
+| `npm run lint`, `typecheck`, `test` (241), `build` y `check:tokens` | En verde |
+| `npx playwright test` | 75 de 75 |
+
+**Rendimiento** (`uv run pytest -m lento`, en el Mac):
+
+| Medida | Resultado | Objetivo |
+|---|---|---|
+| Listado con 20.000 presupuestos: 42 búsquedas y cambios de filtro por la API | p95 52 ms, mediana 24 ms, máximo 53 ms | p95 < 1 s (SC-008) |
+| Presupuesto de 20 líneas en PDF (20 generaciones) | p95 0,26 s, mediana 0,19 s | p95 < 3 s |
+
+**Validaciones de §2**:
+
+| # | Cómo se ha validado |
+|---|---|
+| 1 | `Sidebar.test.tsx` y E2E `acceso.spec.ts` y `presupuestos.spec.ts` |
+| 2 y 3 | `PresupuestoModal.test.tsx`, `PresupuestoModal.borrador.test.tsx`, `test_presupuestos_borradores.py`, `test_presupuestos_emision.py` y E2E `presupuestos.spec.ts` (borrador, edición y emisión con el número previsto) |
+| 4 | `test_pdf_presupuesto.py` (título, leyenda literal, validez, contenido, IBAN, pie, 60 líneas y ausencia de QR, de la frase VERI\*FACTU y de direcciones de la AEAT), `ImprimirPresupuesto.test.tsx` y E2E (descarga `%PDF`). Revisión visual de un PDF generado: emisor a la derecha sin QR, aviso en su recuadro `paper-rule`, marca en `paper-alert` y «Válido hasta» en la rejilla |
+| 5 a 9 | `test_conversion_presupuesto.py` (23 pruebas: borrador precargado, repetición, 20 conversiones y 20 emisiones simultáneas, fecha mínima, cliente y configuración no válidos, eliminar el borrador, importes y cadena), `ConvertirPresupuestoDialog.test.tsx`, `FacturaModal.borrador.test.tsx`, `FacturaModal.consulta.test.tsx` y E2E `presupuestos.spec.ts` (el ciclo completo hasta la factura y la vuelta a pendiente) |
+| 10 a 12 | `test_presupuestos_cierres.py` (19 pruebas, con permisos, idempotencia, doble envío y las carreras con la conversión), `ModificarPresupuestoModal.test.tsx`, `AnularPresupuestoDialog.test.tsx`, `HistorialPresupuesto.test.tsx` y E2E `presupuestos.spec.ts` |
+| 13 | Datos de ejemplo con caducados (`test_datos_ejemplo.py`), `ConvertirPresupuestoDialog.test.tsx` (aviso de validez vencida) y E2E `presupuestos-listado.spec.ts` (todas las marcas) |
+| 14 | `test_configuracion_presupuestos.py`, `test_pdf_presupuesto.py` (pie propio o el de factura) y `FacturacionPage.test.tsx` |
+| 15 | `test_clientes_ciclo_vida.py` (409 con presupuestos o borradores de presupuesto) |
+| 16 | `test_pdf_listado_presupuestos.py` (105 filas en los cuatro órdenes, filtros, marcas, totales cuadrados al céntimo con el detalle de cada uno, «No se suman», límite y nombre del fichero) y E2E `presupuestos-listado.spec.ts` |
+| 17 | E2E `responsive.spec.ts` (360, 768 y 1440 px) y `acciones-visibles.spec.ts` (360 a 1536 px, 25 acciones visibles por página), y `teclado.spec.ts` (modal y diálogos con Escape y el foco devuelto) |
+| 18 | **Pendiente del responsable**: el cronometraje de SC-001 |
+
+**Conformidad con DESIGN.md 1.3** (T074), revisada con capturas a 1440 y 360 px del listado, el
+modal nuevo, la consulta de un pendiente y de un convertido, y los diálogos de convertir y anular:
+- chips con texto y su tono (aviso, peligro, éxito y neutro), esquinas a 0 y filetes de 1 px;
+- botones y diálogos de nivel 2 como en facturas, sin colores literales (`check:tokens`);
+- a 360 px, tarjetas en lugar de tabla y el modal a pantalla completa.
+
+Se corrigió un detalle: en un presupuesto pendiente, la fila vacía de la marca dejaba un hueco
+encima de «Sustituye a».
+
+**Producción**:
+- La excepción de la CSP del `Caddyfile` se comprobó contra `caddy:2.11-alpine` con su mismo
+  *matcher*. Las rutas de PDF de facturas y presupuestos no llevan la CSP de la SPA. El resto sí,
+  incluidas `/api/v1/presupuestos/{id}` y `/api/v1/clientes/{id}/pdf`. El `Caddyfile` real pasa
+  `caddy validate`.
+- `deploy/verificar-produccion.sh` comprueba el PDF de presupuestos (401 y la CSP de la API).
+
+**Pendiente del responsable** (T077):
+- la revisión del PDF del presupuesto en papel;
+- el visor de PDF en Chrome, Firefox y Safari;
+- la vista a 360 px en un móvil real;
+- la simulación completa de producción con `verificar-produccion.sh`;
+- el cronometraje del paso 18.
+

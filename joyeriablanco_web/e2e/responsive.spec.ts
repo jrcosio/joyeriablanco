@@ -72,5 +72,25 @@ for (const ancho of ANCHOS) {
     } else {
       expect(caja?.width ?? 0).toBeLessThan(ancho)
     }
+
+    // Presupuestos (005, SC-009): listado, modal nuevo y consulta con sus acciones.
+    await page.goto('/presupuestos?anio=todos')
+    await expect(
+      page.getByRole(ancho < 768 ? 'list' : 'table', { name: 'Listado de presupuestos' }),
+    ).toBeVisible()
+    await sinDesplazamientoHorizontal(page)
+    await page.goto('/presupuestos/nuevo')
+    const nuevo = page.getByRole('dialog', { name: 'Nuevo presupuesto' })
+    await expect(nuevo.getByText('Se asigna al emitir')).toBeVisible()
+    await expect(nuevo.getByLabel(/Válido hasta/)).toBeVisible()
+    await sinDesplazamientoHorizontal(page)
+    const cajaPresupuesto = await nuevo.boundingBox()
+    if (ancho < 768) expect(cajaPresupuesto?.width).toBe(ancho)
+    await page.goto('/presupuestos?anio=todos')
+    const ver = page.getByRole('link', { name: /^Ver presupuesto / }).first()
+    await ver.click()
+    const consulta = page.getByRole('dialog', { name: /^Presupuesto PRE-/ })
+    await expect(consulta.getByRole('link', { name: /^Imprimir presupuesto / })).toBeVisible()
+    await sinDesplazamientoHorizontal(page)
   })
 }

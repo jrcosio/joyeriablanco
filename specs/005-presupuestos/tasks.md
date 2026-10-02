@@ -586,29 +586,32 @@ orden y los totales cuadran al céntimo. Los datos de ejemplo cubren todos los e
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T071 [P] Ampliar `backend/tests/integration/test_logs_facturacion.py` y `test_logs_sin_datos_personales.py` (FR-035): emitir, modificar, anular, convertir e imprimir presupuestos no deja nombres, NIF ni importes en los registros, solo números y operaciones.
-- [ ] T072 [P] Test lento `backend/tests/integration/test_presupuestos_rendimiento.py` (`@pytest.mark.lento`):
+- [X] T071 [P] Ampliar `backend/tests/integration/test_logs_facturacion.py` y `test_logs_sin_datos_personales.py` (FR-035): emitir, modificar, anular, convertir e imprimir presupuestos no deja nombres, NIF ni importes en los registros, solo números y operaciones.
+  - *Implementación*: el ciclo entero del presupuesto va en `test_logs_facturacion.py`, junto al de las facturas. `test_logs_sin_datos_personales.py` (acceso y clientes de 001) no cambia.
+- [X] T072 [P] Test lento `backend/tests/integration/test_presupuestos_rendimiento.py` (`@pytest.mark.lento`):
   - SC-008: 20.000 presupuestos sintéticos, con el p95 de la búsqueda y de los cambios de filtro por debajo de 1 s.
   - El PDF de un presupuesto de 20 líneas, por debajo de 3 s.
   - Anotar los resultados en el quickstart.
-- [ ] T073 [P] E2E transversales, con las secciones de presupuestos:
+- [X] T073 [P] E2E transversales, con las secciones de presupuestos:
   - `e2e/acciones-visibles.spec.ts`: acciones visibles a 768, 1024, 1280, 1440 y 1536 px.
   - `e2e/responsive.spec.ts`: 360 px sin desplazamiento horizontal.
   - `e2e/teclado.spec.ts`: el modal y los diálogos con teclado y Escape (SC-009).
-- [ ] T074 [P] Revisión de conformidad con `docs/DESIGN.md` 1.3 (SC-012):
+- [X] T074 [P] Revisión de conformidad con `docs/DESIGN.md` 1.3 (SC-012):
   - Pantallas: chips, modal, tabla y diálogos.
   - PDF: aviso no fiscal, marcas y tokens.
   - Anotar en el quickstart.
-- [ ] T075 [P] Documentación:
+- [X] T075 [P] Documentación:
   - `README.md`: Presupuestos ✅.
   - `backend/app/resources/README.md`: las plantillas nuevas y las macros.
   - `CLAUDE.md`, si algún comando cambia.
   - [quickstart.md](quickstart.md): la sección «Resultado de la validación».
-- [ ] T076 Puertas de calidad completas antes de cerrar:
+- [X] T076 Puertas de calidad completas antes de cerrar:
   - **Backend**: `uv run pytest`, `uv run pytest -m lento`, `uv run ruff check . && uv run ruff format --check . && uv run mypy .` y `uv run joyeria verificar-cadena` sobre los datos de ejemplo.
   - **Web**: `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens` y `npx playwright test`.
 - [ ] T077 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 18), con el paso cronometrado de SC-001. La revisión visual del papel, el visor de PDF de cada navegador y la vista a 360 px quedan **pendientes del responsable** si no se pueden hacer en el entorno.
-- [ ] T078 Contrato completo: eliminar `PENDIENTES_005` de `backend/tests/integration/test_contrato_openapi.py` y dejar el test en verde. Debe quedar vacía tras T067.
+  - *Hecho*: los pasos 1 a 17, cubiertos por pruebas automáticas y por la revisión de capturas (quickstart, «Resultado de la validación»).
+  - *Pendiente del responsable*: el papel, el visor de PDF de cada navegador, 360 px en un móvil real, la simulación de producción y el cronometraje del paso 18.
+- [X] T078 Contrato completo: eliminar `PENDIENTES_005` de `backend/tests/integration/test_contrato_openapi.py` y dejar el test en verde. Debe quedar vacía tras T067.
 
 ---
 

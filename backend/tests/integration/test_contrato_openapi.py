@@ -18,9 +18,6 @@ from app.main import create_app
 SPECS = Path(__file__).resolve().parents[3] / "specs"
 CONTRATOS = sorted(SPECS.glob("*/contracts/openapi.yaml"))
 METODOS = {"get", "post", "put", "patch", "delete"}
-# Operaciones de 005 aún sin implementar: solo se excluyen del sentido «contrato → API». Cada ruta
-# nueva sale de la lista y T078 la elimina (tasks.md de 005).
-PENDIENTES_005: set[tuple[str, str]] = set()
 
 
 def _normalizar(ruta: str) -> str:
@@ -64,7 +61,7 @@ def test_la_api_implementa_exactamente_el_contrato() -> None:
 
     solo_en_api = set(reales) - set(esperadas)
     assert not solo_en_api, f"Operaciones sin contrato: {sorted(solo_en_api)}"
-    solo_en_contrato = set(esperadas) - set(reales) - PENDIENTES_005
+    solo_en_contrato = set(esperadas) - set(reales)
     assert not solo_en_contrato, f"Operaciones del contrato sin implementar: {solo_en_contrato}"
     for operacion, exitos in reales.items():
         assert exitos == esperadas[operacion], (

@@ -21,8 +21,15 @@ mayúsculas).
 
 ## Impresión en PDF (003, research R-4 y R-5)
 
-- [`pdf/`](pdf/): plantillas Jinja2 (`base.html`, `factura.html`, `listado.html` y `error.html`) y la
-  hoja `papel.css`, que solo usa los tokens «Paper» de `app/core/pdf/tokens.py`.
+- [`pdf/`](pdf/): plantillas Jinja2 y la hoja `papel.css`, que solo usa los tokens «Paper» de
+  `app/core/pdf/tokens.py`:
+  - `base.html`, con las fuentes y la hoja de estilos.
+  - `_documento.html`: las macros comunes de la factura y del presupuesto (emisor, marcas, cliente,
+    líneas, totales, mención de exención, pago y pie; 005, research R-8).
+  - `factura.html`, con el QR tributario, y `presupuesto.html` (005), sin QR ni frase VERI\*FACTU,
+    con el título «PRESUPUESTO» y el aviso no fiscal (`.aviso-no-fiscal`, DESIGN.md 1.3).
+  - `listado.html`: el listado impreso de facturas y de presupuestos, con sus textos en el modelo.
+  - `error.html`: la página de error de las rutas de PDF.
 - [`fuentes/`](fuentes/README.md): Bodoni Moda y Manrope en WOFF2, con su licencia OFL y su
   procedencia.
 - [`marca/`](marca/README.md): logotipo.

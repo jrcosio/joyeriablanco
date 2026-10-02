@@ -70,9 +70,12 @@ export function PresupuestoDetalle({ presupuesto }: { presupuesto: PresupuestoSa
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
-          <MarcaPresupuesto estado={presupuesto.estado} />
-        </div>
+        {/* Un pendiente no lleva marca: sin la fila vacía, que dejaría un hueco arriba. */}
+        {presupuesto.estado !== 'pendiente' ? (
+          <div className="flex flex-wrap gap-2">
+            <MarcaPresupuesto estado={presupuesto.estado} />
+          </div>
+        ) : null}
         <EnlacesPresupuesto presupuesto={presupuesto} />
         {presupuesto.estado === 'en_facturacion' && presupuesto.borrador_factura ? (
           <AvisoEnFacturacion borradorId={presupuesto.borrador_factura.id} />
