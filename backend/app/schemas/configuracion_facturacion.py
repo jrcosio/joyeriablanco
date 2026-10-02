@@ -34,7 +34,8 @@ class ContactoEntrada(EntradaBase):
 class ConfiguracionFacturacionEntrada(EntradaBase):
     """Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23).
 
-    `contacto` y `pie_factura` (003) son opcionales: si no vienen, se conservan los actuales.
+    `contacto` y `pie_factura` (003), y `validez_presupuesto_dias` y `pie_presupuesto` (005), son
+    opcionales: si no vienen, se conservan los actuales.
     """
 
     version: Annotated[int, Field(ge=1)]
@@ -45,6 +46,8 @@ class ConfiguracionFacturacionEntrada(EntradaBase):
     emisor: DatosEmisorEntrada
     contacto: ContactoEntrada | None = None
     pie_factura: Annotated[str, Field(max_length=600)] | None = None
+    validez_presupuesto_dias: Annotated[int, Field(ge=1, le=365)] | None = None
+    pie_presupuesto: Annotated[str, Field(max_length=600)] | None = None
 
 
 class DatosEmisorSalida(SalidaBase):
@@ -80,6 +83,8 @@ class ConfiguracionFacturacionSalida(SalidaBase):
     actualizado_por: UsuarioReferencia | None
     contacto: ContactoSalida
     pie_factura: str | None
+    validez_presupuesto_dias: int
+    pie_presupuesto: str | None
 
 
 class AjusteContadorEntrada(EntradaBase):

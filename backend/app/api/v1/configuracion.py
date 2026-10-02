@@ -51,6 +51,8 @@ def _salida(estado: servicio.EstadoConfiguracion) -> ConfiguracionFacturacionSal
             web=config.emisor_web,
         ),
         pie_factura=config.pie_factura,
+        validez_presupuesto_dias=config.validez_presupuesto_dias,
+        pie_presupuesto=config.pie_presupuesto,
     )
 
 

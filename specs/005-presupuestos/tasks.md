@@ -85,19 +85,19 @@ deben quedar en verde (T020).
 
 ### Tests ⚠️ (escribir primero, deben fallar)
 
-- [ ] T003 [P] Test `backend/tests/unit/domain/test_presupuestos.py` (R-3, FR-001, FR-009):
+- [X] T003 [P] Test `backend/tests/unit/domain/test_presupuestos.py` (R-3, FR-001, FR-009):
   - `validez_por_defecto(fecha, dias)`: suma días, incluido el cambio de mes y de año.
   - `estado_visible(estado, valido_hasta, hoy)`:
     - `pendiente` con `valido_hasta < hoy` → `caducado`.
     - `valido_hasta == hoy` → `pendiente`.
     - `en_facturacion` no se convierte en `caducado`.
     - Los terminales no cambian.
-- [ ] T004 [P] Ampliar `backend/tests/unit/domain/test_numeracion.py` (R-4, FR-002):
+- [X] T004 [P] Ampliar `backend/tests/unit/domain/test_numeracion.py` (R-4, FR-002):
   - `format_num_serie(Serie.PRESUPUESTO, 2026, 3) == "PRE-2026-0003"`.
   - `parse_num_serie("PRE-2026-0003")` funciona.
   - `PRE-2026-12345` crece en cifras.
   - Los casos FAC y REC siguen igual.
-- [ ] T005 [P] Test `backend/tests/integration/test_presupuestos_inalterables.py` (R-2, R-6, FR-004, SC-006), con `conexion` y `conexion_owner` e inserciones SQL crudas en un nuevo `backend/tests/integration/presupuestos_sql.py`:
+- [X] T005 [P] Test `backend/tests/integration/test_presupuestos_inalterables.py` (R-2, R-6, FR-004, SC-006), con `conexion` y `conexion_owner` e inserciones SQL crudas en un nuevo `backend/tests/integration/presupuestos_sql.py`:
   - **Solo inserción**: UPDATE, DELETE y TRUNCATE en `presupuestos`, `lineas_presupuesto`, `desgloses_presupuesto` y `cierres_presupuesto` fallan con 42501 para `jb_app` y por trigger para `jb_owner`, con el mensaje «Los presupuestos emitidos son inalterables».
   - **Contador**: `contadores_factura` acepta la serie `PRE`, pero no otra, y la fila PRE solo sube.
   - **Cierres**: `uq_cierres_presupuesto_presupuesto_id` impide un segundo cierre. El `CHECK` por tipo rechaza las combinaciones no válidas de data-model.
@@ -109,7 +109,7 @@ deben quedar en verde (T020).
 
 ### Implementación
 
-- [ ] T006 Migración `backend/alembic/versions/0008_presupuestos.py` (data-model completo), en SQL a mano y con el patrón de la 0005, **en este orden** (las funciones `LANGUAGE sql` se validan al crearlas):
+- [X] T006 Migración `backend/alembic/versions/0008_presupuestos.py` (data-model completo), en SQL a mano y con el patrón de la 0005, **en este orden** (las funciones `LANGUAGE sql` se validan al crearlas):
   1. **Función** `impedir_modificacion_presupuesto()`.
   2. **Tablas nuevas**:
      - `borradores_presupuesto` y `lineas_borrador_presupuesto`.
@@ -125,7 +125,7 @@ deben quedar en verde (T020).
      - `cierres_presupuesto_validar` y `borradores_factura_validar_vinculo`.
      - Los de solo inserción y el REVOKE de las cuatro tablas, que van en un `_TABLAS_INALTERABLES` propio.
   7. **`downgrade`**: completo y en el orden inverso, con los `CHECK` de 002 restaurados `NOT VALID`.
-- [ ] T007 [P] Modelos ORM (data-model, «Modelos ORM»):
+- [X] T007 [P] Modelos ORM (data-model, «Modelos ORM»):
   - `backend/app/models/presupuesto.py`: `Presupuesto`, `LineaPresupuesto` y `DesglosePresupuesto`.
   - `backend/app/models/borrador_presupuesto.py`: `BorradorPresupuesto` y `LineaBorradorPresupuesto`, con `version_id_col`.
   - `backend/app/models/cierre_presupuesto.py`: `CierrePresupuesto`.
@@ -134,11 +134,11 @@ deben quedar en verde (T020).
     - `backend/app/models/configuracion_facturacion.py`: las dos columnas.
   - Registro en `backend/app/models/__init__.py`.
   - `models/evento_auditoria.py` sigue alineado vía `sql_in(TipoEvento)`.
-- [ ] T008 [P] Lógica pura:
+- [X] T008 [P] Lógica pura:
   - `backend/app/domain/presupuestos.py`: `validez_por_defecto` y `estado_visible`.
   - `backend/app/domain/numeracion.py`: `_FORMATO = (FAC|REC|PRE)` y mensajes «Número de documento…».
   - Hacen pasar T003 y T004.
-- [ ] T009 Configuración de validez y pie (FR-031, R-9, data-model):
+- [X] T009 Configuración de validez y pie (FR-031, R-9, data-model):
   - `backend/app/schemas/configuracion_facturacion.py`: `validez_presupuesto_dias` (1 a 365) y `pie_presupuesto` (600, opcionales en la entrada) en `ConfiguracionFacturacionEntrada` y `ConfiguracionFacturacionSalida`.
   - `backend/app/services/configuracion_facturacion.py`:
     - Los dos campos en `CAMPOS_AUDITADOS`.
@@ -146,7 +146,7 @@ deben quedar en verde (T020).
     - Se conservan si no vienen.
   - Test `backend/tests/integration/test_configuracion_presupuestos.py`: validación, auditoría con el valor anterior y el nuevo, conservación por omisión, conflicto de versión y 403 para un empleado.
   - Actualizar en el mismo commit el contrato de 002, ya ampliado en el plan, si hiciera falta algún matiz.
-- [ ] T010 Generalización del contenido (R-8.1), sin cambio de comportamiento:
+- [X] T010 Generalización del contenido (R-8.1), sin cambio de comportamiento:
   - Nuevo `backend/app/services/contenido.py` con `DatosLinea`, `check_lineas`, `normalize_lineas`, `previstos`, `copia_emisor(config)` y `copia_destinatario(cliente)`.
   - `backend/app/services/emision.py` y `backend/app/services/borradores.py` pasan a usarlo. `emision.py` reexporta `DatosLinea`.
   - Comprobar `uv run pytest tests/integration/test_emision.py tests/integration/test_borradores.py tests/integration/test_numeracion_concurrencia.py` en verde.

@@ -1,4 +1,4 @@
-"""Numeración `FAC-AAAA-NNNN` y `REC-AAAA-NNNN` (FR-006, FR-009; constitución 2.2.0; R-7)."""
+"""Numeración `FAC-`, `REC-` y `PRE-AAAA-NNNN` (002 FR-006, FR-009; 005 FR-002; R-7)."""
 
 from datetime import date
 
@@ -20,6 +20,8 @@ from app.domain.tipos import Serie
         (Serie.ORDINARIA, 2026, 143, "FAC-2026-0143"),
         (Serie.RECTIFICATIVA, 2026, 1, "REC-2026-0001"),
         (Serie.ORDINARIA, 2026, 10000, "FAC-2026-10000"),  # crece sin truncar
+        (Serie.PRESUPUESTO, 2026, 3, "PRE-2026-0003"),
+        (Serie.PRESUPUESTO, 2026, 12345, "PRE-2026-12345"),
     ],
 )
 def test_formato(serie: Serie, anio: int, numero: int, esperado: str) -> None:
@@ -39,6 +41,7 @@ def test_el_anio_es_el_de_la_fecha_de_expedicion() -> None:
 def test_parseo_inverso() -> None:
     assert parse_num_serie("REC-2026-0012") == (Serie.RECTIFICATIVA, 2026, 12)
     assert parse_num_serie("FAC-2026-10000") == (Serie.ORDINARIA, 2026, 10000)
+    assert parse_num_serie("PRE-2026-0003") == (Serie.PRESUPUESTO, 2026, 3)
 
 
 @pytest.mark.parametrize("valor", ["FAC-26-0001", "XYZ-2026-0001", "FAC-2026-001", "fac-2026-0001"])

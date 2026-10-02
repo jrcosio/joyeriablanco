@@ -20,12 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import CampoError, ConflictoVersion, DatosNoValidos, NoEncontrado
 from app.core.http import Origen
-from app.domain.importes import (
-    ImporteFueraDeRango,
-    LineaCalculo,
-    Totales,
-    compute_totals,
-)
 from app.domain.tipos import OperacionIdempotente, TipoEvento
 from app.models.borrador_factura import BorradorFactura, LineaBorrador
 from app.models.factura import Factura
@@ -36,8 +30,8 @@ from app.repositories import configuracion_facturacion as configuracion_repo
 from app.repositories import registros
 from app.services import emision
 from app.services.auditoria import diff, record_event
+from app.services.contenido import DatosLinea, lineas_json, normalize_lineas, previstos
 
-CENTIMO: Final = Decimal("0.01")
 NO_EXISTE: Final = "Este borrador ya no existe: puede que se haya emitido o eliminado."
 
 
@@ -45,7 +39,7 @@ NO_EXISTE: Final = "Este borrador ya no existe: puede que se haya emitido o elim
 class DatosBorrador:
     fecha_expedicion: date
     cliente_id: uuid.UUID | None
-    lineas: tuple[emision.DatosLinea, ...]
+    lineas: tuple[DatosLinea, ...]
     oro_inversion: bool = False
 
 
@@ -68,58 +62,24 @@ async def _check_cliente(
         )
 
 
-def _normalizar(lineas: tuple[emision.DatosLinea, ...]) -> tuple[emision.DatosLinea, ...]:
-    return tuple(
-        emision.DatosLinea(
-            unidades=linea.unidades.quantize(CENTIMO),
-            descripcion=linea.descripcion.strip(),
-            precio_unitario=linea.precio_unitario.quantize(CENTIMO),
-        )
-        for linea in lineas
-    )
-
-
-def _previstos(lineas: tuple[emision.DatosLinea, ...], tipo_iva: Decimal | None) -> Totales:
-    """`tipo_iva=None`: borrador de oro de inversión, sin IVA (R-21)."""
-    emision.check_lineas(lineas, permitir_vacio=True)
-    try:
-        return compute_totals(
-            [LineaCalculo(linea.unidades, linea.precio_unitario, tipo_iva) for linea in lineas],
-            tipo_iva_por_defecto=tipo_iva,
-        )
-    except ImporteFueraDeRango as exc:
-        raise DatosNoValidos(errores=[CampoError("lineas", str(exc))]) from exc
-
-
-def _lineas_json(lineas: list[LineaBorrador] | tuple[emision.DatosLinea, ...]) -> list[object]:
-    return [
-        {
-            "unidades": linea.unidades,
-            "descripcion": linea.descripcion,
-            "precio_unitario": linea.precio_unitario,
-        }
-        for linea in lineas
-    ]
-
-
 def _contenido(borrador: BorradorFactura) -> dict[str, object]:
     """Lo que el usuario edita, más el IVA previsto, para el *diff* de auditoría."""
     return {
         "fecha_expedicion": borrador.fecha_expedicion,
         "cliente_id": borrador.cliente_id,
-        "lineas": _lineas_json(borrador.lineas),
+        "lineas": lineas_json(borrador.lineas),
         "oro_inversion": borrador.oro_inversion,
         "tipo_iva_previsto": borrador.tipo_iva_previsto,
     }
 
 
 def _contenido_nuevo(
-    datos: DatosBorrador, lineas: tuple[emision.DatosLinea, ...], tipo_iva: Decimal
+    datos: DatosBorrador, lineas: tuple[DatosLinea, ...], tipo_iva: Decimal
 ) -> dict[str, object]:
     return {
         "fecha_expedicion": datos.fecha_expedicion,
         "cliente_id": datos.cliente_id,
-        "lineas": _lineas_json(lineas),
+        "lineas": lineas_json(lineas),
         "oro_inversion": datos.oro_inversion,
         "tipo_iva_previsto": tipo_iva,
     }
@@ -128,10 +88,10 @@ def _contenido_nuevo(
 def _aplicar(
     borrador: BorradorFactura,
     datos: DatosBorrador,
-    lineas: tuple[emision.DatosLinea, ...],
+    lineas: tuple[DatosLinea, ...],
     tipo_iva: Decimal,
 ) -> None:
-    totales = _previstos(lineas, None if datos.oro_inversion else tipo_iva)
+    totales = previstos(lineas, None if datos.oro_inversion else tipo_iva)
     borrador.fecha_expedicion = datos.fecha_expedicion
     borrador.oro_inversion = datos.oro_inversion
     borrador.cliente_id = datos.cliente_id
@@ -166,7 +126,7 @@ async def create_borrador(
     await _check_cliente(db, datos.cliente_id, actual=None)
     config = await configuracion_repo.get(db)
     borrador = BorradorFactura(creado_por_id=actor.id, actualizado_por_id=actor.id)
-    _aplicar(borrador, datos, _normalizar(datos.lineas), config.iva_por_defecto)
+    _aplicar(borrador, datos, normalize_lineas(datos.lineas), config.iva_por_defecto)
     await repo.save(db, borrador)
     await record_event(
         db,
@@ -192,9 +152,9 @@ async def update_borrador(
     if borrador.version != version:
         raise ConflictoVersion(repo.MENSAJE_CONFLICTO)
     await _check_cliente(db, datos.cliente_id, actual=borrador.cliente_id)
-    lineas = _normalizar(datos.lineas)
+    lineas = normalize_lineas(datos.lineas)
     tipo_iva = (await configuracion_repo.get(db)).iva_por_defecto
-    _previstos(lineas, None if datos.oro_inversion else tipo_iva)  # valida antes de comparar
+    previstos(lineas, None if datos.oro_inversion else tipo_iva)  # valida antes de comparar
     # Si el IVA vigente ha cambiado, volver a guardar actualiza el previsto (y su aviso).
     cambios = diff(_contenido(borrador), _contenido_nuevo(datos, lineas, tipo_iva))
     if not cambios:
@@ -271,7 +231,7 @@ async def emit_borrador(
         emision.DatosFactura(
             fecha_expedicion=datos.fecha_expedicion,
             cliente_id=datos.cliente_id,
-            lineas=_normalizar(datos.lineas),
+            lineas=normalize_lineas(datos.lineas),
             oro_inversion=datos.oro_inversion,
         ),
         actor=actor,

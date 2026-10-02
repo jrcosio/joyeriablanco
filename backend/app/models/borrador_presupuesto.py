@@ -1,8 +1,8 @@
-"""Borrador de factura y sus líneas: mutables (data-model §borradores_factura; R-9).
+"""Borrador de presupuesto y sus líneas: mutables (005, data-model §borradores_presupuesto).
 
-Un borrador no es una factura expedida (constitución III): no tiene número ni registro. Guarda el
-IVA y los totales PREVISTOS al guardarse, calculados con `domain/importes.py`, para el listado y
-el aviso de cambio de IVA. Al emitir se recalcula todo con el IVA vigente.
+Como el borrador de factura (002, R-9): no tiene número, se guarda incompleto, se edita con
+concurrencia optimista y se borra sin consumir número. Guarda el IVA y los totales PREVISTOS para
+el listado y el aviso de cambio de IVA. Al emitir se recalcula todo con el IVA vigente.
 """
 
 import uuid
@@ -24,15 +24,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UuidPkMixin
 from app.models.cliente import Cliente
-from app.models.presupuesto import Presupuesto
 from app.models.usuario import Usuario
 
 
-class LineaBorrador(UuidPkMixin, Base):
-    __tablename__ = "lineas_borrador"
+class LineaBorradorPresupuesto(UuidPkMixin, Base):
+    __tablename__ = "lineas_borrador_presupuesto"
 
     borrador_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("borradores_factura.id", ondelete="CASCADE")
+        ForeignKey("borradores_presupuesto.id", ondelete="CASCADE")
     )
     orden: Mapped[int] = mapped_column(SmallInteger)
     unidades: Mapped[Decimal] = mapped_column(Numeric(9, 2))
@@ -40,13 +39,14 @@ class LineaBorrador(UuidPkMixin, Base):
     precio_unitario: Mapped[Decimal] = mapped_column(Numeric(12, 2))
 
 
-class BorradorFactura(UuidPkMixin, Base):
-    __tablename__ = "borradores_factura"
+class BorradorPresupuesto(UuidPkMixin, Base):
+    __tablename__ = "borradores_presupuesto"
 
     cliente_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("clientes.id"))
-    fecha_expedicion: Mapped[date] = mapped_column(Date)
+    fecha: Mapped[date] = mapped_column(Date)
+    valido_hasta: Mapped[date] = mapped_column(Date)
     tipo_iva_previsto: Mapped[Decimal] = mapped_column(Numeric(5, 2))
-    oro_inversion: Mapped[bool] = mapped_column(Boolean, server_default=false())  # R-21
+    oro_inversion: Mapped[bool] = mapped_column(Boolean, server_default=false())
     base_prevista: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     cuota_prevista: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     total_previsto: Mapped[Decimal] = mapped_column(Numeric(12, 2))
@@ -55,18 +55,14 @@ class BorradorFactura(UuidPkMixin, Base):
     creado_por_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
     actualizado_en: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
     actualizado_por_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
-    # Presupuesto del que procede, si lo creó «Convertir en factura» (005, FR-018, research R-5).
-    # Como mucho un borrador por presupuesto; la aplicación nunca lo cambia después de crearlo.
-    presupuesto_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("presupuestos.id"))
 
     cliente: Mapped[Cliente | None] = relationship(lazy="joined")
-    presupuesto: Mapped[Presupuesto | None] = relationship(lazy="joined", viewonly=True)
-    lineas: Mapped[list[LineaBorrador]] = relationship(
-        order_by=LineaBorrador.orden, cascade="all, delete-orphan", lazy="selectin"
+    lineas: Mapped[list[LineaBorradorPresupuesto]] = relationship(
+        order_by=LineaBorradorPresupuesto.orden, cascade="all, delete-orphan", lazy="selectin"
     )
     creado_por: Mapped[Usuario] = relationship(foreign_keys=[creado_por_id], lazy="joined")
     actualizado_por: Mapped[Usuario] = relationship(
         foreign_keys=[actualizado_por_id], lazy="joined"
     )
 
-    __mapper_args__ = {"version_id_col": version}  # noqa: RUF012 — concurrencia optimista (FR-020)
+    __mapper_args__ = {"version_id_col": version}  # noqa: RUF012 — concurrencia optimista (FR-013)

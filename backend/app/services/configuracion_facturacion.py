@@ -72,6 +72,9 @@ CAMPOS_AUDITADOS: Final = (
     "emisor_correo",
     "emisor_web",
     "pie_factura",
+    # Presupuestos (005, FR-031)
+    "validez_presupuesto_dias",
+    "pie_presupuesto",
 )
 
 
@@ -122,6 +125,8 @@ class _DatosNormalizados:
     emisor_correo: str | None
     emisor_web: str | None
     pie_factura: str | None
+    validez_presupuesto_dias: int
+    pie_presupuesto: str | None
 
     def como_dict(self) -> Mapping[str, object]:
         return {campo: getattr(self, campo) for campo in CAMPOS_AUDITADOS}
@@ -179,6 +184,22 @@ def _contacto(
     return telefono, correo, web, pie
 
 
+def _presupuestos(
+    entrada: ConfiguracionFacturacionEntrada, actual: ConfiguracionFacturacion
+) -> tuple[int, str | None]:
+    """Validez por defecto y pie de presupuesto (005, FR-031). Lo que no viene, se queda."""
+    validez = (
+        entrada.validez_presupuesto_dias
+        if entrada.validez_presupuesto_dias is not None
+        else actual.validez_presupuesto_dias
+    )
+    if "pie_presupuesto" in entrada.model_fields_set:
+        pie = normalize_pie(entrada.pie_presupuesto) if entrada.pie_presupuesto else None
+    else:
+        pie = actual.pie_presupuesto
+    return validez, pie
+
+
 def _normalizar(
     entrada: ConfiguracionFacturacionEntrada,
     tipo_iva: Decimal,
@@ -203,6 +224,7 @@ def _normalizar(
         if motivo := validate_iban(iban):
             errores.append(CampoError("emisor.iban", motivo))
     telefono, correo, web, pie = _contacto(entrada, actual, errores)
+    validez, pie_presupuesto = _presupuestos(entrada, actual)
     if errores:
         raise DatosNoValidos(errores=errores)
     return _DatosNormalizados(
@@ -219,6 +241,8 @@ def _normalizar(
         emisor_correo=correo,
         emisor_web=web,
         pie_factura=pie,
+        validez_presupuesto_dias=validez,
+        pie_presupuesto=pie_presupuesto,
     )
 
 
