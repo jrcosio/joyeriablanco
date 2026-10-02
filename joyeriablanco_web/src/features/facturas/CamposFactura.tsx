@@ -2,7 +2,7 @@ import { UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form'
 import { Form } from 'react-aria-components'
-import type { ParametrosFacturacionSalida } from '../../api/tipos'
+import type { ParametrosFacturacionSalida, PresupuestoReferencia } from '../../api/tipos'
 import { Button } from '../../components/ui/Button'
 import { CampoFecha } from '../../components/ui/CampoFecha'
 import { Casilla } from '../../components/ui/Casilla'
@@ -24,6 +24,7 @@ export function CamposFactura({
   form,
   parametros,
   fechaOperacion,
+  presupuestoOrigen,
   numeroAyuda,
   nombreCliente,
   onNombreCliente,
@@ -38,6 +39,11 @@ export function CamposFactura({
    * ser anterior (F-3 §3.1.3.1, error 1146; FR-018).
    */
   fechaOperacion?: string | undefined
+  /**
+   * En un borrador creado por «Convertir en factura», su presupuesto: la fecha no puede ser anterior
+   * a la de este (005, FR-019).
+   */
+  presupuestoOrigen?: PresupuestoReferencia | null | undefined
   /** Ayuda bajo «Se asigna al emitir» (p. ej. el próximo número previsto). */
   numeroAyuda: React.ReactNode
   /** Texto del cliente ya elegido; el selector se vuelve a montar cuando cambia. */
@@ -54,7 +60,7 @@ export function CamposFactura({
   const [altaCliente, setAltaCliente] = useState(false)
   // FR-018: la fecha es libre dentro de los límites de la AEAT (fechas AAAA-MM-DD: se comparan como
   // texto).
-  const minima = [parametros.fecha_minima, fechaOperacion]
+  const minima = [parametros.fecha_minima, fechaOperacion, presupuestoOrigen?.fecha]
     .filter((f): f is string => Boolean(f))
     .sort()
     .at(-1)
@@ -91,7 +97,11 @@ export function CamposFactura({
                     ? {
                         description: `Fecha de la operación: ${fechaCorta(fechaOperacion)} (la de la original).`,
                       }
-                    : {})}
+                    : presupuestoOrigen
+                      ? {
+                          description: `No anterior a la del presupuesto ${presupuestoOrigen.num_serie} (${fechaCorta(presupuestoOrigen.fecha)}).`,
+                        }
+                      : {})}
                   error={fieldState.error?.message}
                 />
               )}

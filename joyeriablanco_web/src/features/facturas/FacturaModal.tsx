@@ -27,6 +27,7 @@ import { AvisoCambioIva } from '../documentos/AvisoCambioIva'
 import { CargandoModal } from '../documentos/CargandoModal'
 import { CamposFactura } from './CamposFactura'
 import { ConfirmarEmisionDialog } from './ConfirmarEmisionDialog'
+import { EnlacePresupuesto } from './EnlacePresupuesto'
 import {
   aCuerpo,
   aCuerpoBorrador,
@@ -176,7 +177,12 @@ function FormularioFactura({
         : await emitirNueva.mutateAsync({ body: aCuerpo(valores), clave })
       renovar()
       setConfirmando(false)
-      toast(`Factura ${factura.num_serie} emitida`)
+      const origen = borrador?.presupuesto_origen
+      toast(
+        origen
+          ? `Factura ${factura.num_serie} emitida. ${origen.num_serie} queda convertido`
+          : `Factura ${factura.num_serie} emitida`,
+      )
       onEmitida(factura)
     } catch (e) {
       setConfirmando(false)
@@ -269,10 +275,14 @@ function FormularioFactura({
         nombreCliente={nombreCliente}
         onNombreCliente={setNombreCliente}
         onSubmit={() => void pedirEmision()}
+        presupuestoOrigen={borrador?.presupuesto_origen}
         antes={
-          !oroInversion && tipoIvaPrevisto && tipoIvaPrevisto !== parametros.iva_por_defecto ? (
-            <AvisoCambioIva previsto={tipoIvaPrevisto} vigente={parametros.iva_por_defecto} />
-          ) : null
+          <>
+            <EnlacePresupuesto presupuesto={borrador?.presupuesto_origen} />
+            {!oroInversion && tipoIvaPrevisto && tipoIvaPrevisto !== parametros.iva_por_defecto ? (
+              <AvisoCambioIva previsto={tipoIvaPrevisto} vigente={parametros.iva_por_defecto} />
+            ) : null}
+          </>
         }
         despues={<Alerta mensaje={error} />}
       />

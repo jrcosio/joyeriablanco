@@ -12,8 +12,9 @@ from app.core.tiempo import hoy
 from app.domain.tipos import EstadoFactura, TipoCorreccion
 from app.models.correccion_factura import CorreccionFactura
 from app.models.factura import Factura
+from app.models.presupuesto import Presupuesto
 from app.models.registro_facturacion import RegistroFacturacion
-from app.repositories import correcciones, facturas, registros
+from app.repositories import cierres_presupuesto, correcciones, facturas, presupuestos, registros
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +59,8 @@ class DetalleFactura:
     vigente_actual: Factura | None
     correcciones: list[CorreccionVista]
     registros: list[RegistroFacturacion]
+    # Presupuesto convertido en esta factura, leído de su cierre (005, FR-022)
+    presupuesto_origen: Presupuesto | None = None
 
 
 async def _vigente_actual(
@@ -114,6 +117,7 @@ async def get_factura(db: AsyncSession, factura_id: uuid.UUID) -> DetalleFactura
         if origen is not None and origen.tipo == TipoCorreccion.ANULACION_Y_REEMISION
         else None
     )
+    conversion = await cierres_presupuesto.get_by_factura(db, factura.id)
     return DetalleFactura(
         factura=factura,
         estado=estado,
@@ -122,4 +126,7 @@ async def get_factura(db: AsyncSession, factura_id: uuid.UUID) -> DetalleFactura
         vigente_actual=await _vigente_actual(db, vistas, estado),
         correcciones=vistas,
         registros=await registros.list_by_factura(db, factura.id),
+        presupuesto_origen=(
+            await presupuestos.get(db, conversion.presupuesto_id) if conversion else None
+        ),
     )

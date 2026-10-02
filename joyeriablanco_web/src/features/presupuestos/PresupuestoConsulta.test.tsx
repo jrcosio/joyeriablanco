@@ -68,4 +68,67 @@ describe('Consulta de un presupuesto emitido (005, US1)', () => {
     expect(within(modal).getAllByRole('link', { name: 'PRE-2026-0009' })).toHaveLength(2)
     expect(within(modal).getByText('Otro precio')).toBeInTheDocument()
   })
+
+  it('un pendiente ofrece «Convertir en factura» a cualquier sesión (US3)', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    conPresupuestos()
+    conPresupuesto(crearPresupuesto())
+    renderApp(`/presupuestos/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Presupuesto PRE-2026-0003' })
+    expect(within(modal).getByRole('button', { name: 'Convertir en factura' })).toBeInTheDocument()
+  })
+
+  it('en facturación avisa y abre su borrador, sin convertir, modificar ni anular (US3)', async () => {
+    conSesion(crearSesion({ rol: 'administrador' }))
+    conPresupuestos()
+    conPresupuesto(crearPresupuesto({ estado: 'en_facturacion', borrador_factura: { id: 'b1' } }))
+    renderApp(`/presupuestos/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Presupuesto PRE-2026-0003' })
+    expect(within(modal).getByText('En facturación')).toBeInTheDocument()
+    expect(
+      within(modal).getByText('Este presupuesto tiene un borrador de factura en curso.'),
+    ).toBeInTheDocument()
+    expect(within(modal).getByRole('link', { name: 'Abrir borrador de factura' })).toHaveAttribute(
+      'href',
+      '/facturas/borradores/b1',
+    )
+    for (const accion of ['Convertir en factura', 'Modificar', 'Anular']) {
+      expect(within(modal).queryByRole('button', { name: accion })).toBeNull()
+      expect(within(modal).queryByRole('link', { name: accion })).toBeNull()
+    }
+  })
+
+  it('un convertido enlaza con su factura y con la vigente si se corrigió (US3, FR-022)', async () => {
+    conSesion(crearSesion())
+    conPresupuestos()
+    conPresupuesto(
+      crearPresupuesto({
+        estado: 'convertido',
+        cierre: {
+          tipo: 'conversion',
+          motivo_texto: null,
+          creado_en: '2026-09-30T10:00:00Z',
+          creado_por: { id: 'u1', nombre: 'Ana García', eliminado: false },
+          presupuesto_nuevo: null,
+          factura: { id: 'f1', num_serie: 'FAC-2026-0012' },
+          factura_vigente: { id: 'f2', num_serie: 'FAC-2026-0013' },
+        },
+      }),
+    )
+    renderApp(`/presupuestos/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Presupuesto PRE-2026-0003' })
+    expect(within(modal).getByText('Convertido en factura')).toBeInTheDocument()
+    expect(within(modal).getByRole('link', { name: 'FAC-2026-0012' })).toHaveAttribute(
+      'href',
+      '/facturas/f1',
+    )
+    expect(within(modal).getByRole('link', { name: 'FAC-2026-0013' })).toHaveAttribute(
+      'href',
+      '/facturas/f2',
+    )
+    expect(within(modal).queryByRole('button', { name: 'Convertir en factura' })).toBeNull()
+  })
 })

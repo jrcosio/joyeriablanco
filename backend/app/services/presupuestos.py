@@ -1,4 +1,4 @@
-"""Presupuestos emitidos: emisión, consulta y listado (005; US1, research R-3, R-6 y R-7).
+"""Presupuestos emitidos: emisión, consulta, listado y cierres (005; research R-3, R-5 a R-7).
 
 Un presupuesto sigue el ciclo de la factura sin ninguna pieza fiscal (constitución 2.3.0): número
 `PRE-AAAA-NNNN` con el contador bloqueado de 002, copia del emisor y del destinatario, líneas e
@@ -10,21 +10,27 @@ cálculo, número y escritura. Si algo falla, se deshace entera y no queda núme
 
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import Final, Literal
 
 from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import (
+    RESTRICCIONES_PRESUPUESTO,
     CampoError,
     ClienteNoFacturable,
     DatosNoValidos,
     EmisionNoDisponible,
+    FechaExpedicionNoValida,
     IdempotenciaConflicto,
     NoEncontrado,
+    PresupuestoNoModificable,
+    restriccion,
 )
 from app.core.http import Origen
 from app.core.tiempo import hoy
@@ -32,7 +38,14 @@ from app.domain.importes import line_amount
 from app.domain.numeracion import format_num_serie
 from app.domain.presupuestos import estado_visible
 from app.domain.registro import FECHA_MINIMA_EXPEDICION
-from app.domain.tipos import EstadoPresupuesto, OperacionIdempotente, Serie, TipoEvento
+from app.domain.tipos import (
+    EstadoPresupuesto,
+    OperacionIdempotente,
+    Serie,
+    TipoCierrePresupuesto,
+    TipoEvento,
+)
+from app.models.borrador_factura import BorradorFactura
 from app.models.cierre_presupuesto import CierrePresupuesto
 from app.models.cliente import Cliente
 from app.models.configuracion_facturacion import ConfiguracionFacturacion
@@ -313,6 +326,94 @@ async def get_presupuesto(db: AsyncSession, presupuesto_id: uuid.UUID) -> Detall
         factura_vigente=await _factura_vigente(db, factura),
         borrador_factura_id=borrador.id if borrador is not None else None,
     )
+
+
+# ---------------------------------------------------------------------------- cierres
+
+
+async def no_modificable(db: AsyncSession, presupuesto_id: uuid.UUID) -> PresupuestoNoModificable:
+    """El 409 con el estado visible de ahora y, si está en facturación, su borrador (R-6)."""
+    presupuesto = await repo.get(db, presupuesto_id)
+    if presupuesto is None:
+        return PresupuestoNoModificable("pendiente")
+    guardado = await repo.estado(db, presupuesto_id)
+    borrador = await borradores_factura.get_by_presupuesto(db, presupuesto_id)
+    return PresupuestoNoModificable(
+        estado_visible(guardado, presupuesto.valido_hasta, hoy()).value,
+        borrador.id if borrador is not None else None,
+    )
+
+
+async def guard_presupuesto[T](
+    db: AsyncSession, presupuesto_id: uuid.UUID, escribir: Callable[[], Awaitable[T]]
+) -> T:
+    """Escribe en un punto de guardado y traduce las barreras de la BD (R-6) a un 409.
+
+    Solo salta quien pierde una carrera: la unicidad del cierre o del borrador vinculado, o uno de
+    los dos triggers. Se identifica por el nombre de la restricción, nunca por el mensaje, y la
+    respuesta no lleva detalles técnicos. Cualquier otra violación sigue su camino.
+    """
+    try:
+        async with db.begin_nested():
+            return await escribir()
+    except IntegrityError as exc:
+        if restriccion(exc) not in RESTRICCIONES_PRESUPUESTO:
+            raise
+        raise await no_modificable(db, presupuesto_id) from exc
+
+
+def check_fecha_conversion(borrador: BorradorFactura, fecha_expedicion: date) -> None:
+    """La factura de una conversión no puede ser anterior a su presupuesto (FR-019)."""
+    presupuesto = borrador.presupuesto
+    if presupuesto is not None and fecha_expedicion < presupuesto.fecha:
+        raise FechaExpedicionNoValida(
+            f"La fecha de expedición no puede ser anterior a la del presupuesto "
+            f"{presupuesto.num_serie} ({presupuesto.fecha:%d/%m/%Y})."
+        )
+
+
+async def close_conversion(
+    db: AsyncSession,
+    borrador: BorradorFactura,
+    factura: Factura,
+    *,
+    actor: Usuario,
+    origen: Origen,
+) -> CierrePresupuesto:
+    """Cierre `conversion` del presupuesto del borrador, en la transacción de la emisión (R-5)."""
+    presupuesto = borrador.presupuesto
+    if presupuesto is None:
+        msg = f"El borrador {borrador.id} no procede de ningún presupuesto"
+        raise ValueError(msg)
+    cierre = await guard_presupuesto(
+        db,
+        presupuesto.id,
+        lambda: cierres.insert(
+            db,
+            CierrePresupuesto(
+                presupuesto_id=presupuesto.id,
+                tipo=TipoCierrePresupuesto.CONVERSION.value,
+                factura_id=factura.id,
+                creado_por_id=actor.id,
+            ),
+        ),
+    )
+    await record_event(
+        db,
+        TipoEvento.PRESUPUESTO_CONVERTIDO,
+        origen=origen,
+        actor=actor,
+        cliente_id=factura.cliente_id,
+        detalle={
+            "presupuesto_id": presupuesto.id,
+            "num_serie": presupuesto.num_serie,
+            "factura_id": factura.id,
+            "factura_num_serie": factura.num_serie,
+        },
+    )
+    # Sin datos personales ni importes (FR-035).
+    logger.info("Presupuesto %s convertido en %s", presupuesto.num_serie, factura.num_serie)
+    return cierre
 
 
 # ---------------------------------------------------------------------------- listado

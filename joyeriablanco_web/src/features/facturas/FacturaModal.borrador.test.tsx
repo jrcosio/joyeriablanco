@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BorradorSalida } from '../../api/tipos'
 import {
   conCatalogos,
@@ -11,54 +11,20 @@ import {
   problema,
   renderApp,
 } from '../../test/app'
-import { conFacturacion, crearFactura, MENCION_ORO, PARAMETROS } from '../../test/facturas'
+import {
+  conFacturacion,
+  crearBorradorFactura,
+  crearFactura,
+  MENCION_ORO,
+  PARAMETROS,
+} from '../../test/facturas'
 import { server } from '../../test/msw'
 
 const ID = '0192f0c0-0000-7000-8000-0000000b0001'
 const maria = crearCliente({ direccion: 'Calle Serrano, 45' })
 
 function crearBorrador(parcial: Partial<BorradorSalida> = {}): BorradorSalida {
-  return {
-    id: ID,
-    version: 3,
-    fecha_expedicion: '2026-09-28',
-    cliente: {
-      id: maria.id,
-      nombre: 'María López García',
-      identificacion_pais: 'ES',
-      identificacion_tipo: 'NIF',
-      identificacion_numero: '12345678Z',
-      direccion: 'Calle Serrano, 45',
-      codigo_postal: '29005',
-      localidad: 'Málaga',
-      provincia: 'Málaga',
-      pais: 'ES',
-      activo: true,
-    },
-    lineas: [
-      {
-        orden: 1,
-        unidades: '1.00',
-        descripcion: 'Anillo',
-        precio_unitario: '1200.00',
-        importe: '1200.00',
-      },
-    ],
-    totales_previstos: {
-      desglose: [{ tipo_iva: '21.00', base: '1200.00', cuota: '252.00' }],
-      base_total: '1200.00',
-      cuota_total: '252.00',
-      importe_total: '1452.00',
-    },
-    tipo_iva_previsto: '21.00',
-    oro_inversion: false,
-    mencion_exencion: null,
-    creado_en: '2026-09-28T08:00:00Z',
-    creado_por: { id: 'u1', nombre: 'Ana García', eliminado: false },
-    actualizado_en: '2026-09-28T08:00:00Z',
-    actualizado_por: { id: 'u1', nombre: 'Ana García', eliminado: false },
-    ...parcial,
-  }
+  return crearBorradorFactura({ id: ID, ...parcial })
 }
 
 interface Peticion {
@@ -247,6 +213,48 @@ describe('Modal en modo borrador (US4)', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/facturas')
     })
+  })
+
+  it('un borrador de un presupuesto lo enlaza, limita la fecha y avisa al emitirlo (005)', async () => {
+    const origen = { id: 'p1', num_serie: 'PRE-2026-0003', fecha: '2026-09-20' }
+    conBorrador([() => HttpResponse.json(crearBorrador({ presupuesto_origen: origen }))])
+    const { user, router } = await abrir()
+    const modal = screen.getByRole('dialog', { name: 'Borrador' })
+
+    expect(within(modal).getByRole('link', { name: 'PRE-2026-0003' })).toHaveAttribute(
+      'href',
+      '/presupuestos/p1',
+    )
+    expect(
+      within(modal).getByText('No anterior a la del presupuesto PRE-2026-0003 (20/09/2026).'),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Emitir factura' }))
+    const confirmacion = await screen.findByRole('alertdialog', { name: '¿Emitir la factura?' })
+    const invalidar = vi.spyOn(router.options.context.queryClient, 'invalidateQueries')
+    await user.click(within(confirmacion).getByRole('button', { name: 'Emitir factura' }))
+
+    expect(
+      await screen.findByText('Factura FAC-2026-0006 emitida. PRE-2026-0003 queda convertido'),
+    ).toBeInTheDocument()
+    expect(invalidar.mock.calls.map(([filtro]) => filtro?.queryKey)).toEqual(
+      expect.arrayContaining([['facturas'], ['presupuestos']]),
+    )
+  })
+
+  it('eliminar un borrador invalida también los presupuestos (005, FR-020)', async () => {
+    conBorrador([() => HttpResponse.json(crearBorrador())])
+    const { user, router } = await abrir()
+    const invalidar = vi.spyOn(router.options.context.queryClient, 'invalidateQueries')
+
+    await user.click(screen.getByRole('button', { name: 'Eliminar borrador' }))
+    const dialogo = await screen.findByRole('alertdialog', { name: '¿Eliminar el borrador?' })
+    await user.click(within(dialogo).getByRole('button', { name: 'Eliminar borrador' }))
+
+    expect(await screen.findByText('Borrador eliminado')).toBeInTheDocument()
+    expect(invalidar.mock.calls.map(([filtro]) => filtro?.queryKey)).toEqual(
+      expect.arrayContaining([['presupuestos']]),
+    )
   })
 
   it('avisa si el IVA cambió desde que se guardó', async () => {

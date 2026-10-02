@@ -139,4 +139,100 @@ test.describe('Presupuestos (005)', () => {
     )
     expect((await respuesta.body()).subarray(0, 4).toString()).toBe('%PDF')
   })
+
+  test('convertir en factura: borrador vinculado, en facturación y convertido (US3)', async ({
+    page,
+  }) => {
+    await iniciarSesion(page, 'empleado.demo')
+    await page.goto('/presupuestos')
+    const presupuesto = await emitirPresupuestoPorLaApi(page)
+
+    // Convertir: el borrador de factura se abre con su origen.
+    await page.goto(`/presupuestos/${presupuesto.id}`)
+    let consulta = page.getByRole('dialog', { name: `Presupuesto ${presupuesto.num_serie}` })
+    await consulta.getByRole('button', { name: 'Convertir en factura' }).click()
+    await page
+      .getByRole('alertdialog', { name: '¿Convertir en factura?' })
+      .getByRole('button', { name: 'Convertir en factura' })
+      .click()
+    await expect(
+      page.getByText(`Borrador de factura creado a partir de ${presupuesto.num_serie}`),
+    ).toBeVisible()
+    let borrador = page.getByRole('dialog', { name: 'Borrador' })
+    await expect(borrador.getByText(/Procede del presupuesto/)).toBeVisible()
+    await expect(page).toHaveURL(/\/facturas\/borradores\//)
+    const urlBorrador = page.url()
+
+    // De vuelta al presupuesto: en facturación, y «Abrir borrador» lleva al mismo.
+    await borrador.getByRole('link', { name: presupuesto.num_serie }).click()
+    consulta = page.getByRole('dialog', { name: `Presupuesto ${presupuesto.num_serie}` })
+    await expect(
+      consulta.getByText('Este presupuesto tiene un borrador de factura en curso.'),
+    ).toBeVisible()
+    await expect(consulta.getByRole('button', { name: 'Convertir en factura' })).toHaveCount(0)
+    await consulta.getByRole('link', { name: 'Abrir borrador de factura' }).click()
+    await expect(page).toHaveURL(urlBorrador)
+
+    // Emitir: la factura enlaza con el presupuesto, que queda convertido en ella.
+    borrador = page.getByRole('dialog', { name: 'Borrador' })
+    const emision = page.waitForResponse(
+      (r) => r.url().includes('/api/v1/borradores-factura/') && r.url().endsWith('/emision'),
+    )
+    await borrador.getByRole('button', { name: 'Emitir factura' }).click()
+    await page
+      .getByRole('alertdialog', { name: '¿Emitir la factura?' })
+      .getByRole('button', { name: 'Emitir factura' })
+      .click()
+    const factura = (await (await emision).json()) as {
+      id: string
+      num_serie: string
+      registros: { tipo: string }[]
+    }
+    expect(factura.num_serie).toMatch(/^FAC-\d{4}-\d{4,}$/)
+    expect(factura.registros.map((r) => r.tipo)).toEqual(['alta'])
+    await expect(
+      page.getByText(
+        `Factura ${factura.num_serie} emitida. ${presupuesto.num_serie} queda convertido`,
+      ),
+    ).toBeVisible()
+
+    await page.goto(`/facturas/${factura.id}`)
+    const consultaFactura = page.getByRole('dialog', { name: `Factura ${factura.num_serie}` })
+    await consultaFactura.getByRole('link', { name: presupuesto.num_serie }).click()
+    consulta = page.getByRole('dialog', { name: `Presupuesto ${presupuesto.num_serie}` })
+    await expect(consulta.getByText('Convertido en factura')).toBeVisible()
+    await expect(consulta.getByRole('link', { name: factura.num_serie })).toBeVisible()
+    const pdf = await page.request.get(`/api/v1/presupuestos/${presupuesto.id}/pdf`)
+    expect(pdf.status()).toBe(200)
+  })
+
+  test('eliminar el borrador de la conversión devuelve el presupuesto a pendiente (US3)', async ({
+    page,
+  }) => {
+    await iniciarSesion(page, 'empleado.demo')
+    await page.goto('/presupuestos')
+    const presupuesto = await emitirPresupuestoPorLaApi(page)
+
+    await page.goto(`/presupuestos/${presupuesto.id}`)
+    let consulta = page.getByRole('dialog', { name: `Presupuesto ${presupuesto.num_serie}` })
+    await consulta.getByRole('button', { name: 'Convertir en factura' }).click()
+    await page
+      .getByRole('alertdialog', { name: '¿Convertir en factura?' })
+      .getByRole('button', { name: 'Convertir en factura' })
+      .click()
+    const borrador = page.getByRole('dialog', { name: 'Borrador' })
+    await borrador.getByRole('button', { name: 'Eliminar borrador' }).click()
+    await page
+      .getByRole('alertdialog', { name: '¿Eliminar el borrador?' })
+      .getByRole('button', { name: 'Eliminar borrador' })
+      .click()
+    await expect(page.getByText('Borrador eliminado')).toBeVisible()
+
+    await page.goto(`/presupuestos/${presupuesto.id}`)
+    consulta = page.getByRole('dialog', { name: `Presupuesto ${presupuesto.num_serie}` })
+    await expect(consulta.getByRole('button', { name: 'Convertir en factura' })).toBeVisible()
+    await expect(
+      consulta.getByText('Este presupuesto tiene un borrador de factura en curso.'),
+    ).toHaveCount(0)
+  })
 })

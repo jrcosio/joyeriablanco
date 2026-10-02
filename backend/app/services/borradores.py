@@ -7,6 +7,10 @@ y para avisar si el IVA cambia; al emitir, `emision` lo recalcula todo con el IV
 
 Un borrador de oro de inversión (`oro_inversion`, research R-21) prevé los totales sin cuota. El
 IVA previsto sigue siendo el vigente al guardarlo, por si se desmarca la casilla.
+
+Un borrador creado por «Convertir en factura» (005, R-5) lleva `presupuesto_id`. Al emitirlo, la
+fecha no puede ser anterior a la del presupuesto, y en la misma transacción se cierra el
+presupuesto como convertido.
 """
 
 import uuid
@@ -28,7 +32,7 @@ from app.repositories import borradores as repo
 from app.repositories import clientes as clientes_repo
 from app.repositories import configuracion_facturacion as configuracion_repo
 from app.repositories import registros
-from app.services import emision
+from app.services import emision, presupuestos
 from app.services.auditoria import diff, record_event
 from app.services.contenido import DatosLinea, lineas_json, normalize_lineas, previstos
 
@@ -120,13 +124,27 @@ async def get_borrador(db: AsyncSession, borrador_id: uuid.UUID) -> BorradorFact
     return borrador
 
 
+def build_borrador(
+    datos: DatosBorrador,
+    *,
+    actor: Usuario,
+    tipo_iva: Decimal,
+    presupuesto_id: uuid.UUID | None = None,
+) -> BorradorFactura:
+    """Borrador nuevo, sin guardar, con los totales previstos al IVA vigente."""
+    borrador = BorradorFactura(
+        creado_por_id=actor.id, actualizado_por_id=actor.id, presupuesto_id=presupuesto_id
+    )
+    _aplicar(borrador, datos, normalize_lineas(datos.lineas), tipo_iva)
+    return borrador
+
+
 async def create_borrador(
     db: AsyncSession, datos: DatosBorrador, *, actor: Usuario, origen: Origen
 ) -> BorradorFactura:
     await _check_cliente(db, datos.cliente_id, actual=None)
     config = await configuracion_repo.get(db)
-    borrador = BorradorFactura(creado_por_id=actor.id, actualizado_por_id=actor.id)
-    _aplicar(borrador, datos, normalize_lineas(datos.lineas), config.iva_por_defecto)
+    borrador = build_borrador(datos, actor=actor, tipo_iva=config.iva_por_defecto)
     await repo.save(db, borrador)
     await record_event(
         db,
@@ -187,6 +205,8 @@ async def delete_borrador(
     borrador = await get_borrador(db, borrador_id)
     detalle = {"borrador_id": borrador.id, **_contenido(borrador)}
     detalle.pop("tipo_iva_previsto")
+    if borrador.presupuesto_id is not None:  # el presupuesto vuelve a pendiente (005, FR-020)
+        detalle["presupuesto_id"] = borrador.presupuesto_id
     cliente_id = borrador.cliente_id
     await repo.delete(db, borrador)
     await record_event(
@@ -214,6 +234,9 @@ async def emit_borrador(
     Mismo orden de cerrojos que cualquier emisión: primero la cadena y la clave de idempotencia
     (una repetición devuelve la misma factura aunque el borrador ya no exista) y después el
     borrador con `FOR UPDATE`, que es mutable.
+
+    Si procede de un presupuesto (005, R-5), se comprueba antes la fecha y, tras emitir y antes de
+    borrar el borrador, se cierra el presupuesto como convertido en esta misma transacción.
     """
     await registros.lock_chain(db)
     operacion = OperacionIdempotente.EMITIR_BORRADOR
@@ -226,6 +249,8 @@ async def emit_borrador(
         raise ConflictoVersion(repo.MENSAJE_CONFLICTO)
     if datos.cliente_id is None:
         raise DatosNoValidos(errores=[CampoError("cliente_id", "Elige el cliente.")])
+    if borrador.presupuesto_id is not None:
+        presupuestos.check_fecha_conversion(borrador, datos.fecha_expedicion)
     factura, _ = await emision.emit_factura(
         db,
         emision.DatosFactura(
@@ -241,5 +266,7 @@ async def emit_borrador(
         origen_id=borrador_id,
         cadena_bloqueada=True,
     )
+    if borrador.presupuesto_id is not None:
+        await presupuestos.close_conversion(db, borrador, factura, actor=actor, origen=origen)
     await repo.delete(db, borrador)
     return factura, True

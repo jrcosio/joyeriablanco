@@ -119,6 +119,23 @@ describe('Consulta de una factura emitida (US5)', () => {
     expect(within(modal).queryByRole('link', { name: 'Modificar' })).toBeNull()
   })
 
+  it('si procede de un presupuesto, lo enlaza (005, FR-022)', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    conFactura([
+      crearFactura({
+        presupuesto_origen: { id: 'p1', num_serie: 'PRE-2026-0003', fecha: '2026-09-29' },
+      }),
+    ])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0005' })
+    expect(within(modal).getByText(/Procede del presupuesto/)).toBeInTheDocument()
+    expect(within(modal).getByRole('link', { name: 'PRE-2026-0003' })).toHaveAttribute(
+      'href',
+      '/presupuestos/p1',
+    )
+  })
+
   it('cualquiera puede imprimirla en una pestaña nueva (003, FR-001)', async () => {
     conSesion(crearSesion({ rol: 'empleado' }))
     conFactura([crearFactura()])

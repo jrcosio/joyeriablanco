@@ -22,6 +22,7 @@ from app.schemas.factura import (
     OroInversion,
     TotalesSalida,
 )
+from app.schemas.factura import PresupuestoReferencia as PresupuestoReferencia
 from app.schemas.importes import ImporteSalida, TipoIvaSalida
 from app.schemas.usuario import UsuarioReferencia
 
@@ -46,15 +47,6 @@ class ModificacionPresupuestoEntrada(EntradaBase):
 
 class AnulacionPresupuestoEntrada(EntradaBase):
     motivo_texto: MotivoTexto
-
-
-class PresupuestoReferencia(SalidaBase):
-    id: uuid.UUID
-    num_serie: str
-    fecha: Annotated[
-        date,
-        Field(description="Fecha mínima de expedición del borrador de factura vinculado (FR-019)"),
-    ]
 
 
 class CierrePresupuestoSalida(SalidaBase):

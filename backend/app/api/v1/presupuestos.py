@@ -1,5 +1,6 @@
-"""/v1/presupuestos (005): parámetros del modal, listado, emisión y detalle (US1) y PDF (US2).
-El router valida, delega en los servicios y serializa (constitución V)."""
+"""/v1/presupuestos (005): parámetros del modal, listado, emisión y detalle (US1), PDF (US2) y
+conversión en factura (US3). El router valida, delega en los servicios y serializa
+(constitución V)."""
 
 import uuid
 from typing import Annotated, Any, Literal
@@ -7,12 +8,19 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.deps import CurrentSession, DbDep, OrigenDep, get_current_session
-from app.api.v1.facturas import RESPUESTA_PDF, AnioListado, ClaveIdempotencia, datos_lineas
+from app.api.v1.borradores import borrador_salida
+from app.api.v1.facturas import (
+    RESPUESTA_PDF,
+    AnioListado,
+    ClaveIdempotencia,
+    datos_lineas,
+    presupuesto_referencia,
+)
 from app.core.pdf.respuestas import respuesta_pdf
 from app.domain.exenciones import MENCION_EXENCION_ORO_INVERSION
 from app.domain.tipos import TipoCierrePresupuesto
 from app.models.factura import Factura
-from app.models.presupuesto import Presupuesto
+from app.schemas.borrador import BorradorSalida
 from app.schemas.comunes import Pagina
 from app.schemas.configuracion_facturacion import DatosEmisorSalida
 from app.schemas.factura import (
@@ -27,12 +35,11 @@ from app.schemas.presupuesto import (
     CierrePresupuestoSalida,
     ParametrosPresupuestoSalida,
     PresupuestoEntrada,
-    PresupuestoReferencia,
     PresupuestoResumenSalida,
     PresupuestoSalida,
 )
 from app.schemas.usuario import UsuarioReferencia
-from app.services import impresion_presupuestos
+from app.services import conversion, impresion_presupuestos
 from app.services import presupuestos as servicio
 from app.services.presupuestos import DetallePresupuesto
 
@@ -51,14 +58,6 @@ REPETICION: dict[int | str, dict[str, Any]] = {
 # ------------------------------------------------------------------------ conversiones
 
 
-def referencia(presupuesto: Presupuesto | None) -> PresupuestoReferencia | None:
-    if presupuesto is None:
-        return None
-    return PresupuestoReferencia(
-        id=presupuesto.id, num_serie=presupuesto.num_serie, fecha=presupuesto.fecha
-    )
-
-
 def _factura(factura: Factura | None) -> FacturaReferencia | None:
     return FacturaReferencia(id=factura.id, num_serie=factura.num_serie) if factura else None
 
@@ -72,7 +71,7 @@ def _cierre(detalle: DetallePresupuesto) -> CierrePresupuestoSalida | None:
         motivo_texto=cierre.motivo_texto,
         creado_en=cierre.creado_en,
         creado_por=UsuarioReferencia.from_model(cierre.creado_por),
-        presupuesto_nuevo=referencia(detalle.presupuesto_nuevo),
+        presupuesto_nuevo=presupuesto_referencia(detalle.presupuesto_nuevo),
         factura=_factura(detalle.factura),
         factura_vigente=_factura(detalle.factura_vigente),
     )
@@ -128,8 +127,8 @@ def presupuesto_salida(detalle: DetallePresupuesto) -> PresupuestoSalida:
         ),
         oro_inversion=p.oro_inversion,
         mencion_exencion=MENCION_EXENCION_ORO_INVERSION if p.oro_inversion else None,
-        sustituye_a=referencia(detalle.sustituye_a),
-        vigente_actual=referencia(detalle.vigente_actual),
+        sustituye_a=presupuesto_referencia(detalle.sustituye_a),
+        vigente_actual=presupuesto_referencia(detalle.vigente_actual),
         cierre=_cierre(detalle),
         borrador_factura=BorradorReferencia(id=detalle.borrador_factura_id)
         if detalle.borrador_factura_id
@@ -239,3 +238,29 @@ async def imprimir_presupuesto(
     """Presupuesto en PDF, sin QR tributario (005, US2). Cualquier sesión, como la consulta."""
     documento = await impresion_presupuestos.presupuesto_pdf(db, presupuesto_id, iban=iban)
     return respuesta_pdf(documento.nombre, documento.contenido)
+
+
+@router.post(
+    "/{presupuesto_id}/conversion",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_200_OK: {
+            "model": BorradorSalida,
+            "description": "El presupuesto ya estaba en facturación: su borrador vinculado",
+        }
+    },
+)
+async def convertir_presupuesto(
+    presupuesto_id: uuid.UUID,
+    sesion: CurrentSession,
+    db: DbDep,
+    origen: OrigenDep,
+    response: Response,
+) -> BorradorSalida:
+    """Crea el borrador de factura vinculado y precargado (FR-018; research R-5). Sin cuerpo."""
+    borrador, creado = await conversion.create_borrador_conversion(
+        db, presupuesto_id, actor=sesion.usuario, origen=origen
+    )
+    if not creado:
+        response.status_code = status.HTTP_200_OK
+    return borrador_salida(borrador)

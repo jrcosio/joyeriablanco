@@ -18,6 +18,7 @@ import { fechaCorta } from '../../lib/fechas'
 import { useClaveOperacion } from '../../lib/idempotencia'
 import { nombreConEstado } from '../../lib/usuarios'
 import { AnularFacturaDialog } from './AnularFacturaDialog'
+import { EnlacePresupuesto } from './EnlacePresupuesto'
 import { EnlacesFactura, HistorialFactura } from './HistorialFactura'
 import { ImprimirFactura } from './ImprimirFactura'
 import { FichaDestinatario } from '../documentos/ResumenCliente'
@@ -107,6 +108,7 @@ export function FacturaDetalle({ factura }: { factura: FacturaSalida }) {
       <div className="flex flex-col gap-3">
         <Marcas factura={factura} />
         <EnlacesFactura factura={factura} />
+        <EnlacePresupuesto presupuesto={factura.presupuesto_origen} />
       </div>
       <Seccion titulo="Datos de emisión">
         <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">

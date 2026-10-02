@@ -565,6 +565,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/presupuestos/{presupuesto_id}/conversion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convertir Presupuesto
+         * @description Crea el borrador de factura vinculado y precargado (FR-018; research R-5). Sin cuerpo.
+         */
+        post: operations["convertir_presupuesto_api_v1_presupuestos__presupuesto_id__conversion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/borradores-presupuesto": {
         parameters: {
             query?: never;
@@ -852,6 +872,8 @@ export interface components {
              */
             actualizado_en: string;
             actualizado_por: components["schemas"]["UsuarioReferencia"];
+            /** @description Ampliado en 005 (FR-018, FR-022): presupuesto del que procede el borrador creado por «Convertir en factura» */
+            presupuesto_origen?: components["schemas"]["PresupuestoReferencia"] | null;
         };
         /** CambioContrasenaEntrada */
         CambioContrasenaEntrada: {
@@ -1395,6 +1417,8 @@ export interface components {
             emitida_por: components["schemas"]["UsuarioReferencia"];
             /** Registros */
             registros: components["schemas"]["RegistroResumen"][];
+            /** @description Ampliado en 005 (FR-022): presupuesto convertido en esta factura */
+            presupuesto_origen?: components["schemas"]["PresupuestoReferencia"] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1624,7 +1648,10 @@ export interface components {
              */
             oro_inversion: boolean;
         };
-        /** PresupuestoReferencia */
+        /**
+         * PresupuestoReferencia
+         * @description De 005, aquí para que la factura y el borrador la usen sin importar `schemas/presupuesto`.
+         */
         PresupuestoReferencia: {
             /**
              * Id
@@ -3321,6 +3348,46 @@ export interface operations {
                 };
                 content: {
                     "application/pdf": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convertir_presupuesto_api_v1_presupuestos__presupuesto_id__conversion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                presupuesto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El presupuesto ya estaba en facturación: su borrador vinculado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
                 };
             };
             /** @description Validation Error */

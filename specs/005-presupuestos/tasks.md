@@ -385,7 +385,7 @@ leyenda, la validez y el contenido, y que no hay ningún elemento fiscal.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T045 [P] [US3] ⚖️ Test `backend/tests/integration/test_conversion_presupuesto.py` (FR-018 a FR-022, SC-003 a SC-005, R-5, R-6), con las pruebas de concurrencia en commit real:
+- [X] T045 [P] [US3] ⚖️ Test `backend/tests/integration/test_conversion_presupuesto.py` (FR-018 a FR-022, SC-003 a SC-005, R-5, R-6), con las pruebas de concurrencia en commit real:
   - **Crear el borrador**:
     - Precargado con el cliente, las líneas y `oro_inversion`, con la fecha de hoy y el IVA vigente.
     - Sin números consumidos y con el evento `borrador_factura_creado` con `presupuesto_id`.
@@ -405,12 +405,13 @@ leyenda, la validez y el contenido, y que no hay ningún elemento fiscal.
   - **Cliente y configuración**: cliente desactivado o sin domicilio, o sin modalidad → error, sin número, y el presupuesto sigue en facturación.
   - **Eliminar el borrador**: el presupuesto vuelve a `pendiente` y se puede volver a convertir.
   - **Carreras**, con un hilo cada una: conversión frente a anulación, y conversión frente a modificación. Solo una tiene efecto. También con el trigger y la unicidad, forzados con SQL directo.
+    - *Implementación*: el trigger y las unicidades, forzados con SQL directo, y su traducción al 409 están aquí. Las dos carreras con hilos pasan a T056, porque necesitan los servicios reales de anular y modificar.
   - **Importes** ⚖️:
     - Con el mismo IVA, la factura coincide al céntimo con el presupuesto.
     - Con el IVA por defecto cambiado, la misma base y la cuota recalculada.
     - Oro de inversión: factura exenta.
   - **Encadenamiento** ⚖️: con conversiones intercaladas entre emisiones directas, anulaciones y rectificativas, `services/integridad` (`verificar-cadena`) informa de una cadena íntegra.
-- [ ] T046 [P] [US3] Tests web:
+- [X] T046 [P] [US3] Tests web:
   - `joyeriablanco_web/src/features/presupuestos/ConvertirPresupuestoDialog.test.tsx`:
     - La confirmación y el aviso de caducado.
     - La navegación al borrador con el aviso.
@@ -426,40 +427,43 @@ leyenda, la validez y el contenido, y que no hay ningún elemento fiscal.
 
 ### Implementation for User Story 3
 
-- [ ] T047 [P] [US3] `backend/app/repositories/borradores.py`: `get_by_presupuesto(presupuesto_id)`. El cerrojo y los cierres ya están en T027.
-- [ ] T048 [US3] `backend/app/core/errors.py`:
+- [X] T047 [P] [US3] `backend/app/repositories/borradores.py`: `get_by_presupuesto(presupuesto_id)`. El cerrojo y los cierres ya están en T027.
+  - *Implementación*: ya existía desde la US1, porque lo usa `get_presupuesto`.
+- [X] T048 [US3] `backend/app/core/errors.py`:
   - `PresupuestoNoModificable(estado, borrador_factura_id=None)`, 409 `presupuesto-no-modificable`.
   - Traducción **por el nombre de la restricción** a ese error, sin exponer detalles técnicos:
     - Las unicidades `uq_cierres_presupuesto_presupuesto_id` y `uq_borradores_factura_presupuesto_id`.
     - Los triggers, con `tg_cierres_presupuesto_en_facturacion` y `tg_borradores_factura_presupuesto_cerrado` (R-6).
-- [ ] T049 [US3] `backend/app/services/conversion.py` (R-5, R-6):
+- [X] T049 [US3] `backend/app/services/conversion.py` (R-5, R-6):
   - `create_borrador_conversion(db, presupuesto_id, *, actor, origen) -> tuple[BorradorFactura, bool]`:
     - `lock_presupuestos` y estado.
     - El borrador existente, o uno nuevo creado **directamente** con el `cliente_id` del presupuesto, sin `_check_cliente`, aunque esté desactivado.
     - Auditoría.
   - `close_conversion(db, borrador, factura, *, actor, origen)`: inserta el cierre y el evento.
   - `check_fecha_conversion(borrador, fecha)`.
-- [ ] T050 [US3] Enganche en 002, en `backend/app/services/borradores.py → emit_borrador`. Si `borrador.presupuesto_id`:
+  - *Implementación*: `close_conversion` y `check_fecha_conversion` van en `services/presupuestos.py`, junto a los demás cierres y a `guard_presupuesto`, que traduce las barreras de la BD. Así `services/borradores.py` no importa `conversion.py`, que a su vez usa `borradores.build_borrador`, y no hay ciclo.
+- [X] T050 [US3] Enganche en 002, en `backend/app/services/borradores.py → emit_borrador`. Si `borrador.presupuesto_id`:
   - `check_fecha_conversion` antes de emitir.
   - `close_conversion` tras `emit_factura` y antes de borrar el borrador.
 
   El resto del flujo y su idempotencia no cambian. Comprobar `test_borradores.py` y `test_emision.py` en verde.
-- [ ] T051 [US3] Ampliaciones de los esquemas y servicios de 002 (contrato «ampliado en 005»):
+- [X] T051 [US3] Ampliaciones de los esquemas y servicios de 002 (contrato «ampliado en 005»):
   - `backend/app/schemas/borrador.py` y `backend/app/api/v1/borradores.py → _salida`: `presupuesto_origen`.
   - `backend/app/schemas/factura.py`, `backend/app/services/facturas.py → get_factura` y `backend/app/api/v1/facturas.py → factura_salida`: `presupuesto_origen`, leído del cierre de conversión.
   - `backend/app/services/presupuestos.get_presupuesto`: el borrador vinculado, el cierre y la factura vigente, con `services/facturas`.
-- [ ] T052 [US3] Router: `POST /v1/presupuestos/{id}/conversion` en `backend/app/api/v1/presupuestos.py`, con 201 o 200 y `BorradorSalida`. Quitarlo de `PENDIENTES_005`.
-- [ ] T053 [US3] Queries web:
+- [X] T052 [US3] Router: `POST /v1/presupuestos/{id}/conversion` en `backend/app/api/v1/presupuestos.py`, con 201 o 200 y `BorradorSalida`. Quitarlo de `PENDIENTES_005`.
+- [X] T053 [US3] Queries web:
   - `joyeriablanco_web/src/api/queries/presupuestos.ts → useConvertirPresupuesto`: invalida presupuestos, facturas y clientes, y siembra `borradorQuery`.
+    - *Implementación*: en `api/queries/conversion.ts`, para no crear un ciclo entre `presupuestos.ts` y `borradores.ts`.
   - `joyeriablanco_web/src/api/queries/borradores.ts`: emitir y eliminar invalidan también `PRESUPUESTOS_KEY`.
   - Regenerar los tipos.
-- [ ] T054 [US3] Pantallas:
+- [X] T054 [US3] Pantallas:
   - `joyeriablanco_web/src/features/presupuestos/ConvertirPresupuestoDialog.tsx`.
   - `PresupuestoConsulta.tsx`: «En facturación», «Abrir borrador de factura», el historial de la conversión con la factura y su vigente, y el tratamiento de `presupuesto-no-modificable` (ui-rutas, «Errores»).
   - Nuevo `joyeriablanco_web/src/features/facturas/EnlacePresupuesto.tsx`, en `FacturaModal.tsx` (borrador) y `FacturaConsulta.tsx`.
   - El aviso tras emitir un borrador vinculado: «Factura FAC-… emitida. PRE-… queda convertido».
   - Hace pasar T046.
-- [ ] T055 [US3] E2E en `joyeriablanco_web/e2e/presupuestos.spec.ts`:
+- [X] T055 [US3] E2E en `joyeriablanco_web/e2e/presupuestos.spec.ts`:
   - Convertir y abrir el borrador con «Procede del presupuesto».
   - Volver al presupuesto, que está «En facturación», y pulsar «Abrir borrador» para llegar al mismo.
   - Emitir: la factura tiene QR y el enlace, y el presupuesto queda «Convertido en FAC-…» con su enlace.
@@ -493,6 +497,7 @@ siguiente número, los dos se enlazan y no se reutiliza ningún número.
     - Un empleado → 403.
     - Sobre uno cerrado → 409.
     - Sobre uno en facturación → 409 con `borrador_factura_id`.
+  - **Carreras** (pasan aquí desde T045), con un hilo cada una: conversión frente a anulación, y conversión frente a modificación. Solo una tiene efecto, y el perdedor recibe 409 sin consumir números.
   - **Idempotencia**:
     - Repetir con la misma clave **después del commit** devuelve 200 con el mismo resultado, no un 409.
     - El doble envío simultáneo con la misma clave da un solo presupuesto nuevo o un solo cierre.

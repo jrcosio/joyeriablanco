@@ -24,7 +24,6 @@ PENDIENTES_005 = {
     ("/api/v1/presupuestos/listado/pdf", "get"),
     ("/api/v1/presupuestos/{}/modificacion", "post"),
     ("/api/v1/presupuestos/{}/anulacion", "post"),
-    ("/api/v1/presupuestos/{}/conversion", "post"),
 }
 
 

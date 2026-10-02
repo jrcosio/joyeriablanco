@@ -8,7 +8,13 @@ from typing import Annotated
 from pydantic import Field
 
 from app.schemas.comunes import EntradaBase, SalidaBase
-from app.schemas.factura import ClienteFacturaSalida, LineaEntrada, OroInversion, TotalesSalida
+from app.schemas.factura import (
+    ClienteFacturaSalida,
+    LineaEntrada,
+    OroInversion,
+    PresupuestoReferencia,
+    TotalesSalida,
+)
 from app.schemas.importes import CantidadSalida, ImporteSalida, TipoIvaSalida
 from app.schemas.usuario import UsuarioReferencia
 
@@ -56,3 +62,12 @@ class BorradorSalida(SalidaBase):
     creado_por: UsuarioReferencia
     actualizado_en: datetime
     actualizado_por: UsuarioReferencia
+    presupuesto_origen: Annotated[
+        PresupuestoReferencia | None,
+        Field(
+            description=(
+                "Ampliado en 005 (FR-018, FR-022): presupuesto del que procede el borrador creado "
+                "por «Convertir en factura»"
+            )
+        ),
+    ] = None
