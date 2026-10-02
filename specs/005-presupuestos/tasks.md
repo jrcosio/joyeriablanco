@@ -56,11 +56,11 @@ US1 (borrador, emisión, consulta y listado; P1, MVP)
 **Purpose**: dejar el test de contrato preparado para 005 y los tipos de dominio que usa todo lo
 demás.
 
-- [ ] T001 Test de contrato para 005 (002 R-14) en `backend/tests/integration/test_contrato_openapi.py`:
+- [X] T001 Test de contrato para 005 (002 R-14) en `backend/tests/integration/test_contrato_openapi.py`:
   - Lista `PENDIENTES_005` con las 14 operaciones de [contracts/openapi.yaml](contracts/openapi.yaml), excluidas solo del sentido «contrato → API».
   - `test_hay_un_contrato_por_feature` incluye `005-presupuestos`: la lista esperada pasa a los cuatro primeros contratos.
   - Hoy el test está en rojo en la rama, porque ya recoge el contrato de 005 sin implementación. Ejecutarlo y dejarlo en verde. Las tareas T030, T041, T052, T060 y T067 vacían la lista, y T078 la elimina.
-- [ ] T002 [P] Tipos de dominio (research R-3, R-4) en `backend/app/domain/tipos.py`:
+- [X] T002 [P] Tipos de dominio (research R-3, R-4) en `backend/app/domain/tipos.py`:
   - `Serie.PRESUPUESTO = "PRE"`.
   - `EstadoPresupuesto`: `borrador`, `pendiente`, `caducado`, `en_facturacion`, `convertido`, `sustituido` y `anulado`.
   - `TipoCierrePresupuesto`: `anulacion`, `sustitucion` y `conversion`.

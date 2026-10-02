@@ -18,6 +18,24 @@ from app.main import create_app
 SPECS = Path(__file__).resolve().parents[3] / "specs"
 CONTRATOS = sorted(SPECS.glob("*/contracts/openapi.yaml"))
 METODOS = {"get", "post", "put", "patch", "delete"}
+# Operaciones de 005 aún sin implementar: solo se excluyen del sentido «contrato → API». Cada ruta
+# nueva sale de la lista y T078 la elimina (tasks.md de 005).
+PENDIENTES_005 = {
+    ("/api/v1/presupuestos/parametros", "get"),
+    ("/api/v1/presupuestos/listado/pdf", "get"),
+    ("/api/v1/presupuestos", "get"),
+    ("/api/v1/presupuestos", "post"),
+    ("/api/v1/presupuestos/{}", "get"),
+    ("/api/v1/presupuestos/{}/pdf", "get"),
+    ("/api/v1/presupuestos/{}/modificacion", "post"),
+    ("/api/v1/presupuestos/{}/anulacion", "post"),
+    ("/api/v1/presupuestos/{}/conversion", "post"),
+    ("/api/v1/borradores-presupuesto", "post"),
+    ("/api/v1/borradores-presupuesto/{}", "get"),
+    ("/api/v1/borradores-presupuesto/{}", "put"),
+    ("/api/v1/borradores-presupuesto/{}", "delete"),
+    ("/api/v1/borradores-presupuesto/{}/emision", "post"),
+}
 
 
 def _normalizar(ruta: str) -> str:
@@ -47,10 +65,11 @@ def _contratos() -> dict[tuple[str, str], set[str]]:
 
 
 def test_hay_un_contrato_por_feature() -> None:
-    assert [f.parents[1].name for f in CONTRATOS][:3] == [
+    assert [f.parents[1].name for f in CONTRATOS][:4] == [
         "001-cimientos-clientes",
         "002-facturas",
         "003-pdf-impresion",
+        "005-presupuestos",
     ]
 
 
@@ -60,7 +79,7 @@ def test_la_api_implementa_exactamente_el_contrato() -> None:
 
     solo_en_api = set(reales) - set(esperadas)
     assert not solo_en_api, f"Operaciones sin contrato: {sorted(solo_en_api)}"
-    solo_en_contrato = set(esperadas) - set(reales)
+    solo_en_contrato = set(esperadas) - set(reales) - PENDIENTES_005
     assert not solo_en_contrato, f"Operaciones del contrato sin implementar: {solo_en_contrato}"
     for operacion, exitos in reales.items():
         assert exitos == esperadas[operacion], (

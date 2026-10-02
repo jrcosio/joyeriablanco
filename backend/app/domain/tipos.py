@@ -58,16 +58,28 @@ class TipoEvento(StrEnum):
     CONTADOR_AJUSTADO = "contador_ajustado"
     CADENA_VERIFICADA = "cadena_verificada"
     CADENA_INCONSISTENTE = "cadena_inconsistente"
+    # Presupuestos (feature 005, data-model «eventos_auditoria»)
+    BORRADOR_PRESUPUESTO_CREADO = "borrador_presupuesto_creado"
+    BORRADOR_PRESUPUESTO_EDITADO = "borrador_presupuesto_editado"
+    BORRADOR_PRESUPUESTO_ELIMINADO = "borrador_presupuesto_eliminado"
+    PRESUPUESTO_EMITIDO = "presupuesto_emitido"
+    PRESUPUESTO_MODIFICADO = "presupuesto_modificado"
+    PRESUPUESTO_ANULADO = "presupuesto_anulado"
+    PRESUPUESTO_CONVERTIDO = "presupuesto_convertido"
 
 
 # ------------------------------------------------------------------------- facturación (002)
 
 
 class Serie(StrEnum):
-    """Series de facturas (constitución 2.2.0, «Numeración»; ROF art. 6.1.a, 2.º)."""
+    """Series de numeración (constitución 2.3.0, «Numeración»; ROF art. 6.1.a, 2.º).
+
+    `PRE` es la de los presupuestos (feature 005), un documento no fiscal con las mismas garantías.
+    """
 
     ORDINARIA = "FAC"
     RECTIFICATIVA = "REC"
+    PRESUPUESTO = "PRE"
 
 
 class TipoFactura(StrEnum):
@@ -160,6 +172,33 @@ class EstadoFactura(StrEnum):
 # general». No se configura: la fija el sistema, salvo en el oro de inversión, que lleva la 04
 # (`domain/exenciones.py`; research R-21 y R-23).
 CLAVE_REGIMEN_GENERAL: Final = "01"
+
+
+# ------------------------------------------------------------------------ presupuestos (005)
+
+
+class EstadoPresupuesto(StrEnum):
+    """Estado visible de un presupuesto (FR-001; research R-3).
+
+    El guardado lo calcula `estado_presupuesto()` en la BD. `caducado` se deriva además de la
+    validez y de la fecha de hoy (`domain/presupuestos.estado_visible`).
+    """
+
+    BORRADOR = "borrador"
+    PENDIENTE = "pendiente"
+    CADUCADO = "caducado"
+    EN_FACTURACION = "en_facturacion"
+    CONVERTIDO = "convertido"
+    SUSTITUIDO = "sustituido"
+    ANULADO = "anulado"
+
+
+class TipoCierrePresupuesto(StrEnum):
+    """Desenlace de un presupuesto emitido: como mucho uno (data-model «cierres_presupuesto»)."""
+
+    ANULACION = "anulacion"
+    SUSTITUCION = "sustitucion"
+    CONVERSION = "conversion"
 
 
 class OperacionIdempotente(StrEnum):
