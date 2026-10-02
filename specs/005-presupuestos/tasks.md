@@ -193,7 +193,7 @@ deben quedar en verde (T020).
 - [X] T015 `joyeriablanco_web/src/lib/impresion.ts` (+ `.test.ts`), después de T014, porque toca los mismos usos:
   - La base por tipo de documento: `urlPdfFactura` igual que hoy, `urlPdfPresupuesto(id, { iban })` y `urlPdfListado('facturas' | 'presupuestos', filtros)`.
   - Las llamadas de facturas, actualizadas.
-- [ ] T016 [P] Ayudantes de prueba de la web:
+- [X] T016 [P] Ayudantes de prueba de la web:
   - `joyeriablanco_web/src/test/presupuestos.ts`: `PARAMETROS_PRESUPUESTO`, `crearPresupuesto(estado, …)` y `conPresupuestos`.
   - `joyeriablanco_web/e2e/helpers/presupuestos.ts`: `emitirPresupuestoPorLaApi`.
 - [X] T017 Regenerar los tipos: `uv --directory backend run joyeria exportar-openapi && npm --prefix joyeriablanco_web run gen:api`. Ajustar los usos de la configuración ampliada.
@@ -261,7 +261,7 @@ ampliada.
   - Estados y caducidad con `hoy` simulado (monkeypatch de `hoy()`).
   - 25 por página por defecto y 100 como máximo.
 - [X] T025 [P] [US1] Ampliar `backend/tests/integration/test_clientes_ciclo_vida.py` (FR-033): un cliente con solo un borrador de presupuesto, o con un presupuesto emitido, → 409 `cliente-con-documentos`.
-- [ ] T026 [P] [US1] Tests web:
+- [X] T026 [P] [US1] Tests web:
   - `joyeriablanco_web/src/features/presupuestos/PresupuestosPage.test.tsx`: listado, marcas con su tono y su texto, estados vacíos de FR-023, filtros en la URL y acciones con nombre accesible.
   - `PresupuestoModal.test.tsx`: nuevo, guardar borrador, emitir con confirmación, validez propuesta y recalculada, error de validez en el campo, aviso del cliente sin domicilio y que nunca se envían totales.
   - `PresupuestoModal.borrador.test.tsx`: editar, conflicto, descartar y eliminar.
@@ -295,18 +295,18 @@ ampliada.
   - Registro en `backend/app/api/v1/__init__.py`.
   - Quitar de `PENDIENTES_005` las 9 operaciones implementadas: 4 de presupuestos y 5 de borradores.
 - [X] T031 [US1] `backend/app/services/documentos.py`: `DocumentosDeFacturacion` suma `presupuestos.has_documentos` y los borradores de presupuesto. Hace pasar T025.
-- [ ] T032 [US1] Regenerar los tipos (T017) y crear las queries:
+- [X] T032 [US1] Regenerar los tipos (T017) y crear las queries:
   - `joyeriablanco_web/src/api/queries/presupuestos.ts`:
     - `PRESUPUESTOS_KEY`, `presupuestosListaQuery` (con `keepPreviousData`), `presupuestoQuery` y `parametrosPresupuestoQuery`.
     - `useEmitirPresupuesto` con `Idempotency-Key`.
     - Las invalidaciones de presupuestos y clientes.
   - `joyeriablanco_web/src/api/queries/borradoresPresupuesto.ts`: crear, guardar con versión, eliminar y emitir.
-- [ ] T033 [US1] Rutas (contracts/ui-rutas.md):
+- [X] T033 [US1] Rutas (contracts/ui-rutas.md):
   - `joyeriablanco_web/src/routes/_app/presupuestos.tsx`, con el esquema zod de búsqueda compartido con facturas.
   - `presupuestos/nuevo.tsx` y `presupuestos/borradores/$borradorId.tsx`, con `staleTime: 0`.
   - `presupuestos/$presupuestoId/index.tsx`.
   - Carga previa con `precargar()`.
-- [ ] T034 [US1] Pantallas en `joyeriablanco_web/src/features/presupuestos/`:
+- [X] T034 [US1] Pantallas en `joyeriablanco_web/src/features/presupuestos/`:
   - **Listado**: `PresupuestosPage.tsx`, con `FiltrosDocumentos`, `TablaDocumentos`, `Pagination`, los estados vacíos y «Nuevo presupuesto».
   - **Marcas**: `MarcaPresupuesto.tsx`, con los tonos de ui-rutas y siempre con texto.
   - **Valores del formulario**: `presupuesto-valores.ts`, con zod, `aCuerpo`, `valoresDelBorrador` y la validez propuesta.
@@ -315,8 +315,8 @@ ampliada.
     - `NuevoPresupuestoModal` y `BorradorPresupuestoModal`.
   - **Consulta**: `PresupuestoConsulta.tsx`, con los datos, la validez, las líneas en solo lectura, los totales y el bloque de historial, que se completa en US3 y US4.
   - Hace pasar T026.
-- [ ] T035 [US1] `joyeriablanco_web/src/components/layout/Sidebar.tsx`: «Presupuestos» con `to: '/presupuestos'`. Se elimina la rama «Próximamente» si queda sin uso, y se actualiza `e2e/acceso.spec.ts:19` (0 «Próximamente»).
-- [ ] T036 [US1] E2E `joyeriablanco_web/e2e/presupuestos.spec.ts`, primera parte: menú, nuevo borrador, editar, emitir (número PRE), consulta no editable, borrador eliminado sin consumir número, y búsqueda y filtro.
+- [X] T035 [US1] `joyeriablanco_web/src/components/layout/Sidebar.tsx`: «Presupuestos» con `to: '/presupuestos'`. Se elimina la rama «Próximamente» si queda sin uso, y se actualiza `e2e/acceso.spec.ts:19` (0 «Próximamente»).
+- [X] T036 [US1] E2E `joyeriablanco_web/e2e/presupuestos.spec.ts`, primera parte: menú, nuevo borrador, editar, emitir (número PRE), consulta no editable, borrador eliminado sin consumir número, y búsqueda y filtro.
 
 **Checkpoint**: MVP utilizable: presupuestos emitidos, numerados y consultables, sin efectos
 fiscales.

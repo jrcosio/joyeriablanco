@@ -1,20 +1,19 @@
 import { Link } from '@tanstack/react-router'
 import { ClipboardList, FileText, Settings, Users, type LucideIcon } from 'lucide-react'
 import type { Rol } from '../../api/tipos'
-import { Chip } from '../ui/Chip'
 import { Marca } from './Marca'
 
 interface Entrada {
   etiqueta: string
   icono: LucideIcon
-  to?: '/facturas' | '/clientes' | '/configuracion'
+  to: '/facturas' | '/presupuestos' | '/clientes' | '/configuracion'
   soloAdmin?: boolean
 }
 
-// Presupuestos se muestra deshabilitada hasta su feature (FR-038 de 001; FR-041 de 002).
+// Presupuestos, activa desde la feature 005 (FR-032).
 const ENTRADAS: readonly Entrada[] = [
   { etiqueta: 'Facturas', icono: FileText, to: '/facturas' },
-  { etiqueta: 'Presupuestos', icono: ClipboardList },
+  { etiqueta: 'Presupuestos', icono: ClipboardList, to: '/presupuestos' },
   { etiqueta: 'Clientes', icono: Users, to: '/clientes' },
   { etiqueta: 'Configuración', icono: Settings, to: '/configuracion', soloAdmin: true },
 ]
@@ -31,20 +30,6 @@ export function Sidebar({ rol, onNavegar }: { rol: Rol; onNavegar?: () => void }
         <ul className="flex flex-col gap-1">
           {ENTRADAS.filter((e) => !e.soloAdmin || rol === 'administrador').map((entrada) => {
             const Icono = entrada.icono
-            if (!entrada.to) {
-              return (
-                <li key={entrada.etiqueta}>
-                  <span
-                    aria-disabled="true"
-                    className={`${claseEntrada} cursor-not-allowed text-on-surface-variant/50`}
-                  >
-                    <Icono aria-hidden="true" className="size-5 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">{entrada.etiqueta}</span>
-                    <Chip tone="warning">Próximamente</Chip>
-                  </span>
-                </li>
-              )
-            }
             return (
               <li key={entrada.etiqueta}>
                 <Link

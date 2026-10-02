@@ -18,6 +18,7 @@ import { Route as AppClientesRouteImport } from './routes/_app/clientes'
 import { Route as AppConfiguracionRouteImport } from './routes/_app/configuracion'
 import { Route as AppCuentaRouteImport } from './routes/_app/cuenta'
 import { Route as AppFacturasRouteImport } from './routes/_app/facturas'
+import { Route as AppPresupuestosRouteImport } from './routes/_app/presupuestos'
 import { Route as AppClientesClienteIdRouteImport } from './routes/_app/clientes/$clienteId'
 import { Route as AppClientesNuevoRouteImport } from './routes/_app/clientes/nuevo'
 import { Route as AppConfiguracionIndexRouteImport } from './routes/_app/configuracion/index'
@@ -25,9 +26,12 @@ import { Route as AppConfiguracionAuditoriaRouteImport } from './routes/_app/con
 import { Route as AppConfiguracionFacturacionRouteImport } from './routes/_app/configuracion/facturacion'
 import { Route as AppConfiguracionUsuariosRouteImport } from './routes/_app/configuracion/usuarios'
 import { Route as AppFacturasNuevaRouteImport } from './routes/_app/facturas/nueva'
+import { Route as AppPresupuestosNuevoRouteImport } from './routes/_app/presupuestos/nuevo'
 import { Route as AppFacturasFacturaIdIndexRouteImport } from './routes/_app/facturas/$facturaId/index'
 import { Route as AppFacturasFacturaIdModificarRouteImport } from './routes/_app/facturas/$facturaId/modificar'
 import { Route as AppFacturasBorradoresBorradorIdRouteImport } from './routes/_app/facturas/borradores/$borradorId'
+import { Route as AppPresupuestosPresupuestoIdIndexRouteImport } from './routes/_app/presupuestos/$presupuestoId/index'
+import { Route as AppPresupuestosBorradoresBorradorIdRouteImport } from './routes/_app/presupuestos/borradores/$borradorId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -73,6 +77,11 @@ const AppFacturasRoute = AppFacturasRouteImport.update({
   path: '/facturas',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPresupuestosRoute = AppPresupuestosRouteImport.update({
+  id: '/presupuestos',
+  path: '/presupuestos',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppClientesClienteIdRoute = AppClientesClienteIdRouteImport.update({
   id: '/$clienteId',
   path: '/$clienteId',
@@ -111,6 +120,11 @@ const AppFacturasNuevaRoute = AppFacturasNuevaRouteImport.update({
   path: '/nueva',
   getParentRoute: () => AppFacturasRoute,
 } as any)
+const AppPresupuestosNuevoRoute = AppPresupuestosNuevoRouteImport.update({
+  id: '/nuevo',
+  path: '/nuevo',
+  getParentRoute: () => AppPresupuestosRoute,
+} as any)
 const AppFacturasFacturaIdIndexRoute =
   AppFacturasFacturaIdIndexRouteImport.update({
     id: '/$facturaId/',
@@ -129,6 +143,18 @@ const AppFacturasBorradoresBorradorIdRoute =
     path: '/borradores/$borradorId',
     getParentRoute: () => AppFacturasRoute,
   } as any)
+const AppPresupuestosPresupuestoIdIndexRoute =
+  AppPresupuestosPresupuestoIdIndexRouteImport.update({
+    id: '/$presupuestoId/',
+    path: '/$presupuestoId/',
+    getParentRoute: () => AppPresupuestosRoute,
+  } as any)
+const AppPresupuestosBorradoresBorradorIdRoute =
+  AppPresupuestosBorradoresBorradorIdRouteImport.update({
+    id: '/borradores/$borradorId',
+    path: '/borradores/$borradorId',
+    getParentRoute: () => AppPresupuestosRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -139,16 +165,20 @@ export interface FileRoutesByFullPath {
   '/configuracion': typeof AppConfiguracionRouteWithChildren
   '/cuenta': typeof AppCuentaRoute
   '/facturas': typeof AppFacturasRouteWithChildren
+  '/presupuestos': typeof AppPresupuestosRouteWithChildren
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
   '/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
   '/configuracion/facturacion': typeof AppConfiguracionFacturacionRoute
   '/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
   '/facturas/nueva': typeof AppFacturasNuevaRoute
+  '/presupuestos/nuevo': typeof AppPresupuestosNuevoRoute
   '/configuracion/': typeof AppConfiguracionIndexRoute
   '/facturas/$facturaId/modificar': typeof AppFacturasFacturaIdModificarRoute
   '/facturas/borradores/$borradorId': typeof AppFacturasBorradoresBorradorIdRoute
+  '/presupuestos/borradores/$borradorId': typeof AppPresupuestosBorradoresBorradorIdRoute
   '/facturas/$facturaId/': typeof AppFacturasFacturaIdIndexRoute
+  '/presupuestos/$presupuestoId/': typeof AppPresupuestosPresupuestoIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/acceso': typeof AccesoRoute
@@ -157,6 +187,7 @@ export interface FileRoutesByTo {
   '/clientes': typeof AppClientesRouteWithChildren
   '/cuenta': typeof AppCuentaRoute
   '/facturas': typeof AppFacturasRouteWithChildren
+  '/presupuestos': typeof AppPresupuestosRouteWithChildren
   '/': typeof AppIndexRoute
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
@@ -164,10 +195,13 @@ export interface FileRoutesByTo {
   '/configuracion/facturacion': typeof AppConfiguracionFacturacionRoute
   '/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
   '/facturas/nueva': typeof AppFacturasNuevaRoute
+  '/presupuestos/nuevo': typeof AppPresupuestosNuevoRoute
   '/configuracion': typeof AppConfiguracionIndexRoute
   '/facturas/$facturaId/modificar': typeof AppFacturasFacturaIdModificarRoute
   '/facturas/borradores/$borradorId': typeof AppFacturasBorradoresBorradorIdRoute
+  '/presupuestos/borradores/$borradorId': typeof AppPresupuestosBorradoresBorradorIdRoute
   '/facturas/$facturaId': typeof AppFacturasFacturaIdIndexRoute
+  '/presupuestos/$presupuestoId': typeof AppPresupuestosPresupuestoIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -179,6 +213,7 @@ export interface FileRoutesById {
   '/_app/configuracion': typeof AppConfiguracionRouteWithChildren
   '/_app/cuenta': typeof AppCuentaRoute
   '/_app/facturas': typeof AppFacturasRouteWithChildren
+  '/_app/presupuestos': typeof AppPresupuestosRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/_app/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/_app/clientes/nuevo': typeof AppClientesNuevoRoute
@@ -186,10 +221,13 @@ export interface FileRoutesById {
   '/_app/configuracion/facturacion': typeof AppConfiguracionFacturacionRoute
   '/_app/configuracion/usuarios': typeof AppConfiguracionUsuariosRoute
   '/_app/facturas/nueva': typeof AppFacturasNuevaRoute
+  '/_app/presupuestos/nuevo': typeof AppPresupuestosNuevoRoute
   '/_app/configuracion/': typeof AppConfiguracionIndexRoute
   '/_app/facturas/$facturaId/modificar': typeof AppFacturasFacturaIdModificarRoute
   '/_app/facturas/borradores/$borradorId': typeof AppFacturasBorradoresBorradorIdRoute
+  '/_app/presupuestos/borradores/$borradorId': typeof AppPresupuestosBorradoresBorradorIdRoute
   '/_app/facturas/$facturaId/': typeof AppFacturasFacturaIdIndexRoute
+  '/_app/presupuestos/$presupuestoId/': typeof AppPresupuestosPresupuestoIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -202,16 +240,20 @@ export interface FileRouteTypes {
     | '/configuracion'
     | '/cuenta'
     | '/facturas'
+    | '/presupuestos'
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
     | '/configuracion/auditoria'
     | '/configuracion/facturacion'
     | '/configuracion/usuarios'
     | '/facturas/nueva'
+    | '/presupuestos/nuevo'
     | '/configuracion/'
     | '/facturas/$facturaId/modificar'
     | '/facturas/borradores/$borradorId'
+    | '/presupuestos/borradores/$borradorId'
     | '/facturas/$facturaId/'
+    | '/presupuestos/$presupuestoId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/acceso'
@@ -220,6 +262,7 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/cuenta'
     | '/facturas'
+    | '/presupuestos'
     | '/'
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
@@ -227,10 +270,13 @@ export interface FileRouteTypes {
     | '/configuracion/facturacion'
     | '/configuracion/usuarios'
     | '/facturas/nueva'
+    | '/presupuestos/nuevo'
     | '/configuracion'
     | '/facturas/$facturaId/modificar'
     | '/facturas/borradores/$borradorId'
+    | '/presupuestos/borradores/$borradorId'
     | '/facturas/$facturaId'
+    | '/presupuestos/$presupuestoId'
   id:
     | '__root__'
     | '/_app'
@@ -241,6 +287,7 @@ export interface FileRouteTypes {
     | '/_app/configuracion'
     | '/_app/cuenta'
     | '/_app/facturas'
+    | '/_app/presupuestos'
     | '/_app/'
     | '/_app/clientes/$clienteId'
     | '/_app/clientes/nuevo'
@@ -248,10 +295,13 @@ export interface FileRouteTypes {
     | '/_app/configuracion/facturacion'
     | '/_app/configuracion/usuarios'
     | '/_app/facturas/nueva'
+    | '/_app/presupuestos/nuevo'
     | '/_app/configuracion/'
     | '/_app/facturas/$facturaId/modificar'
     | '/_app/facturas/borradores/$borradorId'
+    | '/_app/presupuestos/borradores/$borradorId'
     | '/_app/facturas/$facturaId/'
+    | '/_app/presupuestos/$presupuestoId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -325,6 +375,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFacturasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/presupuestos': {
+      id: '/_app/presupuestos'
+      path: '/presupuestos'
+      fullPath: '/presupuestos'
+      preLoaderRoute: typeof AppPresupuestosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/clientes/$clienteId': {
       id: '/_app/clientes/$clienteId'
       path: '/$clienteId'
@@ -374,6 +431,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFacturasNuevaRouteImport
       parentRoute: typeof AppFacturasRoute
     }
+    '/_app/presupuestos/nuevo': {
+      id: '/_app/presupuestos/nuevo'
+      path: '/nuevo'
+      fullPath: '/presupuestos/nuevo'
+      preLoaderRoute: typeof AppPresupuestosNuevoRouteImport
+      parentRoute: typeof AppPresupuestosRoute
+    }
     '/_app/facturas/$facturaId/': {
       id: '/_app/facturas/$facturaId/'
       path: '/$facturaId'
@@ -394,6 +458,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/facturas/borradores/$borradorId'
       preLoaderRoute: typeof AppFacturasBorradoresBorradorIdRouteImport
       parentRoute: typeof AppFacturasRoute
+    }
+    '/_app/presupuestos/$presupuestoId/': {
+      id: '/_app/presupuestos/$presupuestoId/'
+      path: '/$presupuestoId'
+      fullPath: '/presupuestos/$presupuestoId/'
+      preLoaderRoute: typeof AppPresupuestosPresupuestoIdIndexRouteImport
+      parentRoute: typeof AppPresupuestosRoute
+    }
+    '/_app/presupuestos/borradores/$borradorId': {
+      id: '/_app/presupuestos/borradores/$borradorId'
+      path: '/borradores/$borradorId'
+      fullPath: '/presupuestos/borradores/$borradorId'
+      preLoaderRoute: typeof AppPresupuestosBorradoresBorradorIdRouteImport
+      parentRoute: typeof AppPresupuestosRoute
     }
   }
 }
@@ -447,12 +525,31 @@ const AppFacturasRouteWithChildren = AppFacturasRoute._addFileChildren(
   AppFacturasRouteChildren,
 )
 
+interface AppPresupuestosRouteChildren {
+  AppPresupuestosNuevoRoute: typeof AppPresupuestosNuevoRoute
+  AppPresupuestosBorradoresBorradorIdRoute: typeof AppPresupuestosBorradoresBorradorIdRoute
+  AppPresupuestosPresupuestoIdIndexRoute: typeof AppPresupuestosPresupuestoIdIndexRoute
+}
+
+const AppPresupuestosRouteChildren: AppPresupuestosRouteChildren = {
+  AppPresupuestosNuevoRoute: AppPresupuestosNuevoRoute,
+  AppPresupuestosBorradoresBorradorIdRoute:
+    AppPresupuestosBorradoresBorradorIdRoute,
+  AppPresupuestosPresupuestoIdIndexRoute:
+    AppPresupuestosPresupuestoIdIndexRoute,
+}
+
+const AppPresupuestosRouteWithChildren = AppPresupuestosRoute._addFileChildren(
+  AppPresupuestosRouteChildren,
+)
+
 interface AppRouteChildren {
   AppAccesoDenegadoRoute: typeof AppAccesoDenegadoRoute
   AppClientesRoute: typeof AppClientesRouteWithChildren
   AppConfiguracionRoute: typeof AppConfiguracionRouteWithChildren
   AppCuentaRoute: typeof AppCuentaRoute
   AppFacturasRoute: typeof AppFacturasRouteWithChildren
+  AppPresupuestosRoute: typeof AppPresupuestosRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -462,6 +559,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfiguracionRoute: AppConfiguracionRouteWithChildren,
   AppCuentaRoute: AppCuentaRoute,
   AppFacturasRoute: AppFacturasRouteWithChildren,
+  AppPresupuestosRoute: AppPresupuestosRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }
 
