@@ -1,36 +1,39 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Cambio de version: 2.1.0 -> 2.2.0
-Motivo del bump: MINOR. Se concreta la restriccion "Numeracion" con una regla nueva y una
-excepcion explicita y acotada al "sin huecos". No se redefine ni elimina ningun principio.
-Decision explicita del responsable del proyecto (2026-09-28), durante el specify de 002-facturas:
-  - "Automatico + proximo numero": el numero nunca se introduce a mano.
-  - Ajuste del proximo numero "en cualquier momento, al alza", elegido sabiendo que deja huecos
-    dentro del sistema que habra que poder justificar.
+Cambio de version: 2.2.0 -> 2.3.0
+Motivo del bump: MINOR. Se amplia materialmente la guia sobre presupuestos (principio III), se
+anade una serie a la restriccion "Numeracion" y se concreta el test obligatorio de conversion
+(principio VII). No se redefine ni elimina ningun principio.
+Decision explicita del responsable del proyecto (2026-10-02), al abrir 005-presupuestos:
+  - Ciclo de vida "como las facturas": borrador editable, emision con numero e inalterable,
+    "Modificar" por sustitucion trazable, anulacion y conversion en factura.
+  - Serie PRE-AAAA-NNNN correlativa y sin huecos, con el mismo contador bloqueado que FAC.
+  - Impreso titulado "PRESUPUESTO" con la leyenda de documento sin validez fiscal.
 
 Principios modificados:
-  - III. Inalterabilidad de los documentos emitidos: redaccion (PATCH dentro de este bump).
-    "Modificar ... incluido su numero" pasa a "tambien cuando el error esta en su numero"; el
-    numero se corrige anulando y reemitiendo, nunca editandolo.
+  - III. Inalterabilidad de los documentos emitidos: el parrafo "Los presupuestos SI son
+    editables mientras esten en estado borrador" pasa a regular el ciclo completo del
+    presupuesto (borrador, emision inalterable en la BD, sustitucion, anulacion, sin QR ni
+    registro, conversion vinculada), con la FAQ de la AEAT como fuente citada.
+  - VII. Cobertura de test obligatoria: la conversion presupuesto -> factura cubre concurrencia,
+    idempotencia y la integridad del encadenamiento de huellas.
 
 Secciones modificadas:
   - Restricciones tecnicas > Numeracion:
-      + serie de rectificativas REC-AAAA-NNNN (ROF art. 6.1.a, 2.o);
-      + el numero nunca se introduce a mano; toda factura nueva recibe el siguiente de su serie;
-      + unica excepcion al "sin huecos": ajuste administrativo al alza del proximo numero de la
-        serie ordinaria del ano en curso, motivado, auditado, con aviso previo y seguro frente a
-        concurrencia;
-      - desaparece "La regla exacta de correlatividad ... la fija la spec" (ya fijada).
+      + serie de presupuestos PRE-AAAA-NNNN, con las mismas garantias;
+      + la asignacion automatica alcanza tambien a los presupuestos;
+      + la serie PRE no admite el ajuste al alza (la excepcion sigue siendo solo la ordinaria).
 
 Secciones anadidas: ninguna. Secciones eliminadas: ninguna.
 
 Artefactos dependientes:
-  - CLAUDE.md                       actualizado: "Numeracion"
-  - specs/002-facturas/spec.md      conforme: FR-006, FR-009, FR-010 y FR-024
-  - .specify/templates/*.md         sin cambios
+  - CLAUDE.md                          actualizado: "Numeracion" y "Reglas innegociables"
+  - specs/005-presupuestos/            pendiente: se crea en el specify de la feature
+  - .specify/templates/*.md            sin cambios
 
 Historico:
+  - 2.2.0 (2026-09-28) numeracion automatica, serie REC y ajuste al alza de la ordinaria.
   - 2.1.0 (2026-09-28) principio III: borradores editables y "Modificar" como correccion
     trazable; numeracion FAC-AAAA-NNNN sin reutilizacion.
   - 2.0.0 (2026-09-27) principio I: fases encadenadas sin aprobacion intermedia.
@@ -123,7 +126,33 @@ propia factura. Qué corrección corresponde a cada caso se toma de la documenta
 AEAT y se cita en la spec. Lo que no se pueda verificar en fuente oficial queda como pregunta
 abierta.
 
-Los presupuestos SÍ son editables mientras estén en estado `borrador`.
+Los **presupuestos** siguen el mismo ciclo, aunque no son documentos fiscales:
+
+- El **borrador de presupuesto** no tiene número y SÍ se puede editar y eliminar.
+- Al **emitirse**, el presupuesto recibe su número y pasa a ser inalterable. La prohibición se
+  impone en la BASE DE DATOS (triggers/reglas y privilegios), igual que en las facturas.
+- **«Modificar»** un presupuesto emitido crea uno nuevo que lo sustituye. El original se conserva
+  intacto y el vínculo entre ambos queda en un historial visible desde los dos.
+- **«Anular»** un presupuesto emitido es un cierre con motivo, que también se conserva.
+- Un presupuesto NUNCA lleva código QR tributario, mención VERI\*FACTU, registro de facturación
+  ni huella. Se imprime con el título «PRESUPUESTO» y la leyenda «Documento sin validez fiscal. No
+  es una factura.».
+- La **conversión en factura** es una emisión normal de factura, sujeta a todo lo anterior y al
+  principio IV. El vínculo presupuesto → factura es indefectible y se conserva.
+
+Fuente: FAQ de la AEAT sobre VERI\*FACTU, «Cuestiones generales: conceptos y definiciones»,
+pregunta sobre «Pre-Facturación ("facturas proforma") o Borrador»
+(`https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/cuestiones-generales-conceptos-definiciones.html`,
+consultada el 2026-10-02):
+
+- «tanto los borradores de factura como las facturas proforma no llevan ningún código "QR"
+  tributario».
+- Los sistemas de prefacturas deben disponer de «elementos de control para la conservación de
+  tales documentos preparatorios de forma debidamente vinculada a las facturas o a los registros
+  de facturación que finalmente se emitan».
+
+La FAQ habla de proformas y borradores, no de presupuestos. Aplicarles su criterio es una
+interpretación prudente del proyecto.
 
 **Razón**:
 
@@ -134,6 +163,8 @@ Los presupuestos SÍ son editables mientras estén en estado `borrador`.
   normativa aplicable» (art. 201 bis.1.d, verificado en BOE el 2026-09-28). Por eso ninguna
   enmienda de este documento puede habilitar la sobrescritura: «Modificar» solo es admisible como
   corrección trazable.
+- La norma no exige de forma expresa que el presupuesto emitido sea inalterable. Hacerlo protege el
+  control de conservación que pide la AEAT y deja constancia de qué se entregó al cliente.
 
 ### IV. Cumplimiento Verifactu por diseño
 
@@ -185,7 +216,9 @@ Son de cobertura obligatoria, y ninguna feature que los afecte se cierra sin ell
 - Numeración correlativa bajo concurrencia, sin huecos ni reutilización.
 - Cálculo de importes y redondeos.
 - Encadenamiento de huellas Verifactu.
-- Conversión presupuesto → factura.
+- Conversión presupuesto → factura, incluidas la concurrencia (convertir a la vez el mismo
+  presupuesto da una sola factura) y la idempotencia, y la comprobación de que no altera el
+  encadenamiento de huellas.
 
 Una fase del plan no se da por cerrada sin sus tests en verde.
 
@@ -253,10 +286,12 @@ de la feature correspondiente.
 - **Formato**:
   - Serie ordinaria: `FAC-AAAA-NNNN`.
   - Serie de rectificativas, que es propia como exige el ROF (art. 6.1.a, 2.º): `REC-AAAA-NNNN`.
-  - En ambas, `AAAA` es el año natural de la fecha de expedición y `NNNN` un correlativo de
-    4 dígitos.
-- **Asignación**: el número de una factura NUNCA se introduce a mano. Toda factura nueva recibe el
-  siguiente número de su serie, incluidas la que sustituye a una anulada y la rectificativa.
+  - Serie de presupuestos, documento no fiscal con las mismas garantías: `PRE-AAAA-NNNN`.
+  - En todas, `AAAA` es el año natural de la fecha del documento (la de expedición en las
+    facturas) y `NNNN` un correlativo de 4 dígitos.
+- **Asignación**: el número de una factura o de un presupuesto NUNCA se introduce a mano. Todo
+  documento nuevo recibe el siguiente número de su serie, incluidas la factura que sustituye a una
+  anulada, la rectificativa y el presupuesto que sustituye a otro.
 - **Número erróneo**: una factura emitida con un número erróneo se corrige mediante la corrección
   trazable del principio III, anulándola y reemitiéndola con el siguiente número.
 - **Reutilización**: un número ya usado, incluido uno anulado, NO se reutiliza jamás.
@@ -270,6 +305,7 @@ de la feature correspondiente.
   Los números que se saltan no se asignan después a ninguna factura. El responsable del proyecto
   asume que esos huecos deben poder justificarse, por ejemplo por la continuación de la numeración
   de otro sistema. Fuera de este ajuste, la regla «sin huecos y sin reutilización» es absoluta.
+  La serie de presupuestos no admite ajuste.
 
 **Precios**: las líneas se introducen sin IVA (base imponible); el servidor calcula cuota y total.
 
@@ -305,4 +341,4 @@ subordinado a esta constitución.
 `docs/DESIGN.md` es la especificación normativa del sistema de diseño y está subordinado a esta
 constitución. Sus cambios materiales requieren aprobación explícita del responsable del proyecto.
 
-**Version**: 2.2.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-28
+**Version**: 2.3.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-02

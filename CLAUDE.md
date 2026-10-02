@@ -141,14 +141,16 @@ concurrencia (secuencia de BD o bloqueo explícito sobre tabla de contadores).
 
 **`MAX(numero)+1` sin lock está prohibido.**
 
-- Series: ordinaria **`FAC-AAAA-NNNN`** y rectificativas **`REC-AAAA-NNNN`** (serie propia,
-  ROF art. 6.1.a).
-- **El número nunca se escribe a mano.** Toda factura nueva recibe el siguiente de su serie. Un
-  número erróneo se corrige anulando y reemitiendo, mediante corrección trazable (ver abajo).
+- Series: ordinaria **`FAC-AAAA-NNNN`**, rectificativas **`REC-AAAA-NNNN`** (serie propia,
+  ROF art. 6.1.a) y presupuestos **`PRE-AAAA-NNNN`** (no fiscal, con las mismas garantías).
+- **El número nunca se escribe a mano.** Toda factura o presupuesto nuevo recibe el siguiente de su
+  serie. Un número erróneo se corrige anulando y reemitiendo, mediante corrección trazable (ver
+  abajo).
 - Un número usado, **incluido uno anulado, no se reutiliza jamás**.
 - **Única excepción al «sin huecos»**: un administrador puede ajustar **al alza** el próximo número
   de la serie ordinaria del año, siempre por encima del último usado, con motivo auditado, aviso
-  previo y seguro frente a concurrencia (constitución 2.2.0).
+  previo y seguro frente a concurrencia (constitución 2.2.0). La serie PRE no admite ajuste
+  (constitución 2.3.0).
 
 ## Reglas innegociables de Verifactu
 
@@ -168,6 +170,15 @@ concurrencia (secuencia de BD o bloqueo explícito sobre tabla de contadores).
   abierta. **Nunca se deduce de memoria ni se copia de blogs.**
 - La **modalidad** (VERI\*FACTU / no VERI\*FACTU) es configuración y un campo del registro, no una
   bifurcación del modelo de datos.
+- **Presupuestos** (constitución 2.3.0):
+  - El borrador se edita y se borra. Al emitirse recibe número y es inalterable **en la base de
+    datos**, como una factura.
+  - «Modificar» crea uno nuevo que lo sustituye, con historial visible. «Anular» es un cierre con
+    motivo.
+  - **Nunca** llevan QR tributario, mención VERI\*FACTU, registro de facturación ni huella. Se
+    imprimen como «PRESUPUESTO» con la leyenda «Documento sin validez fiscal. No es una factura.».
+  - La conversión en factura es una emisión normal y queda vinculada y conservada (FAQ de la AEAT
+    sobre prefacturas y proformas).
 
 ### Marco normativo
 
@@ -203,7 +214,8 @@ Ninguna feature que los afecte se cierra sin ellos:
 1. Numeración correlativa bajo concurrencia (sin huecos ni reutilización).
 2. Cálculo de importes y redondeos.
 3. Encadenamiento de huellas Verifactu.
-4. Conversión presupuesto → factura.
+4. Conversión presupuesto → factura, también bajo concurrencia e idempotente, sin alterar la
+   cadena de huellas.
 
 ## Git
 
