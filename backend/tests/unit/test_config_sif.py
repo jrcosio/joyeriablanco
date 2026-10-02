@@ -11,6 +11,7 @@ def _produccion(**productor: str) -> Settings:
         "entorno": Entorno.PRODUCCION,
         "sesion_cookie_segura": True,
         "origen_permitido": "https://gestion.example.com",
+        "aeat_entorno": "pruebas",  # obligatorio en producción desde 003 (research R-3)
         **productor,
     }
     return Settings.model_validate(datos)

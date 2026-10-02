@@ -44,7 +44,7 @@ el QR coincide con el registro de alta (SC-002) y que los totales impresos cuadr
 **Purpose**: dependencias, imagen con Pango, recursos estáticos, ajuste del entorno de la AEAT y
 test de contrato preparado para 003.
 
-- [ ] T001 Dependencias y entorno de desarrollo (research R-4):
+- [X] T001 Dependencias y entorno de desarrollo (research R-4):
   - `backend/pyproject.toml`:
     - Dependencias: `weasyprint>=70,<71`, `jinja2>=3.1,<3.2`, `segno>=1.6,<1.7` y `pypdf>=6.19,<7`.
     - En el grupo `dev`: `zxing-cpp>=3.1,<3.2` y `numpy`.
@@ -52,22 +52,22 @@ test de contrato preparado para 003.
     - `[[tool.mypy.overrides]]` con `ignore_missing_imports` para `weasyprint.*`, `segno.*` y `zxingcpp.*`, si no traen tipos.
   - `uv lock` y `uv sync`.
   - Comprobar `uv run python -c "import weasyprint"` en el Mac. Si falla por Pango, **parar y pedir al responsable** `! brew install pango` y, si hace falta, `export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib` (quickstart, «Requisitos previos»).
-- [ ] T002 `backend/Dockerfile` (R-4):
+- [X] T002 `backend/Dockerfile` (R-4):
   - En las etapas `base` y `prod`, con `apt-get install --no-install-recommends` y limpieza de listas: `libpango-1.0-0`, `libpangoft2-1.0-0`, `libharfbuzz-subset0` y `fonts-dejavu-core`.
   - `XDG_CACHE_HOME=/tmp/cache` en las dos etapas.
   - Comprobar `docker compose build api` y `docker compose exec api python -c "import weasyprint"`.
-- [ ] T003 [P] Recursos estáticos (R-4):
+- [X] T003 [P] Recursos estáticos (R-4):
   - `backend/app/resources/fuentes/`: los WOFF2 de Fontsource 5.3.0, subconjuntos `latin` y `latin-ext`, de Manrope 400, 600 y 700 (`@fontsource/manrope`) y de Bodoni Moda 400 y 500 (`@fontsource/bodoni-moda`).
   - `OFL.txt` y un `README.md` con el origen, la versión y el SHA-256 de cada fichero.
   - `backend/app/resources/marca/logo.png`, copiado de `joyeriablanco_web/src/assets/brand/logo.png`, con su `README.md` (origen y SHA-256).
   - Actualizar `backend/app/resources/README.md`.
-- [ ] T004 [P] Entorno de la AEAT (research R-3, FR-017):
+- [X] T004 [P] Entorno de la AEAT (research R-3, FR-017):
   - `backend/app/core/config.py`: `class EntornoAeat(StrEnum)` con `pruebas` y `produccion`, el campo `aeat_entorno: EntornoAeat | None = None` y la propiedad `entorno_aeat`, que vale `pruebas` si está vacío.
   - En el validador de producción: sin `aeat_entorno`, `ValueError("En producción hay que fijar AEAT_ENTORNO (pruebas o produccion)")`.
   - `.env.example`: la variable comentada y explicada.
   - `docker-compose.prod.yml`: `AEAT_ENTORNO: ${AEAT_ENTORNO:?Falta AEAT_ENTORNO}`.
   - Test `backend/tests/unit/test_config_aeat.py`: por defecto, `pruebas`; en producción sin la variable falla; con `produccion` arranca.
-- [ ] T005 Test de contrato para 003 (002 R-14) en `backend/tests/integration/test_contrato_openapi.py`:
+- [X] T005 Test de contrato para 003 (002 R-14) en `backend/tests/integration/test_contrato_openapi.py`:
   - Lista `PENDIENTES_003` con las dos operaciones de [contracts/openapi.yaml](contracts/openapi.yaml), excluidas solo del sentido «contrato → API».
   - `test_hay_un_contrato_por_feature` incluye `003-pdf-impresion`.
   - El test vuelve a verde tras añadir el contrato en el plan.

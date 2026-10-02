@@ -18,6 +18,12 @@ from app.main import create_app
 SPECS = Path(__file__).resolve().parents[3] / "specs"
 CONTRATOS = sorted(SPECS.glob("*/contracts/openapi.yaml"))
 METODOS = {"get", "post", "put", "patch", "delete"}
+# Operaciones de 003 aún sin implementar: solo se excluyen del sentido «contrato → API». Cada ruta
+# nueva sale de la lista y T033 la elimina (tasks.md de 003).
+PENDIENTES_003 = {
+    ("/api/v1/facturas/{}/pdf", "get"),
+    ("/api/v1/facturas/listado/pdf", "get"),
+}
 
 
 def _normalizar(ruta: str) -> str:
@@ -47,7 +53,11 @@ def _contratos() -> dict[tuple[str, str], set[str]]:
 
 
 def test_hay_un_contrato_por_feature() -> None:
-    assert [f.parents[1].name for f in CONTRATOS][:2] == ["001-cimientos-clientes", "002-facturas"]
+    assert [f.parents[1].name for f in CONTRATOS][:3] == [
+        "001-cimientos-clientes",
+        "002-facturas",
+        "003-pdf-impresion",
+    ]
 
 
 def test_la_api_implementa_exactamente_el_contrato() -> None:
@@ -56,7 +66,7 @@ def test_la_api_implementa_exactamente_el_contrato() -> None:
 
     solo_en_api = set(reales) - set(esperadas)
     assert not solo_en_api, f"Operaciones sin contrato: {sorted(solo_en_api)}"
-    solo_en_contrato = set(esperadas) - set(reales)
+    solo_en_contrato = set(esperadas) - set(reales) - PENDIENTES_003
     assert not solo_en_contrato, f"Operaciones del contrato sin implementar: {solo_en_contrato}"
     for operacion, exitos in reales.items():
         assert exitos == esperadas[operacion], (

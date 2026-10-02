@@ -16,6 +16,11 @@ ENV PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH=/opt/venv/bin:$PATH \
     TZ=Europe/Madrid
+# WeasyPrint (PDF de 003, research R-4): Pango y HarfBuzz; DejaVu como último recurso de glifos.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core \
+ && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --home-dir /app --no-create-home app
 WORKDIR /app
@@ -26,6 +31,9 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-install-project
 COPY . .
 RUN uv sync --frozen && chown -R app:app /opt/venv
+# Caché de fontconfig fuera de /app, que es el código montado (research R-4). Se fija después de
+# `uv sync` para que la construcción, como root, no cree el directorio antes que `app`.
+ENV XDG_CACHE_HOME=/tmp/cache
 USER app
 EXPOSE 8000
 CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--reload", "--no-server-header"]
@@ -45,7 +53,14 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH=/opt/venv/bin:$PATH \
     TZ=Europe/Madrid \
-    ENTORNO=produccion
+    ENTORNO=produccion \
+    XDG_CACHE_HOME=/tmp/cache
+# XDG_CACHE_HOME: la caché de fontconfig va al tmpfs /tmp, porque el contenedor es read_only.
+# Mismas librerías del sistema que `base` para WeasyPrint (research R-4): prod parte de cero.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core \
+ && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --home-dir /app --no-create-home app
 WORKDIR /app

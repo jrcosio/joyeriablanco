@@ -18,3 +18,11 @@ mayúsculas).
   vacías, se pasa todo a minúsculas y se quitan los duplicados.
 - **Añadidos propios**: términos del negocio (`joyeria`, `blanco`, `joyeriablanco`, `contraseña`,
   `verifactu`…) al final del fichero.
+
+## Impresión en PDF (003, research R-4 y R-5)
+
+- [`pdf/`](pdf/): plantillas Jinja2 (`base.html`, `factura.html`, `listado.html` y `error.html`) y la
+  hoja `papel.css`, que solo usa los tokens «Paper» de `app/core/pdf/tokens.py`.
+- [`fuentes/`](fuentes/README.md): Bodoni Moda y Manrope en WOFF2, con su licencia OFL y su
+  procedencia.
+- [`marca/`](marca/README.md): logotipo.

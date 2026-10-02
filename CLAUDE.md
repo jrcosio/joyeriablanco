@@ -72,6 +72,7 @@ docker compose down                           # -v para borrar también los dato
 
 # Backend (dentro de backend/; los tests usan la BD joyeriablanco_test del servicio db)
 brew install pango                # una vez en macOS: WeasyPrint (PDF) lo necesita (003, R-4)
+export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib   # en ~/.zshrc: para que WeasyPrint encuentre Pango
 uv sync
 uv run pytest                     # tests contra PostgreSQL real
 uv run pytest -k clientes         # un subconjunto
