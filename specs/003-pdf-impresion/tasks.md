@@ -87,7 +87,7 @@ contacto que US1 ya imprime.
 
 ### Tests ⚠️ (escribir primero, deben fallar)
 
-- [ ] T006 [P] Test `backend/tests/unit/domain/test_formato.py` (FR-006, R-6):
+- [X] T006 [P] Test `backend/tests/unit/domain/test_formato.py` (FR-006, R-6):
   - `format_euros`: «1.560,90 €», «0,00 €», «1.234.567,89 €», sin `float`, y `Decimal` con más de dos decimales → `ValueError`.
   - `format_unidades`: «2», «1,50» y «1.200».
   - `format_fecha`: «05/03/2026».
@@ -95,29 +95,29 @@ contacto que US1 ya imprime.
   - `format_porcentaje`: «21 %» y «10,5 %».
   - Etiquetas de identificación: `NIF` y L7 de `02` a `06`, con el país si no es `ES`, p. ej. «Pasaporte X1234567 (Francia)».
   - Las cadenas esperadas son las mismas que en `joyeriablanco_web/src/lib/dinero.test.ts` y `facturacion.test.ts`.
-- [ ] T007 [P] Test `backend/tests/unit/test_tokens_papel.py` (R-5, FR-030):
+- [X] T007 [P] Test `backend/tests/unit/test_tokens_papel.py` (R-5, FR-030):
   - Lee con `yaml` el frontmatter de `docs/DESIGN.md`.
   - Comprueba que `app/core/pdf/tokens.py` tiene exactamente los colores `paper*`, la tipografía `print-*` y `print-margin` / `print-gutter` del documento, con los mismos valores.
   - `app/resources/pdf/papel.css` no contiene `#`, `rgb(`, `hsl(` ni tamaños `pt`/`mm` fuera de declaraciones `var(--…)`. Se saltan los comentarios.
-- [ ] T008 [P] Test `backend/tests/unit/test_pdf_render.py` (R-4):
+- [X] T008 [P] Test `backend/tests/unit/test_pdf_render.py` (R-4):
   - Renderizar una plantilla mínima que extienda `base.html` produce un PDF.
   - pypdf lo abre, extrae el texto con tildes, eñes y «€», y encuentra incrustadas las fuentes `Manrope` y `Bodoni-Moda`, sin otras salvo DejaVu como último recurso.
   - `render` respeta el limitador: con capacidad 1, dos llamadas simultáneas se serializan.
 
 ### Implementación
 
-- [ ] T009 [P] `backend/app/domain/formato.py` con las funciones de T006. Usa `Decimal` y separadores españoles, y ningún `locale` del sistema.
-- [ ] T010 [P] `backend/app/core/pdf/tokens.py`: los tokens de R-5 como constantes tipadas y `css_variables() -> str`, que produce el bloque `:root { --paper-ink: …; --print-body-size: …; … }`.
-- [ ] T011 Plantilla base y CSS de papel (R-5, contracts/documentos-pdf.md, «Comunes»):
+- [X] T009 [P] `backend/app/domain/formato.py` con las funciones de T006. Usa `Decimal` y separadores españoles, y ningún `locale` del sistema.
+- [X] T010 [P] `backend/app/core/pdf/tokens.py`: los tokens de R-5 como constantes tipadas y `css_variables() -> str`, que produce el bloque `:root { --paper-ink: …; --print-body-size: …; … }`.
+- [X] T011 Plantilla base y CSS de papel (R-5, contracts/documentos-pdf.md, «Comunes»):
   - `backend/app/resources/pdf/base.html`: `<html lang="es">`, `<title>`, `<meta name="author">`, `@font-face` relativos a `fuentes/` con `unicode-range` y los bloques `{% block %}`.
   - `backend/app/resources/pdf/papel.css`: solo `var(--…)`, filetes de `0.75pt`, esquinas a 0 y sin sombras, `@page` con `print-margin`, `font-variant-numeric: tabular-nums` en las cifras, y `thead { display: table-header-group }` y `tr { break-inside: avoid }`.
-- [ ] T012 `backend/app/core/pdf/plantillas.py` y `backend/app/core/pdf/render.py` (R-4, R-7):
+- [X] T012 `backend/app/core/pdf/plantillas.py` y `backend/app/core/pdf/render.py` (R-4, R-7):
   - Entorno Jinja2 sobre `importlib.resources.files("app.resources") / "pdf"`, con `autoescape=True`, `StrictUndefined` y los filtros de `domain/formato.py`.
   - `base_url` hacia `app/resources`.
   - `render_html_pdf(plantilla, contexto) -> bytes` con `FontConfiguration` por llamada.
   - Ejecución en hilo con `anyio.to_thread.run_sync` bajo un `anyio.CapacityLimiter`: `LIMITE_FACTURAS = 4` y `LIMITE_LISTADOS = 1`.
   - `backend/app/core/pdf/__init__.py` exporta la API pública.
-- [ ] T013 Migración `backend/alembic/versions/0007_contacto_pie_factura.py` y modelo (data-model):
+- [X] T013 Migración `backend/alembic/versions/0007_contacto_pie_factura.py` y modelo (data-model):
   - Las cuatro columnas y `ck_config_contacto_sin_vacios`, con `downgrade`.
   - `backend/app/models/configuracion_facturacion.py`: `emisor_telefono`, `emisor_correo`, `emisor_web` y `pie_factura`.
   - Comprobar `alembic upgrade head` y `downgrade -1` en la BD de desarrollo, y que la suite de 002 sigue en verde.

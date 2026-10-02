@@ -84,7 +84,7 @@ warn_unreachable = true
 exclude = ["^alembic/versions/"]
 
 [[tool.mypy.overrides]]
-module = ["pycountry.*", "faker.*"]
+module = ["pycountry.*", "faker.*", "weasyprint.*", "zxingcpp.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
