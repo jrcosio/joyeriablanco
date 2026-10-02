@@ -333,7 +333,7 @@ leyenda, la validez y el contenido, y que no hay ningún elemento fiscal.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T037 [P] [US2] Test `backend/tests/integration/test_pdf_presupuesto.py` (FR-029, SC-007), con el texto extraído con pypdf, como `test_pdf_factura.py`:
+- [X] T037 [P] [US2] Test `backend/tests/integration/test_pdf_presupuesto.py` (FR-029, SC-007), con el texto extraído con pypdf, como `test_pdf_factura.py`:
   - **Contenido**:
     - «PRESUPUESTO» y la leyenda literal «Documento sin validez fiscal. No es una factura.».
     - «Válido hasta: dd/mm/aaaa», el número y la fecha.
@@ -350,22 +350,22 @@ leyenda, la validez y el contenido, y que no hay ningún elemento fiscal.
   - **Errores**: borrador o inexistente → 404. Sin sesión → 401. Navegación → página HTML «El presupuesto no existe.» con un enlace a `/presupuestos`.
   - **Respuesta**: `Content-Disposition` con `PRE-AAAA-NNNN.pdf`, `Cache-Control: no-store` y la CSP de PDF.
   - **Permisos**: un empleado puede imprimir.
-- [ ] T038 [P] [US2] Test web `joyeriablanco_web/src/features/presupuestos/ImprimirPresupuesto.test.tsx`: el enlace con `target=_blank` y su `href`, la casilla IBAN solo si lo tiene, sin «Duplicado», el nombre accesible «Imprimir presupuesto PRE-…» y «Preparando…» anunciado.
+- [X] T038 [P] [US2] Test web `joyeriablanco_web/src/features/presupuestos/ImprimirPresupuesto.test.tsx`: el enlace con `target=_blank` y su `href`, la casilla IBAN solo si lo tiene, sin «Duplicado», el nombre accesible «Imprimir presupuesto PRE-…» y «Preparando…» anunciado.
 
 ### Implementation for User Story 2
 
-- [ ] T039 [US2] `backend/app/services/impresion_presupuestos.py` (R-10):
+- [X] T039 [US2] `backend/app/services/impresion_presupuestos.py` (R-10):
   - `PresupuestoImpreso`, **sin campo `qr`**.
   - `build_presupuesto_impreso(db, id, *, iban)`, con el pie de R-9 y las marcas de R-10 leídas con `services/presupuestos.get_presupuesto` (T028): «ANULADO», «SUSTITUIDO por {vigente_actual}» y «CONVERTIDO en {factura del cierre}».
   - `presupuesto_pdf`, con el limitador de documentos de 003 (`LIMITE_FACTURAS`, sin renombrar).
-- [ ] T040 [US2] Plantilla `backend/app/resources/pdf/presupuesto.html` (contracts/documentos-pdf.md, «Presupuesto»):
+- [X] T040 [US2] Plantilla `backend/app/resources/pdf/presupuesto.html` (contracts/documentos-pdf.md, «Presupuesto»):
   - Extiende `base.html`, usa las macros de `_documento.html` y no tiene bloque de QR.
   - El aviso va en `.aviso-no-fiscal`.
   - `backend/app/resources/pdf/papel.css`: `.aviso-no-fiscal` con tokens (DESIGN.md 1.3). `test_tokens_papel.py` debe seguir en verde.
-- [ ] T041 [US2] Router: `GET /v1/presupuestos/{id}/pdf?iban=` en `backend/app/api/v1/presupuestos.py`, con `respuesta_pdf`. Quitarlo de `PENDIENTES_005`.
-- [ ] T042 [US2] `deploy/caddy/Caddyfile:13`: la excepción de la CSP de la SPA pasa a `^/api/v1/(facturas|presupuestos)/(listado|[^/]+)/pdf$`. Comprobarlo contra Caddy, como en 003.
-- [ ] T043 [US2] `joyeriablanco_web/src/features/presupuestos/ImprimirPresupuesto.tsx`, montado en el pie de `PresupuestoConsulta.tsx`, con `EnlaceImprimir` y `urlPdfPresupuesto`. Hace pasar T038.
-- [ ] T044 [US2] E2E en `joyeriablanco_web/e2e/presupuestos.spec.ts`: el `href` del PDF y que la descarga empieza por `%PDF`, como `impresion.spec.ts`.
+- [X] T041 [US2] Router: `GET /v1/presupuestos/{id}/pdf?iban=` en `backend/app/api/v1/presupuestos.py`, con `respuesta_pdf`. Quitarlo de `PENDIENTES_005`.
+- [X] T042 [US2] `deploy/caddy/Caddyfile:13`: la excepción de la CSP de la SPA pasa a `^/api/v1/(facturas|presupuestos)/(listado|[^/]+)/pdf$`. Comprobarlo contra Caddy, como en 003.
+- [X] T043 [US2] `joyeriablanco_web/src/features/presupuestos/ImprimirPresupuesto.tsx`, montado en el pie de `PresupuestoConsulta.tsx`, con `EnlaceImprimir` y `urlPdfPresupuesto`. Hace pasar T038.
+- [X] T044 [US2] E2E en `joyeriablanco_web/e2e/presupuestos.spec.ts`: el `href` del PDF y que la descarga empieza por `%PDF`, como `impresion.spec.ts`.
 
 **Checkpoint**: presupuesto impreso conforme a la sección «Paper» y sin elementos fiscales.
 

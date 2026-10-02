@@ -114,4 +114,29 @@ test.describe('Presupuestos (005)', () => {
     await expect(tabla.getByText(presupuesto.num_serie)).toBeVisible()
     await expect(tabla.getByText(presupuesto.cliente)).toBeVisible()
   })
+
+  test('imprimir un presupuesto desde su consulta abre su PDF (US2)', async ({ page }) => {
+    await iniciarSesion(page, 'empleado.demo')
+    await page.goto('/presupuestos')
+    const presupuesto = await emitirPresupuestoPorLaApi(page)
+
+    await page.goto(`/presupuestos/${presupuesto.id}`)
+    const modal = page.getByRole('dialog', { name: `Presupuesto ${presupuesto.num_serie}` })
+    const imprimir = modal.getByRole('link', {
+      name: `Imprimir presupuesto ${presupuesto.num_serie}`,
+    })
+    await expect(imprimir).toHaveAttribute('target', '_blank')
+    const base = `/api/v1/presupuestos/${presupuesto.id}/pdf`
+    await expect(imprimir).toHaveAttribute('href', base)
+    await expect(modal.getByRole('checkbox', { name: 'Duplicado' })).toHaveCount(0)
+
+    // Con la sesión del navegador, sin depender del visor de PDF de Chromium (003, R-11).
+    const respuesta = await page.request.get(base)
+    expect(respuesta.status()).toBe(200)
+    expect(respuesta.headers()['content-type']).toBe('application/pdf')
+    expect(respuesta.headers()['content-disposition']).toBe(
+      `inline; filename="${presupuesto.num_serie}.pdf"`,
+    )
+    expect((await respuesta.body()).subarray(0, 4).toString()).toBe('%PDF')
+  })
 })

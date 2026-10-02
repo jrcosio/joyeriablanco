@@ -31,6 +31,18 @@ describe('Consulta de un presupuesto emitido (005, US1)', () => {
     expect(within(modal).queryByRole('textbox')).toBeNull()
   })
 
+  it('el pie ofrece «Imprimir» para cualquier sesión (US2)', async () => {
+    conSesion(crearSesion())
+    conPresupuestos()
+    conPresupuesto(crearPresupuesto())
+    renderApp(`/presupuestos/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Presupuesto PRE-2026-0003' })
+    expect(
+      within(modal).getByRole('link', { name: 'Imprimir presupuesto PRE-2026-0003' }),
+    ).toHaveAttribute('href', `/api/v1/presupuestos/${ID}/pdf`)
+  })
+
   it('un sustituido lleva su marca y enlaza con el que lo sustituye (FR-017)', async () => {
     conSesion(crearSesion())
     conPresupuestos()

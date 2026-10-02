@@ -1,5 +1,5 @@
-"""/v1/presupuestos (005): parámetros del modal, listado, emisión y detalle (US1). El router
-valida, delega en los servicios y serializa (constitución V)."""
+"""/v1/presupuestos (005): parámetros del modal, listado, emisión y detalle (US1) y PDF (US2).
+El router valida, delega en los servicios y serializa (constitución V)."""
 
 import uuid
 from typing import Annotated, Any, Literal
@@ -7,7 +7,8 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.deps import CurrentSession, DbDep, OrigenDep, get_current_session
-from app.api.v1.facturas import AnioListado, ClaveIdempotencia, datos_lineas
+from app.api.v1.facturas import RESPUESTA_PDF, AnioListado, ClaveIdempotencia, datos_lineas
+from app.core.pdf.respuestas import respuesta_pdf
 from app.domain.exenciones import MENCION_EXENCION_ORO_INVERSION
 from app.domain.tipos import TipoCierrePresupuesto
 from app.models.factura import Factura
@@ -31,6 +32,7 @@ from app.schemas.presupuesto import (
     PresupuestoSalida,
 )
 from app.schemas.usuario import UsuarioReferencia
+from app.services import impresion_presupuestos
 from app.services import presupuestos as servicio
 from app.services.presupuestos import DetallePresupuesto
 
@@ -226,3 +228,14 @@ async def emitir_presupuesto(
 @router.get("/{presupuesto_id}")
 async def obtener_presupuesto(presupuesto_id: uuid.UUID, db: DbDep) -> PresupuestoSalida:
     return presupuesto_salida(await servicio.get_presupuesto(db, presupuesto_id))
+
+
+@router.get("/{presupuesto_id}/pdf", response_class=Response, responses=RESPUESTA_PDF)
+async def imprimir_presupuesto(
+    presupuesto_id: uuid.UUID,
+    db: DbDep,
+    iban: Annotated[bool, Query(description="Incluir el IBAN copiado al emitir")] = False,
+) -> Response:
+    """Presupuesto en PDF, sin QR tributario (005, US2). Cualquier sesión, como la consulta."""
+    documento = await impresion_presupuestos.presupuesto_pdf(db, presupuesto_id, iban=iban)
+    return respuesta_pdf(documento.nombre, documento.contenido)

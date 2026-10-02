@@ -7,10 +7,11 @@
 
 	encode zstd gzip
 
-	# Rutas de PDF (003, research R-8): traen su propia CSP desde la API, que deja abrirlas en el
-	# visor integrado del navegador (object-src 'self'). La CSP de la SPA no se les aplica.
+	# Rutas de PDF (003, research R-8; presupuestos en 005): traen su propia CSP desde la API, que
+	# deja abrirlas en el visor integrado del navegador (object-src 'self'). La CSP de la SPA no se
+	# les aplica.
 	@nopdf {
-		not path_regexp ^/api/v1/facturas/(listado|[^/]+)/pdf$
+		not path_regexp ^/api/v1/(facturas|presupuestos)/(listado|[^/]+)/pdf$
 	}
 
 	header @nopdf Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"

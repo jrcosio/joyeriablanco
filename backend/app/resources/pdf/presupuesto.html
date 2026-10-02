@@ -1,0 +1,51 @@
+{#
+  Presupuesto impreso (005, FR-029 a FR-031). Disposición: contracts/documentos-pdf.md de 005,
+  «Presupuesto». Solo pinta el modelo `p` (services/impresion_presupuestos.py → PresupuestoImpreso):
+  ningún cálculo ni consulta. Sin QR tributario ni frase VERI*FACTU (F-13; research R-10).
+#}
+{% extends "base.html" %}
+{% block titulo %}Presupuesto {{ p.num_serie }}{% endblock %}
+{% block autor %}{{ p.emisor.nombre }}{% endblock %}
+{% block clase_cuerpo %}doc-presupuesto{% endblock %}
+{% block contenido %}
+{% import "_documento.html" as doc %}
+<header class="cabecera">
+  {{ doc.emisor(p.emisor, p.contacto) }}
+</header>
+
+<section class="identificacion">
+  <div>
+    <h1 class="titulo">{{ p.titulo }}</h1>
+    <p class="aviso-no-fiscal">{{ p.aviso_no_fiscal }}</p>
+    {{ doc.marcas(p.marcas) }}
+  </div>
+  <dl class="rejilla-datos">
+    <div>
+      <dt class="etiqueta">Número</dt>
+      <dd class="numero-documento fuerte cifra">{{ p.num_serie }}</dd>
+    </div>
+    <div>
+      <dt class="etiqueta">Fecha</dt>
+      <dd class="cifra">{{ p.fecha }}</dd>
+    </div>
+    <div>
+      <dt class="etiqueta">Válido hasta</dt>
+      <dd class="cifra">{{ p.valido_hasta }}</dd>
+    </div>
+  </dl>
+</section>
+
+{{ doc.cliente(p.destinatario) }}
+
+<section class="detalle">
+  {{ doc.lineas(p.lineas) }}
+</section>
+
+<div class="totales-bloque">
+  {{ doc.tabla_totales(p) }}
+</div>
+
+{{ doc.mencion(p.mencion_exencion) }}
+{{ doc.pago(p.iban) }}
+{{ doc.pie(p.pie) }}
+{% endblock %}

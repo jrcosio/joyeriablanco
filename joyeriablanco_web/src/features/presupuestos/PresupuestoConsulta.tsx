@@ -14,6 +14,7 @@ import { LineasSoloLectura } from '../documentos/LineasSoloLectura'
 import { FichaDestinatario } from '../documentos/ResumenCliente'
 import { TotalesDocumento } from '../documentos/TotalesDocumento'
 import { EnlacesPresupuesto, HistorialPresupuesto } from './HistorialPresupuesto'
+import { ImprimirPresupuesto } from './ImprimirPresupuesto'
 import { MarcaPresupuesto } from './MarcaPresupuesto'
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
@@ -86,9 +87,12 @@ export function PresupuestoConsultaModal({
         if (!abierto) onCerrar()
       }}
       footer={
-        <Button variant="ghost" onPress={onCerrar} className="sm:mr-auto">
-          Cerrar
-        </Button>
+        <>
+          <Button variant="ghost" onPress={onCerrar} className="sm:mr-auto">
+            Cerrar
+          </Button>
+          {presupuesto ? <ImprimirPresupuesto presupuesto={presupuesto} /> : null}
+        </>
       }
     >
       {consulta.isError ? (

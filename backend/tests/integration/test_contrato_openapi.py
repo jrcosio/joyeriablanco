@@ -22,7 +22,6 @@ METODOS = {"get", "post", "put", "patch", "delete"}
 # nueva sale de la lista y T078 la elimina (tasks.md de 005).
 PENDIENTES_005 = {
     ("/api/v1/presupuestos/listado/pdf", "get"),
-    ("/api/v1/presupuestos/{}/pdf", "get"),
     ("/api/v1/presupuestos/{}/modificacion", "post"),
     ("/api/v1/presupuestos/{}/anulacion", "post"),
     ("/api/v1/presupuestos/{}/conversion", "post"),
