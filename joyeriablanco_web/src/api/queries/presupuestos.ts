@@ -1,7 +1,11 @@
 import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { FiltrosDocumentos } from '../../lib/filtros-documentos'
 import { api, unwrap } from '../client'
-import type { PresupuestoEntrada } from '../tipos'
+import type {
+  AnulacionPresupuestoEntrada,
+  ModificacionPresupuestoEntrada,
+  PresupuestoEntrada,
+} from '../tipos'
 import { CLIENTES_KEY } from './clientes'
 
 /** Presupuestos, sus borradores y los parámetros del modal cuelgan de esta clave (005). */
@@ -65,6 +69,52 @@ export function useEmitirPresupuesto() {
       unwrap(
         api.POST('/api/v1/presupuestos', {
           params: { header: { 'Idempotency-Key': clave } },
+          body,
+        }),
+      ),
+    onSuccess: invalidar,
+  })
+}
+
+/** Sustituye un presupuesto por uno nuevo (FR-015): devuelve el NUEVO. Solo administradores. */
+export function useModificarPresupuesto() {
+  const invalidar = useInvalidarPresupuestos()
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+      clave,
+    }: {
+      id: string
+      body: ModificacionPresupuestoEntrada
+      clave: string
+    }) =>
+      unwrap(
+        api.POST('/api/v1/presupuestos/{presupuesto_id}/modificacion', {
+          params: { path: { presupuesto_id: id }, header: { 'Idempotency-Key': clave } },
+          body,
+        }),
+      ),
+    onSuccess: invalidar,
+  })
+}
+
+/** Anula un presupuesto con un motivo (FR-016). Solo administradores. */
+export function useAnularPresupuesto() {
+  const invalidar = useInvalidarPresupuestos()
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+      clave,
+    }: {
+      id: string
+      body: AnulacionPresupuestoEntrada
+      clave: string
+    }) =>
+      unwrap(
+        api.POST('/api/v1/presupuestos/{presupuesto_id}/anulacion', {
+          params: { path: { presupuesto_id: id }, header: { 'Idempotency-Key': clave } },
           body,
         }),
       ),

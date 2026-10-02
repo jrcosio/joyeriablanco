@@ -484,7 +484,7 @@ siguiente número, los dos se enlazan y no se reutiliza ningún número.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T056 [P] [US4] Test `backend/tests/integration/test_presupuestos_cierres.py` (FR-005, FR-015 a FR-017, FR-021, FR-028, SC-010):
+- [X] T056 [P] [US4] Test `backend/tests/integration/test_presupuestos_cierres.py` (FR-005, FR-015 a FR-017, FR-021, FR-028, SC-010):
   - **Modificar**:
     - Siguiente PRE, original `sustituido` con su cierre y su motivo, y el nuevo con `sustituye_a`.
     - `vigente_actual` en cadenas de dos sustituciones.
@@ -504,7 +504,7 @@ siguiente número, los dos se enlazan y no se reutiliza ningún número.
     - La clave de `anular` reutilizada en `modificar` → 409 `idempotencia-conflicto`.
   - **PDF**: «SUSTITUIDO por {último de la cadena}» y «ANULADO», con el número correcto.
   - **Auditoría**: `presupuesto_modificado` y `presupuesto_anulado`.
-- [ ] T057 [P] [US4] Tests web:
+- [X] T057 [P] [US4] Tests web:
   - `joyeriablanco_web/src/features/presupuestos/ModificarPresupuestoModal.test.tsx`:
     - La precarga y la fecha de hoy.
     - La validez propuesta del sustituto (FR-015): la del original, o la fecha más la validez por defecto si la del original es anterior.
@@ -516,20 +516,22 @@ siguiente número, los dos se enlazan y no se reutiliza ningún número.
 
 ### Implementation for User Story 4
 
-- [ ] T058 [US4] `backend/app/services/presupuestos.py` (R-7), en el orden `lock_presupuestos` → `find_previous_presupuesto` (si hay resultado previo, se devuelve) → estado → borrador vinculado → cierre:
+- [X] T058 [US4] `backend/app/services/presupuestos.py` (R-7), en el orden `lock_presupuestos` → `find_previous_presupuesto` (si hay resultado previo, se devuelve) → estado → borrador vinculado → cierre:
   - `modify_presupuesto`: `AdminSession`, `sin-cambios` con la regla de R-7 (la fecha no cuenta), `emit_presupuesto(…, operacion=modificar, bloqueado=True)`, cierre `sustitucion` y evento.
   - `annul_presupuesto`: cierre `anulacion` con su clave y evento.
   - Orden de lectura de R-6: primero el borrador vinculado y después el cierre.
-- [ ] T059 [P] [US4] Esquemas `ModificacionPresupuestoEntrada` y `AnulacionPresupuestoEntrada`, en `backend/app/schemas/presupuesto.py`.
-- [ ] T060 [US4] Routers en `backend/app/api/v1/presupuestos.py`: `POST /{id}/modificacion` (201 o 200) y `POST /{id}/anulacion` (200), solo `AdminSession` y con `Idempotency-Key`. Quitarlos de `PENDIENTES_005`.
-- [ ] T061 [US4] Pantallas:
+- [X] T059 [P] [US4] Esquemas `ModificacionPresupuestoEntrada` y `AnulacionPresupuestoEntrada`, en `backend/app/schemas/presupuesto.py`.
+  - *Implementación*: ya estaban desde la US1, con el resto de los esquemas del contrato.
+- [X] T060 [US4] Routers en `backend/app/api/v1/presupuestos.py`: `POST /{id}/modificacion` (201 o 200) y `POST /{id}/anulacion` (200), solo `AdminSession` y con `Idempotency-Key`. Quitarlos de `PENDIENTES_005`.
+- [X] T061 [US4] Pantallas:
   - `joyeriablanco_web/src/routes/_app/presupuestos/$presupuestoId/modificar.tsx`, con `requireAdmin`.
   - `joyeriablanco_web/src/features/presupuestos/ModificarPresupuestoModal.tsx`, con el diálogo de motivo.
   - `AnularPresupuestoDialog.tsx`.
+    - *Implementación*: los dos motivos (sustitución y anulación) comparten `MotivoPresupuestoDialog.tsx`.
   - `HistorialPresupuesto.tsx`, en la consulta.
   - Queries `useModificarPresupuesto` y `useAnularPresupuesto`, con `useClaveOperacion`.
   - Hace pasar T057.
-- [ ] T062 [US4] E2E en `joyeriablanco_web/e2e/presupuestos.spec.ts`:
+- [X] T062 [US4] E2E en `joyeriablanco_web/e2e/presupuestos.spec.ts`:
   - Como administrador: modificar una línea y ver el nuevo PRE y el historial en los dos. Anular con motivo y ver «ANULADO».
   - Como empleado: no ve Modificar ni Anular.
 

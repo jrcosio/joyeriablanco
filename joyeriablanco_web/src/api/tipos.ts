@@ -53,3 +53,5 @@ export type BorradorPresupuestoEdicionEntrada = Esquemas['BorradorPresupuestoEdi
 export type BorradorPresupuestoSalida = Esquemas['BorradorPresupuestoSalida']
 export type CierrePresupuestoSalida = Esquemas['CierrePresupuestoSalida']
 export type PresupuestoReferencia = Esquemas['PresupuestoReferencia']
+export type ModificacionPresupuestoEntrada = Esquemas['ModificacionPresupuestoEntrada']
+export type AnulacionPresupuestoEntrada = Esquemas['AnulacionPresupuestoEntrada']

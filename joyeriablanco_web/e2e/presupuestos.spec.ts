@@ -235,4 +235,67 @@ test.describe('Presupuestos (005)', () => {
       consulta.getByText('Este presupuesto tiene un borrador de factura en curso.'),
     ).toHaveCount(0)
   })
+
+  test('un administrador modifica y anula; el historial queda en los dos (US4)', async ({
+    page,
+  }) => {
+    await iniciarSesion(page, 'admin.demo')
+    await page.goto('/presupuestos')
+    const original = await emitirPresupuestoPorLaApi(page)
+
+    // Modificar una línea: se emite el siguiente PRE y el original queda sustituido.
+    await page.goto(`/presupuestos/${original.id}`)
+    let consulta = page.getByRole('dialog', { name: `Presupuesto ${original.num_serie}` })
+    await consulta.getByRole('link', { name: 'Modificar' }).click()
+    const modal = page.getByRole('dialog', { name: `Modificar presupuesto ${original.num_serie}` })
+    const precio = modal.getByRole('textbox', { name: 'Precio unitario sin IVA de la línea 1' })
+    await precio.fill('650')
+    const respuesta = page.waitForResponse((r) => r.url().endsWith('/modificacion'))
+    await modal.getByRole('button', { name: 'Guardar' }).click()
+    const motivo = page.getByRole('alertdialog', { name: `¿Sustituir ${original.num_serie}?` })
+    await motivo.getByRole('textbox', { name: /Motivo/ }).fill('Nuevo precio del oro')
+    await motivo.getByRole('button', { name: 'Emitir el nuevo' }).click()
+    const nuevo = (await (await respuesta).json()) as PresupuestoCreado
+    expect(nuevo.num_serie).not.toBe(original.num_serie)
+    await expect(
+      page.getByText(`Se ha emitido ${nuevo.num_serie}. ${original.num_serie} queda sustituido`),
+    ).toBeVisible()
+    consulta = page.getByRole('dialog', { name: `Presupuesto ${nuevo.num_serie}` })
+    await expect(consulta.getByText(/Sustituye a/)).toBeVisible()
+
+    // El original: sustituido, con el motivo y el enlace al nuevo.
+    await consulta.getByRole('link', { name: original.num_serie }).click()
+    consulta = page.getByRole('dialog', { name: `Presupuesto ${original.num_serie}` })
+    await expect(consulta.getByText('Nuevo precio del oro')).toBeVisible()
+    await expect(consulta.getByRole('link', { name: nuevo.num_serie }).first()).toBeVisible()
+    await expect(consulta.getByRole('link', { name: 'Modificar' })).toHaveCount(0)
+
+    // Anular el nuevo con un motivo: queda marcado y su PDF lo dice.
+    await page.goto(`/presupuestos/${nuevo.id}`)
+    consulta = page.getByRole('dialog', { name: `Presupuesto ${nuevo.num_serie}` })
+    await consulta.getByRole('button', { name: 'Anular' }).click()
+    const anular = page.getByRole('alertdialog', {
+      name: `¿Anular el presupuesto ${nuevo.num_serie}?`,
+    })
+    await anular.getByRole('textbox', { name: /Motivo/ }).fill('Rechazado por el cliente')
+    await anular.getByRole('button', { name: 'Anular presupuesto' }).click()
+    await expect(page.getByText(`Presupuesto ${nuevo.num_serie} anulado`)).toBeVisible()
+    await expect(consulta.getByText('Rechazado por el cliente')).toBeVisible()
+    await expect(consulta.getByText('Anulado').first()).toBeVisible()
+    await expect(consulta.getByRole('button', { name: 'Convertir en factura' })).toHaveCount(0)
+    const pdf = await page.request.get(`/api/v1/presupuestos/${nuevo.id}/pdf`)
+    expect(pdf.status()).toBe(200)
+  })
+
+  test('un empleado no ve «Modificar» ni «Anular» (US4)', async ({ page }) => {
+    await iniciarSesion(page, 'empleado.demo')
+    await page.goto('/presupuestos')
+    const presupuesto = await emitirPresupuestoPorLaApi(page)
+
+    await page.goto(`/presupuestos/${presupuesto.id}`)
+    const consulta = page.getByRole('dialog', { name: `Presupuesto ${presupuesto.num_serie}` })
+    await expect(consulta.getByRole('button', { name: 'Convertir en factura' })).toBeVisible()
+    await expect(consulta.getByRole('button', { name: 'Anular' })).toHaveCount(0)
+    await expect(consulta.getByRole('link', { name: 'Modificar' })).toHaveCount(0)
+  })
 })

@@ -2,21 +2,25 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { TriangleAlert } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import type { Problema } from '../../api/client'
-import { presupuestoQuery } from '../../api/queries/presupuestos'
+import { ApiError, type Problema } from '../../api/client'
+import { presupuestoQuery, useAnularPresupuesto } from '../../api/queries/presupuestos'
 import type { PresupuestoSalida } from '../../api/tipos'
 import { Alerta } from '../../components/forms/Alerta'
 import { Button } from '../../components/ui/Button'
 import { claseEnlaceSecundario } from '../../components/ui/enlace'
 import { ModalDocumento } from '../../components/ui/ModalDocumento'
 import { Skeleton } from '../../components/ui/Skeleton'
+import { toast } from '../../components/ui/toast-store'
+import { useSesion } from '../../auth/session'
 import { desdeApi } from '../../lib/dinero'
 import { fechaCorta } from '../../lib/fechas'
+import { useClaveOperacion } from '../../lib/idempotencia'
 import { nombreConEstado } from '../../lib/usuarios'
 import { Seccion } from '../documentos/CamposDocumento'
 import { LineasSoloLectura } from '../documentos/LineasSoloLectura'
 import { FichaDestinatario } from '../documentos/ResumenCliente'
 import { TotalesDocumento } from '../documentos/TotalesDocumento'
+import { AnularPresupuestoDialog } from './AnularPresupuestoDialog'
 import { ConvertirPresupuestoDialog } from './ConvertirPresupuestoDialog'
 import { EnlacesPresupuesto, HistorialPresupuesto } from './HistorialPresupuesto'
 import { ImprimirPresupuesto } from './ImprimirPresupuesto'
@@ -114,12 +118,16 @@ function AvisoNoModificable({ problema }: { problema: Problema }) {
   )
 }
 
-/** Se puede convertir un pendiente o un caducado, con aviso (FR-018, Clarifications). */
-const CONVERTIBLES: readonly PresupuestoSalida['estado'][] = ['pendiente', 'caducado']
+/**
+ * Un pendiente o un caducado se puede convertir, con aviso si caducó (FR-018), y un administrador
+ * lo puede modificar o anular (FR-015, FR-016). En facturación o cerrado, nada de eso.
+ */
+const ABIERTOS: readonly PresupuestoSalida['estado'][] = ['pendiente', 'caducado']
 
 /**
- * Modal de consulta de un presupuesto emitido (FR-027). Las acciones se suman en cada historia:
- * imprimir (US2), convertir en factura (US3), y modificar y anular (US4).
+ * Modal de consulta de un presupuesto emitido (FR-027): «Cerrar», «Imprimir» (US2), «Convertir en
+ * factura» (US3) y, para un administrador, «Anular» y «Modificar» (US4). Tras anular sigue en el
+ * presupuesto, ya marcado.
  */
 export function PresupuestoConsultaModal({
   presupuestoId,
@@ -128,15 +136,45 @@ export function PresupuestoConsultaModal({
   presupuestoId: string
   onCerrar: () => void
 }) {
+  const { usuario } = useSesion()
   const queryClient = useQueryClient()
   const consulta = useQuery(presupuestoQuery(presupuestoId))
   const presupuesto = consulta.data
+  const anular = useAnularPresupuesto()
+  const { clave, renovar } = useClaveOperacion()
   const [convirtiendo, setConvirtiendo] = useState(false)
+  const [anulando, setAnulando] = useState(false)
   const [noModificable, setNoModificable] = useState<Problema | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const abierto = presupuesto ? ABIERTOS.includes(presupuesto.estado) : false
+  const administrador = usuario.rol === 'administrador'
 
   const alNoModificable = (problema: Problema) => {
     setNoModificable(problema)
     void queryClient.invalidateQueries({ queryKey: presupuestoQuery(presupuestoId).queryKey })
+  }
+
+  const confirmarAnulacion = async (motivoTexto: string) => {
+    if (!presupuesto) return
+    setError(null)
+    setNoModificable(null)
+    try {
+      await anular.mutateAsync({ id: presupuesto.id, body: { motivo_texto: motivoTexto }, clave })
+      renovar()
+      setAnulando(false)
+      toast(`Presupuesto ${presupuesto.num_serie} anulado`)
+    } catch (e) {
+      setAnulando(false)
+      if (e instanceof ApiError && e.tipo === 'presupuesto-no-modificable') {
+        alNoModificable(e.problema)
+      } else {
+        setError(
+          e instanceof ApiError && e.tipo !== 'red'
+            ? e.message
+            : 'No se ha podido completar la anulación. Vuelve a intentarlo: no se anulará dos veces.',
+        )
+      }
+    }
   }
 
   return (
@@ -152,7 +190,28 @@ export function PresupuestoConsultaModal({
             Cerrar
           </Button>
           {presupuesto ? <ImprimirPresupuesto presupuesto={presupuesto} /> : null}
-          {presupuesto && CONVERTIBLES.includes(presupuesto.estado) ? (
+          {presupuesto && abierto && administrador ? (
+            <>
+              <Button
+                variant="danger"
+                onPress={() => {
+                  setAnulando(true)
+                }}
+                isDisabled={anular.isPending}
+              >
+                Anular
+              </Button>
+              <Link
+                to="/presupuestos/$presupuestoId/modificar"
+                params={{ presupuestoId: presupuesto.id }}
+                search
+                className={claseEnlaceSecundario}
+              >
+                Modificar
+              </Link>
+            </>
+          ) : null}
+          {presupuesto && abierto ? (
             <Button
               onPress={() => {
                 setNoModificable(null)
@@ -170,12 +229,21 @@ export function PresupuestoConsultaModal({
       ) : presupuesto ? (
         <div className="flex flex-col gap-6">
           {noModificable ? <AvisoNoModificable problema={noModificable} /> : null}
+          <Alerta mensaje={error} />
           <PresupuestoDetalle presupuesto={presupuesto} />
           <ConvertirPresupuestoDialog
             presupuesto={presupuesto}
             isOpen={convirtiendo}
             onOpenChange={setConvirtiendo}
             onNoModificable={alNoModificable}
+          />
+          <AnularPresupuestoDialog
+            key={String(anulando)}
+            isOpen={anulando}
+            onOpenChange={setAnulando}
+            numSerie={presupuesto.num_serie}
+            enviando={anular.isPending}
+            onConfirmar={(motivo) => void confirmarAnulacion(motivo)}
           />
         </div>
       ) : (

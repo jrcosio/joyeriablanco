@@ -1,13 +1,13 @@
-"""/v1/presupuestos (005): parámetros del modal, listado, emisión y detalle (US1), PDF (US2) y
-conversión en factura (US3). El router valida, delega en los servicios y serializa
-(constitución V)."""
+"""/v1/presupuestos (005): parámetros del modal, listado, emisión y detalle (US1), PDF (US2),
+conversión en factura (US3), y modificación y anulación (US4). El router valida, delega en los
+servicios y serializa (constitución V)."""
 
 import uuid
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from app.api.deps import CurrentSession, DbDep, OrigenDep, get_current_session
+from app.api.deps import AdminSession, CurrentSession, DbDep, OrigenDep, get_current_session
 from app.api.v1.borradores import borrador_salida
 from app.api.v1.facturas import (
     RESPUESTA_PDF,
@@ -31,8 +31,10 @@ from app.schemas.factura import (
     TotalesSalida,
 )
 from app.schemas.presupuesto import (
+    AnulacionPresupuestoEntrada,
     BorradorReferencia,
     CierrePresupuestoSalida,
+    ModificacionPresupuestoEntrada,
     ParametrosPresupuestoSalida,
     PresupuestoEntrada,
     PresupuestoResumenSalida,
@@ -264,3 +266,57 @@ async def convertir_presupuesto(
     if not creado:
         response.status_code = status.HTTP_200_OK
     return borrador_salida(borrador)
+
+
+@router.post(
+    "/{presupuesto_id}/modificacion", status_code=status.HTTP_201_CREATED, responses=REPETICION
+)
+async def modificar_presupuesto(
+    presupuesto_id: uuid.UUID,
+    datos: ModificacionPresupuestoEntrada,
+    clave: ClaveIdempotencia,
+    sesion: AdminSession,
+    db: DbDep,
+    origen: OrigenDep,
+    response: Response,
+) -> PresupuestoSalida:
+    """Sustitución trazable (FR-015): devuelve el presupuesto NUEVO. Solo administradores."""
+    nuevo, creado = await servicio.modify_presupuesto(
+        db,
+        presupuesto_id,
+        servicio.DatosPresupuesto(
+            fecha=datos.fecha,
+            valido_hasta=datos.valido_hasta,
+            cliente_id=datos.cliente_id,
+            lineas=datos_lineas(datos.lineas),
+            oro_inversion=datos.oro_inversion,
+        ),
+        motivo_texto=datos.motivo_texto,
+        actor=sesion.usuario,
+        origen=origen,
+        clave=clave,
+    )
+    if not creado:
+        response.status_code = status.HTTP_200_OK
+    return presupuesto_salida(await servicio.get_presupuesto(db, nuevo.id))
+
+
+@router.post("/{presupuesto_id}/anulacion")
+async def anular_presupuesto(
+    presupuesto_id: uuid.UUID,
+    datos: AnulacionPresupuestoEntrada,
+    clave: ClaveIdempotencia,
+    sesion: AdminSession,
+    db: DbDep,
+    origen: OrigenDep,
+) -> PresupuestoSalida:
+    """Anulación con motivo (FR-016). Una repetición devuelve lo mismo (200 en ambos casos)."""
+    presupuesto, _ = await servicio.annul_presupuesto(
+        db,
+        presupuesto_id,
+        motivo_texto=datos.motivo_texto,
+        actor=sesion.usuario,
+        origen=origen,
+        clave=clave,
+    )
+    return presupuesto_salida(await servicio.get_presupuesto(db, presupuesto.id))

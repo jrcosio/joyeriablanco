@@ -585,6 +585,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/presupuestos/{presupuesto_id}/modificacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Modificar Presupuesto
+         * @description Sustitución trazable (FR-015): devuelve el presupuesto NUEVO. Solo administradores.
+         */
+        post: operations["modificar_presupuesto_api_v1_presupuestos__presupuesto_id__modificacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presupuestos/{presupuesto_id}/anulacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Anular Presupuesto
+         * @description Anulación con motivo (FR-016). Una repetición devuelve lo mismo (200 en ambos casos).
+         */
+        post: operations["anular_presupuesto_api_v1_presupuestos__presupuesto_id__anulacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/borradores-presupuesto": {
         parameters: {
             query?: never;
@@ -676,6 +716,11 @@ export interface components {
              * @constant
              */
             declaracion_no_debio_emitirse: true;
+            /** Motivo Texto */
+            motivo_texto: string;
+        };
+        /** AnulacionPresupuestoEntrada */
+        AnulacionPresupuestoEntrada: {
             /** Motivo Texto */
             motivo_texto: string;
         };
@@ -1520,6 +1565,33 @@ export interface components {
             oro_inversion: boolean;
             /** Fecha Expedicion */
             fecha_expedicion?: string | null;
+        };
+        /** ModificacionPresupuestoEntrada */
+        ModificacionPresupuestoEntrada: {
+            /** Motivo Texto */
+            motivo_texto: string;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /**
+             * Valido Hasta
+             * Format: date
+             */
+            valido_hasta: string;
+            /**
+             * Cliente Id
+             * Format: uuid
+             */
+            cliente_id: string;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             */
+            oro_inversion: boolean;
         };
         /**
          * MotivoModificacion
@@ -3388,6 +3460,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    modificar_presupuesto_api_v1_presupuestos__presupuesto_id__modificacion_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                presupuesto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModificacionPresupuestoEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anular_presupuesto_api_v1_presupuestos__presupuesto_id__anulacion_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                presupuesto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnulacionPresupuestoEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
                 };
             };
             /** @description Validation Error */

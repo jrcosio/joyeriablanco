@@ -30,6 +30,7 @@ from app.core.errors import (
     IdempotenciaConflicto,
     NoEncontrado,
     PresupuestoNoModificable,
+    SinCambios,
     restriccion,
 )
 from app.core.http import Origen
@@ -414,6 +415,181 @@ async def close_conversion(
     # Sin datos personales ni importes (FR-035).
     logger.info("Presupuesto %s convertido en %s", presupuesto.num_serie, factura.num_serie)
     return cierre
+
+
+# ------------------------------------------------------------- modificar y anular (US4)
+
+SIN_CAMBIOS: Final = (
+    "El presupuesto nuevo sería idéntico al original: cambia algún dato además de la fecha."
+)
+
+
+async def _check_abierto(db: AsyncSession, presupuesto: Presupuesto) -> None:
+    """Pendiente o caducado y sin borrador vinculado (FR-017, FR-021).
+
+    Orden de lectura de R-6: primero el borrador y después el cierre. Si la emisión del borrador
+    termina entre las dos lecturas, la segunda ve su cierre.
+    """
+    borrador = await borradores_factura.get_by_presupuesto(db, presupuesto.id)
+    if borrador is not None:
+        raise PresupuestoNoModificable(EstadoPresupuesto.EN_FACTURACION.value, borrador.id)
+    if await cierres.get_by_presupuesto(db, presupuesto.id) is not None:
+        raise await no_modificable(db, presupuesto.id)
+
+
+def _sin_cambios(
+    original: Presupuesto, cliente: Cliente, datos: DatosPresupuesto, tipo_iva: Decimal | None
+) -> bool:
+    """¿Sería el nuevo idéntico al original? La regla de `emision._sin_cambios` de 002 con la
+    validez añadida. La fecha no cuenta: el modal propone la de hoy (R-7, Clarifications)."""
+    destinatario = copia_destinatario(cliente)
+    mismo_cliente = original.cliente_id == cliente.id and all(
+        getattr(original, campo) == valor for campo, valor in destinatario.items()
+    )
+    actuales = [
+        (linea.unidades, linea.descripcion, linea.precio_unitario)
+        for linea in sorted(original.lineas, key=lambda linea: linea.orden)
+    ]
+    nuevas = [
+        (
+            linea.unidades.quantize(Decimal("0.01")),
+            linea.descripcion.strip(),
+            linea.precio_unitario.quantize(Decimal("0.01")),
+        )
+        for linea in datos.lineas
+    ]
+    tipo_original = None if original.oro_inversion else original.lineas[0].tipo_iva
+    return (
+        mismo_cliente
+        and actuales == nuevas
+        and original.oro_inversion == datos.oro_inversion
+        and tipo_original == tipo_iva
+        and original.valido_hasta == datos.valido_hasta
+    )
+
+
+async def modify_presupuesto(
+    db: AsyncSession,
+    presupuesto_id: uuid.UUID,
+    datos: DatosPresupuesto,
+    *,
+    motivo_texto: str,
+    actor: Usuario,
+    origen: Origen,
+    clave: uuid.UUID,
+) -> tuple[Presupuesto, bool]:
+    """Sustituye el presupuesto por uno nuevo con el siguiente número PRE (FR-015; R-7).
+
+    Devuelve el nuevo y si se ha creado ahora. La clave se busca antes de mirar el estado: tras
+    la primera petición el original ya está sustituido, y una repetición debe devolver lo mismo.
+    """
+    await repo.lock_presupuestos(db)
+    operacion = OperacionIdempotente.MODIFICAR
+    if previo := await find_previous_presupuesto(db, clave, operacion, presupuesto_id):
+        return previo, False
+    original = await repo.get(db, presupuesto_id)
+    if original is None:
+        raise NoEncontrado(NO_EXISTE)
+    await _check_abierto(db, original)
+    check_fechas(datos.fecha, datos.valido_hasta)
+    check_lineas(datos.lineas, sin_lineas=SIN_LINEAS)
+    cliente = await cliente_activo(db, datos.cliente_id)
+    config = await configuracion_repo.get(db)
+    if _sin_cambios(
+        original, cliente, datos, None if datos.oro_inversion else config.iva_por_defecto
+    ):
+        raise SinCambios(SIN_CAMBIOS)
+    nuevo, _ = await emit_presupuesto(
+        db,
+        datos,
+        actor=actor,
+        origen=origen,
+        clave=clave,
+        operacion=operacion,
+        origen_id=original.id,
+        bloqueado=True,
+    )
+    motivo = motivo_texto.strip()
+    await guard_presupuesto(
+        db,
+        original.id,
+        lambda: cierres.insert(
+            db,
+            CierrePresupuesto(
+                presupuesto_id=original.id,
+                tipo=TipoCierrePresupuesto.SUSTITUCION.value,
+                motivo_texto=motivo,
+                presupuesto_nuevo_id=nuevo.id,
+                creado_por_id=actor.id,
+            ),
+        ),
+    )
+    await record_event(
+        db,
+        TipoEvento.PRESUPUESTO_MODIFICADO,
+        origen=origen,
+        actor=actor,
+        cliente_id=nuevo.cliente_id,
+        detalle={
+            "presupuesto_id": original.id,
+            "num_serie": original.num_serie,
+            "presupuesto_nuevo_id": nuevo.id,
+            "num_serie_nuevo": nuevo.num_serie,
+            "motivo_texto": motivo,
+        },
+    )
+    logger.info("Presupuesto %s sustituido por %s", original.num_serie, nuevo.num_serie)
+    return nuevo, True
+
+
+async def annul_presupuesto(
+    db: AsyncSession,
+    presupuesto_id: uuid.UUID,
+    *,
+    motivo_texto: str,
+    actor: Usuario,
+    origen: Origen,
+    clave: uuid.UUID,
+) -> tuple[Presupuesto, bool]:
+    """Anula el presupuesto con un motivo (FR-016; R-7). No emite nada ni consume números."""
+    await repo.lock_presupuestos(db)
+    operacion = OperacionIdempotente.ANULAR
+    if previo := await find_previous_presupuesto(db, clave, operacion, presupuesto_id):
+        return previo, False
+    presupuesto = await repo.get(db, presupuesto_id)
+    if presupuesto is None:
+        raise NoEncontrado(NO_EXISTE)
+    await _check_abierto(db, presupuesto)
+    motivo = motivo_texto.strip()
+    await guard_presupuesto(
+        db,
+        presupuesto.id,
+        lambda: cierres.insert(
+            db,
+            CierrePresupuesto(
+                presupuesto_id=presupuesto.id,
+                tipo=TipoCierrePresupuesto.ANULACION.value,
+                motivo_texto=motivo,
+                creado_por_id=actor.id,
+                clave_idempotencia=clave,
+                operacion_idempotencia=operacion.value,
+            ),
+        ),
+    )
+    await record_event(
+        db,
+        TipoEvento.PRESUPUESTO_ANULADO,
+        origen=origen,
+        actor=actor,
+        cliente_id=presupuesto.cliente_id,
+        detalle={
+            "presupuesto_id": presupuesto.id,
+            "num_serie": presupuesto.num_serie,
+            "motivo_texto": motivo,
+        },
+    )
+    logger.info("Presupuesto %s anulado", presupuesto.num_serie)
+    return presupuesto, True
 
 
 # ---------------------------------------------------------------------------- listado
