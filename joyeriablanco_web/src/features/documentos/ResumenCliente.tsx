@@ -50,8 +50,20 @@ export function FichaDestinatario({ datos }: { datos: DatosDestinatario }) {
   )
 }
 
-/** Resumen del cliente elegido (datos actuales de su ficha) con aviso si no es facturable. */
-export function ResumenCliente({ clienteId }: { clienteId: string }) {
+export const AVISO_DOMICILIO_FACTURA =
+  'A este cliente le falta el domicilio completo (dirección, código postal y localidad): no se podrá emitir hasta completarlo.'
+
+/**
+ * Resumen del cliente elegido (datos actuales de su ficha) con aviso si no es facturable. El
+ * presupuesto se emite sin domicilio, y avisa de que la factura convertida no (005, FR-011).
+ */
+export function ResumenCliente({
+  clienteId,
+  avisoDomicilio = AVISO_DOMICILIO_FACTURA,
+}: {
+  clienteId: string
+  avisoDomicilio?: string
+}) {
   const consulta = useQuery(clienteQuery(clienteId))
   if (!consulta.data) {
     return <Skeleton className="h-32 w-full" />
@@ -78,7 +90,7 @@ export function ResumenCliente({ clienteId }: { clienteId: string }) {
           <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
           <p className="body-md text-on-surface">
             {cliente.activo
-              ? 'A este cliente le falta el domicilio completo (dirección, código postal y localidad): no se podrá emitir hasta completarlo.'
+              ? avisoDomicilio
               : 'Este cliente está desactivado: no se puede emitir a su nombre.'}{' '}
             <Link
               to="/clientes/$clienteId"

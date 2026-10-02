@@ -6,70 +6,13 @@ import type { ParametrosFacturacionSalida } from '../../api/tipos'
 import { Button } from '../../components/ui/Button'
 import { CampoFecha } from '../../components/ui/CampoFecha'
 import { Casilla } from '../../components/ui/Casilla'
-import { calcularTotales, desdeApi } from '../../lib/dinero'
 import { fechaCorta } from '../../lib/fechas'
 import { ClienteAltaPanel } from '../clientes/ClienteAltaPanel'
-import { etiquetaCliente, lineasCalculo, type ValoresFactura } from './factura-valores'
-import { LineasFactura } from './LineasFactura'
-import { ResumenCliente } from './ResumenCliente'
-import { SelectorCliente } from './SelectorCliente'
-import { TotalesFactura } from './TotalesFactura'
-
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-4">
-      <h3 className="title-lg text-on-surface">{titulo}</h3>
-      {children}
-    </section>
-  )
-}
-
-function SoloLectura({
-  etiqueta,
-  valor,
-  ayuda,
-}: {
-  etiqueta: string
-  valor: string
-  ayuda?: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="label-md text-on-surface-variant">{etiqueta}</span>
-      <span className="flex h-11 items-center border border-on-surface/12 bg-surface-container px-3 body-md text-on-surface-variant tabular-nums">
-        {valor}
-      </span>
-      {ayuda ? <span className="body-sm text-on-surface-variant">{ayuda}</span> : null}
-    </div>
-  )
-}
-
-/**
- * Totales previstos en el navegador (R-11). Tras guardar mandan los del servidor. Con «Sin IVA
- * (oro de inversión)», sin tipo ni cuota y con la mención de la exención (FR-052).
- */
-function Previsualizacion({
-  form,
-  parametros,
-}: {
-  form: UseFormReturn<ValoresFactura>
-  parametros: ParametrosFacturacionSalida
-}) {
-  const lineas = useWatch({ control: form.control, name: 'lineas' })
-  const exenta = useWatch({ control: form.control, name: 'oro_inversion' })
-  const tipoIva = exenta ? null : parametros.iva_por_defecto
-  const totales = calcularTotales(
-    lineasCalculo(lineas),
-    tipoIva === null ? null : desdeApi(tipoIva),
-  )
-  return (
-    <TotalesFactura
-      {...totales}
-      tipoIva={tipoIva}
-      mencion={exenta ? parametros.mencion_exencion_oro_inversion : null}
-    />
-  )
-}
+import { PrevisualizacionTotales, Seccion, SoloLectura } from '../documentos/CamposDocumento'
+import { LineasDocumento } from '../documentos/LineasDocumento'
+import { ResumenCliente } from '../documentos/ResumenCliente'
+import { SelectorCliente } from '../documentos/SelectorCliente'
+import { etiquetaCliente, type ValoresFactura } from './factura-valores'
 
 /**
  * El formulario del modal de factura con sus tres secciones (FR-037): datos de emisión, detalle y
@@ -187,7 +130,7 @@ export function CamposFactura({
         </Seccion>
 
         <Seccion titulo="Detalle de la factura">
-          <LineasFactura
+          <LineasDocumento
             control={control}
             error={formState.errors.lineas?.root?.message ?? formState.errors.lineas?.message}
           />
@@ -207,7 +150,11 @@ export function CamposFactura({
               </Casilla>
             )}
           />
-          <Previsualizacion form={form} parametros={parametros} />
+          <PrevisualizacionTotales
+            control={control}
+            ivaPorDefecto={parametros.iva_por_defecto}
+            mencionExencion={parametros.mencion_exencion_oro_inversion}
+          />
         </div>
         {despues}
       </Form>

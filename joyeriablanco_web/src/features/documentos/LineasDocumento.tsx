@@ -4,10 +4,10 @@ import { Button } from '../../components/ui/Button'
 import { CampoDecimal } from '../../components/ui/CampoDecimal'
 import { TextField } from '../../components/ui/TextField'
 import { formatearEuros, importeLinea } from '../../lib/dinero'
-import { lineaVacia, lineasCalculo, MAX_LINEAS, type ValoresFactura } from './factura-valores'
+import { lineaVacia, lineasCalculo, MAX_LINEAS, type ConLineas } from './documento-valores'
 
 /** Importe previsto de la línea (el que vale es el del servidor, FR-014). */
-function ImporteLinea({ control, indice }: { control: Control<ValoresFactura>; indice: number }) {
+function ImporteLinea({ control, indice }: { control: Control<ConLineas>; indice: number }) {
   const linea = useWatch({ control, name: `lineas.${indice}` })
   const [calculo] = lineasCalculo([linea])
   const importe = calculo ? importeLinea(calculo.unidades, calculo.precio) : 0n
@@ -15,16 +15,20 @@ function ImporteLinea({ control, indice }: { control: Control<ValoresFactura>; i
 }
 
 /**
- * Detalle de la factura (FR-037, FR-049): tabla editable en escritorio y tarjetas apiladas en
- * móvil. Se puede quitar cualquier línea, también la última; con 100 no se añaden más.
+ * Detalle de la factura o del presupuesto (002, FR-037, FR-049; 005, FR-026): tabla editable en
+ * escritorio y tarjetas apiladas en móvil. Se puede quitar cualquier línea, también la última; con
+ * 100 no se añaden más.
  */
-export function LineasFactura({
-  control,
+export function LineasDocumento<T extends ConLineas>({
+  control: controlFormulario,
   error,
 }: {
-  control: Control<ValoresFactura>
+  control: Control<T>
   error?: string | undefined
 }) {
+  // Los dos formularios comparten exactamente los campos de línea (`ConLineas`); react-hook-form
+  // no deja estrechar el tipo de `Control`, así que se ve aquí como el de esos campos.
+  const control = controlFormulario as unknown as Control<ConLineas>
   const { fields, append, remove } = useFieldArray({ control, name: 'lineas' })
 
   return (

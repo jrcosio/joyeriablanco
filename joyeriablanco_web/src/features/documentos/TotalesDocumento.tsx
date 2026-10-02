@@ -4,12 +4,12 @@ import { formatearIban, textoTipoIva } from '../../lib/facturacion'
 /**
  * Totales (DESIGN.md §Totals Section): base e IVA en Manrope y total destacado en Bodoni dentro
  * de una caja con acento `primary-container`. En el modal son una previsualización; en una
- * factura emitida, los importes del servidor.
+ * factura o un presupuesto emitidos, los importes del servidor (005, R-13).
  *
  * Sin tipo (`tipoIva` nulo), la factura es de oro de inversión: «Base exenta», IVA a cero y la
  * mención de F-6, art. 6.1.j (FR-052). En la consulta, el bloque «Pago» con el IBAN (FR-053).
  */
-export function TotalesFactura({
+export function TotalesDocumento({
   base,
   cuota,
   total,

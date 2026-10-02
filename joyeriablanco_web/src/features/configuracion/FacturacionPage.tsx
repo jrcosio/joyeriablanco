@@ -60,6 +60,13 @@ const esquema = z.object({
   correo: z.string().max(254),
   web: z.string().max(200),
   pie: z.string().max(600, 'Como máximo 600 caracteres.'),
+  // Presupuestos (005, FR-031)
+  validez: z
+    .string()
+    .trim()
+    .regex(/^\d{1,3}$/, 'Escribe un número de días entre 1 y 365.')
+    .refine((v) => Number(v) >= 1 && Number(v) <= 365, 'Escribe un número de días entre 1 y 365.'),
+  pie_presupuesto: z.string().max(600, 'Como máximo 600 caracteres.'),
 })
 type Valores = z.infer<typeof esquema>
 type CampoFormulario = keyof Valores
@@ -77,6 +84,8 @@ const CAMPO_DEL_SERVIDOR: Record<string, CampoFormulario> = {
   'contacto.correo': 'correo',
   'contacto.web': 'web',
   pie_factura: 'pie',
+  validez_presupuesto_dias: 'validez',
+  pie_presupuesto: 'pie_presupuesto',
 }
 
 function valoresIniciales(config: ConfiguracionFacturacionSalida): Valores {
@@ -93,6 +102,8 @@ function valoresIniciales(config: ConfiguracionFacturacionSalida): Valores {
     correo: config.contacto.correo ?? '',
     web: config.contacto.web ?? '',
     pie: config.pie_factura ?? '',
+    validez: String(config.validez_presupuesto_dias),
+    pie_presupuesto: config.pie_presupuesto ?? '',
   }
 }
 
@@ -123,6 +134,8 @@ function aCuerpo(
       web: vacioANulo(valores.web),
     },
     pie_factura: vacioANulo(valores.pie),
+    validez_presupuesto_dias: Number(valores.validez),
+    pie_presupuesto: vacioANulo(valores.pie_presupuesto),
   }
 }
 
@@ -205,7 +218,8 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
       | 'localidad'
       | 'telefono'
       | 'correo'
-      | 'web',
+      | 'web'
+      | 'validez',
     label: string,
     extra: { className?: string; inputMode?: 'numeric'; type?: 'tel' | 'email' } = {},
   ) => (
@@ -344,6 +358,34 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
         <p className="body-sm text-on-surface-variant">
           El teléfono, el correo, la web y el pie se imprimen en todas las facturas, también en las
           ya emitidas. No forman parte de los datos fiscales.
+        </p>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-5 border-t border-primary-container/18 pt-5">
+        <legend className="mb-4 label-md text-primary">Presupuestos</legend>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {texto('validez', 'Validez de los presupuestos (días)', { inputMode: 'numeric' })}
+          <Controller
+            control={control}
+            name="pie_presupuesto"
+            render={({ field, fieldState }) => (
+              <TextField
+                label="Pie de presupuesto"
+                multiline
+                description={`${String(field.value.length)} / 600 · Si está vacío, se imprime el pie de factura.`}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                error={fieldState.error?.message}
+                className="md:col-span-2"
+              />
+            )}
+          />
+        </div>
+        <p className="body-sm text-on-surface-variant">
+          «Válido hasta» propone la fecha del presupuesto más estos días, y se puede cambiar en cada
+          uno. El pie, por ejemplo con las condiciones del encargo, se imprime en todos los
+          presupuestos.
         </p>
       </fieldset>
 

@@ -177,7 +177,7 @@ deben quedar en verde (T020).
 
     Desactivar los triggers de las tablas que los tengan (`_TABLAS_CON_TRIGGERS`, con las nuevas).
   - Restablecer también `validez_presupuesto_dias` y `pie_presupuesto` de la configuración.
-- [ ] T014 Generalización web (R-13), sin cambio de comportamiento:
+- [X] T014 Generalización web (R-13), sin cambio de comportamiento:
   - Nuevo `joyeriablanco_web/src/features/documentos/` con lo que hoy está en `src/features/facturas/` y no es propio de la factura:
     - `LineasDocumento.tsx` (antes `LineasFactura`, tipado con `Control<{ lineas: ValorLinea[] }>`).
     - `TotalesDocumento.tsx`, `SelectorCliente.tsx` y `ResumenCliente.tsx` (aviso por props).
@@ -190,20 +190,20 @@ deben quedar en verde (T020).
   - El esquema zod de búsqueda, hoy local en `src/routes/_app/facturas.tsx`, pasa a `src/lib/filtros-documentos.ts`.
   - `src/features/facturas/*` y `routes/_app/facturas.tsx` los importan.
   - Comprobar `npm run test`, `npm run typecheck` y `npm run check:tokens` en verde, y los E2E de facturas sin cambios.
-- [ ] T015 `joyeriablanco_web/src/lib/impresion.ts` (+ `.test.ts`), después de T014, porque toca los mismos usos:
+- [X] T015 `joyeriablanco_web/src/lib/impresion.ts` (+ `.test.ts`), después de T014, porque toca los mismos usos:
   - La base por tipo de documento: `urlPdfFactura` igual que hoy, `urlPdfPresupuesto(id, { iban })` y `urlPdfListado('facturas' | 'presupuestos', filtros)`.
   - Las llamadas de facturas, actualizadas.
 - [ ] T016 [P] Ayudantes de prueba de la web:
   - `joyeriablanco_web/src/test/presupuestos.ts`: `PARAMETROS_PRESUPUESTO`, `crearPresupuesto(estado, …)` y `conPresupuestos`.
   - `joyeriablanco_web/e2e/helpers/presupuestos.ts`: `emitirPresupuestoPorLaApi`.
-- [ ] T017 Regenerar los tipos: `uv --directory backend run joyeria exportar-openapi && npm --prefix joyeriablanco_web run gen:api`. Ajustar los usos de la configuración ampliada.
-- [ ] T018 [P] `joyeriablanco_web/src/features/auditoria/tipos-evento.ts`: textos de los siete eventos nuevos. El `Record<TipoEvento,…>` obliga a añadirlos tras regenerar los tipos (T017).
-- [ ] T019 [P] Configuración en la web (FR-031), en `joyeriablanco_web/src/features/configuracion/FacturacionPage.tsx` (+ test):
+- [X] T017 Regenerar los tipos: `uv --directory backend run joyeria exportar-openapi && npm --prefix joyeriablanco_web run gen:api`. Ajustar los usos de la configuración ampliada.
+- [X] T018 [P] `joyeriablanco_web/src/features/auditoria/tipos-evento.ts`: textos de los siete eventos nuevos. El `Record<TipoEvento,…>` obliga a añadirlos tras regenerar los tipos (T017).
+- [X] T019 [P] Configuración en la web (FR-031), en `joyeriablanco_web/src/features/configuracion/FacturacionPage.tsx` (+ test):
   - «Validez de los presupuestos (días)», un número de 1 a 365.
   - «Pie de presupuesto», multilínea con contador «n / 600» y la ayuda «Si está vacío, se imprime el pie de factura».
   - Se envían siempre, como el pie de factura de 003.
   - Ampliar `e2e/configuracion-facturacion.spec.ts`.
-- [ ] T020 Puerta de la fase:
+- [X] T020 Puerta de la fase:
   - Backend: `uv run pytest`, `uv run ruff check . && uv run ruff format --check . && uv run mypy .`.
   - Web: `npm run lint && npm run typecheck && npm run test && npm run check:tokens`, y `npx playwright test e2e/facturas*.spec.ts e2e/impresion.spec.ts e2e/configuracion-facturacion.spec.ts`.
   - Todo en verde. **Si algo de 002 o 003 cambia de comportamiento, se para y se corrige la generalización** (constitución I).

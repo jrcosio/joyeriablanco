@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FacturaSalida } from '../../api/tipos'
 import { Casilla } from '../../components/ui/Casilla'
 import { urlPdfFactura } from '../../lib/impresion'
-import { EnlaceImprimir } from './EnlaceImprimir'
+import { EnlaceImprimir } from '../documentos/EnlaceImprimir'
 
 /**
  * «Imprimir» de la consulta de una factura emitida (003, US1; contracts/ui-rutas.md). Las casillas

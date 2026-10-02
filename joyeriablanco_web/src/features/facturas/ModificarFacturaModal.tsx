@@ -23,7 +23,7 @@ import {
   lineasCuerpo,
   type ValoresFactura,
 } from './factura-valores'
-import { CargandoModal } from './FacturaModal'
+import { CargandoModal } from '../documentos/CargandoModal'
 import { MotivoModificacionDialog, type MotivoElegido } from './MotivoModificacionDialog'
 
 function valoresDe(factura: FacturaSalida, hoy: string): ValoresFactura {

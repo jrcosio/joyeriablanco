@@ -33,6 +33,8 @@ function crearConfiguracion(
     actualizado_por: null,
     contacto: { telefono: null, correo: null, web: null },
     pie_factura: null,
+    validez_presupuesto_dias: 30,
+    pie_presupuesto: null,
     ...parcial,
   }
 }
@@ -223,8 +225,41 @@ describe('Configuración → Facturación (US1)', () => {
         },
         contacto: { telefono: null, correo: null, web: null },
         pie_factura: null,
+        validez_presupuesto_dias: 30,
+        pie_presupuesto: null,
       },
     ])
+  })
+
+  it('validez y pie de presupuesto: se envían siempre y se validan (005, FR-031)', async () => {
+    conSesion(admin)
+    const enviados = conConfiguracion(
+      crearConfiguracion({ validez_presupuesto_dias: 45, pie_presupuesto: 'Condiciones' }),
+    )
+    renderApp('/configuracion/facturacion')
+    const user = userEvent.setup()
+
+    const validez = await screen.findByRole('textbox', {
+      name: 'Validez de los presupuestos (días)',
+    })
+    expect(validez).toHaveValue('45')
+    const pie = screen.getByRole('textbox', { name: 'Pie de presupuesto' })
+    expect(pie).toHaveValue('Condiciones')
+    expect(screen.getByText(/Si está vacío, se imprime el pie de factura/)).toBeInTheDocument()
+
+    await user.clear(validez)
+    await user.type(validez, '400')
+    await user.click(screen.getByRole('button', { name: 'Guardar configuración' }))
+    expect(await screen.findByText('Escribe un número de días entre 1 y 365.')).toBeInTheDocument()
+    expect(enviados).toHaveLength(0)
+
+    await user.clear(validez)
+    await user.type(validez, '15')
+    await user.clear(pie)
+    await user.click(screen.getByRole('button', { name: 'Guardar configuración' }))
+
+    expect(await screen.findByText('Configuración de facturación guardada')).toBeInTheDocument()
+    expect(enviados[0]).toMatchObject({ validez_presupuesto_dias: 15, pie_presupuesto: null })
   })
 
   it('contacto y pie de factura: opcionales, con su ayuda y su contador (003, FR-024, FR-025)', async () => {

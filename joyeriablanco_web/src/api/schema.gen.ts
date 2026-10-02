@@ -828,7 +828,8 @@ export interface components {
          * ConfiguracionFacturacionEntrada
          * @description Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23).
          *
-         *     `contacto` y `pie_factura` (003) son opcionales: si no vienen, se conservan los actuales.
+         *     `contacto` y `pie_factura` (003), y `validez_presupuesto_dias` y `pie_presupuesto` (005), son
+         *     opcionales: si no vienen, se conservan los actuales.
          */
         ConfiguracionFacturacionEntrada: {
             /** Version */
@@ -848,6 +849,10 @@ export interface components {
             contacto?: components["schemas"]["ContactoEntrada"] | null;
             /** Pie Factura */
             pie_factura?: string | null;
+            /** Validez Presupuesto Dias */
+            validez_presupuesto_dias?: number | null;
+            /** Pie Presupuesto */
+            pie_presupuesto?: string | null;
         };
         /** ConfiguracionFacturacionSalida */
         ConfiguracionFacturacionSalida: {
@@ -882,6 +887,10 @@ export interface components {
             contacto: components["schemas"]["ContactoSalida"];
             /** Pie Factura */
             pie_factura: string | null;
+            /** Validez Presupuesto Dias */
+            validez_presupuesto_dias: number;
+            /** Pie Presupuesto */
+            pie_presupuesto: string | null;
         };
         /**
          * ContactoEntrada
@@ -1372,7 +1381,7 @@ export interface components {
          * TipoEvento
          * @enum {string}
          */
-        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente";
+        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente" | "borrador_presupuesto_creado" | "borrador_presupuesto_editado" | "borrador_presupuesto_eliminado" | "presupuesto_emitido" | "presupuesto_modificado" | "presupuesto_anulado" | "presupuesto_convertido";
         /**
          * TipoFactura
          * @description Lista L2 de DsRegistroVeriFactu.xlsx v1.0 (research R-3, R-4). Solo las de esta feature.
