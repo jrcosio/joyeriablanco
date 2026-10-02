@@ -368,22 +368,38 @@ y se prueba sin renderizar.
   - *Problema*: en la prueba previa, un único documento de 5.000 filas alcanzó unos 750 MB de
     memoria residente, frente a 330 MB con 2.000. CPython no devuelve después esa memoria al
     sistema.
-  - *Proceso*:
-    1. Las filas se maquetan en bloques de 1.000 con `HTML(...).render()`. El primer bloque lleva
-       la cabecera del listado y el último, los totales.
-    2. De cada bloque que no es el último se escriben solo sus páginas completas
-       (`document.copy(pages[:-1]).write_pdf()`).
-    3. Las filas de su última página, que es incompleta, se cuentan en el árbol de cajas y pasan al
-       bloque siguiente. Así ninguna página queda a medias.
-    4. Los PDF parciales se unen con `pypdf.PdfWriter`.
-  - *Pie*: «Página n de m» no se puede calcular hasta tener todas las páginas. Por eso, al final se
-    maqueta un documento ligero de `m` páginas que solo contiene el pie, y se superpone a cada
-    página con `merge_page`. Después se comprimen los flujos (`compress_content_streams`).
-  - *Resultado de la prueba previa* (5.000 filas, el 20 % con el nombre en dos líneas):
-    - 194 páginas, con las 5.000 filas una sola vez cada una.
-    - Pie correcto de «Página 1 de 194» a «Página 194 de 194».
-    - **11,6 s**, **250 MB** de pico y 0,73 MB de PDF.
-    - Sin comprimir los flujos, el PDF pesaba 8,2 MB.
+  - *Proceso* (`app/core/pdf/render.py → pdf_por_bloques`):
+    1. Si el listado cabe en un bloque de **500 filas**, se maqueta una sola vez, con el pie nativo
+       `counter(page)` / `counter(pages)`.
+    2. Si no, una **primera pasada de maquetación** (`HTML(...).render()`, sin escribir) fija los
+       límites de cada bloque:
+       - de cada bloque que no es el último solo cuentan sus páginas completas;
+       - las filas de su última página, que es incompleta, se cuentan en el árbol de cajas y
+         pasan al bloque siguiente;
+       - así ninguna página intermedia queda a medias.
+    3. Una **segunda pasada** escribe cada bloque con su desfase de página
+       (`@page listado:first { counter-reset }`) y el total ya conocido en el pie. Se comprueba
+       que cada bloque da las mismas páginas que en la primera pasada.
+    4. Los PDF de los bloques se unen con `pypdf.PdfWriter`.
+  - *Corrección durante la implementación*: la prueba previa superponía al final un documento
+    con solo el pie (`merge_page`). Con la plantilla real, WeasyPrint escribe un único diccionario
+    de recursos por documento. La fuente del pie chocaba de nombre con la del listado y pypdf
+    añadía una copia renombrada por página: 9,5 MB de PDF con 5.000 filas. Pintar el pie en cada
+    bloque lo deja en 0,98 MB.
+  - *Tamaño del bloque*, medido en el contenedor con 5.000 filas y la plantilla real:
+
+    | Bloque | Tiempo | Pico de memoria | PDF |
+    |---|---|---|---|
+    | 1.000 filas | 20,6 s | 381 MB | 0,93 MB |
+    | **500 filas** | **19,3 s** | **266 MB** | 0,98 MB |
+    | 300 filas | 19,6 s | 224 MB | 1,05 MB |
+
+    Se elige 500, por debajo de los unos 300 MB de SC-005.
+  - *Resultado final* (`tests/integration/test_pdf_rendimiento.py`, marca `lento`, en el
+    contenedor):
+    - factura de 20 líneas, p95 de 0,21 s;
+    - listado de 1.000 filas, 3,7 s y 240 MB;
+    - listado de 5.000 filas, 19,2 s y 265 MB.
 - **Concurrencia**: el renderizado es síncrono y usa mucha CPU.
   - Corre en un hilo con `anyio.to_thread.run_sync`, para no bloquear el bucle de eventos.
   - Lo limita un `anyio.CapacityLimiter` por proceso: 1 para los listados y 4 para las facturas.
@@ -402,8 +418,8 @@ y se prueba sin renderizar.
   como la web (002, FR-033). La exenta muestra «Exenta» en el IVA.
 
 **Razón**: la generación por bloques respeta el límite de 5.000 filas que eligió el responsable sin
-recortar datos y con la memoria acotada a un bloque. La prueba previa confirmó el número de filas,
-la numeración y el tamaño. El A4 apaisado evita recortar los nombres de los clientes.
+recortar datos y con la memoria acotada a un bloque. Las mediciones confirman el número de filas,
+la numeración, el tiempo y la memoria. El A4 apaisado evita recortar los nombres de los clientes.
 
 **Alternativas descartadas**:
 - **Un solo documento**: hasta 750 MB por listado, que en un VPS modesto, con PostgreSQL y dos
@@ -412,6 +428,7 @@ la numeración y el tamaño. El A4 apaisado evita recortar los nombres de los cl
   266 MB. Obliga a recortar con «…» los nombres largos.
 - **Bajar el límite a 2.000 filas**: contradice la decisión del responsable.
 - **Generarlo en un proceso aparte**: libera la memoria al terminar, pero no rebaja el pico.
+- **Superponer el pie al final con pypdf**: duplicaba la fuente en cada página (ver arriba).
 
 **Corrección respecto a la pregunta de clarify**: la pregunta estimaba «unas 110 páginas» para
 5.000 filas. En A4 apaisado, con nombres de dos líneas, salen unas 190, y en vertical, de 100 a

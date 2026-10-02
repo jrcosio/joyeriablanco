@@ -477,7 +477,14 @@ async def build_listado_impreso(
     )
 
 
-def _html_bloque(modelo: ListadoImpreso, inicio: int, fin: int, primero: bool, ultimo: bool) -> str:
+def _html_bloque(
+    modelo: ListadoImpreso,
+    inicio: int,
+    fin: int,
+    primero: bool,
+    ultimo: bool,
+    paginacion: render.Paginacion | None,
+) -> str:
     return plantillas.render_html(
         "listado.html",
         {
@@ -485,6 +492,7 @@ def _html_bloque(modelo: ListadoImpreso, inicio: int, fin: int, primero: bool, u
             "filas": modelo.filas[inicio:fin],
             "cabecera": primero,
             "totales": ultimo,
+            "paginacion": paginacion,
         },
     )
 
@@ -492,8 +500,9 @@ def _html_bloque(modelo: ListadoImpreso, inicio: int, fin: int, primero: bool, u
 def _pdf_listado(modelo: ListadoImpreso) -> bytes:
     return render.pdf_por_bloques(
         len(modelo.filas),
-        lambda inicio, fin, primero, ultimo: _html_bloque(modelo, inicio, fin, primero, ultimo),
-        lambda paginas: plantillas.render_html("listado_pie.html", {"paginas": paginas}),
+        lambda inicio, fin, primero, ultimo, paginacion: _html_bloque(
+            modelo, inicio, fin, primero, ultimo, paginacion
+        ),
         titulo="Listado de facturas",
         autor=modelo.emisor_nombre or "Joyería Blanco",
     )

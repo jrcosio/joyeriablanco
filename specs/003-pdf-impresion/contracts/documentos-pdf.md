@@ -104,8 +104,8 @@ Orden de los bloques, de arriba abajo:
    - Fila de total general: número de facturas, base, IVA y total. El total, en `print-total`.
    - Si hay filas fuera de la suma, debajo y en `print-small`: «No se suman: 2 borradores, 1
      anulada y 1 rectificada».
-4. **Pie de página**, en cada página: «Listado de facturas · Página n de m», superpuesto al final
-   de la generación por bloques (R-7).
+4. **Pie de página**, en cada página: «Listado de facturas · Página n de m». En los listados de
+   más de un bloque se pinta con el desfase de cada bloque y el total ya conocido (R-7).
 
 ## Página de error (HTML, solo en navegaciones; R-8)
 

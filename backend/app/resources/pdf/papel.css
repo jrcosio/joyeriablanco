@@ -19,19 +19,12 @@
   }
 }
 
+/* El texto del pie lo pone listado.html, según la paginación por bloques (research R-7). */
 @page listado {
   size: A4 landscape;
   margin: var(--print-margin) var(--print-margin) calc(var(--print-margin) + var(--print-gutter));
   background: var(--paper);
-}
-
-/* Pie del listado: documento aparte que se superpone a cada página (research R-7). Sin fondo,
-   para no tapar el contenido de la página a la que se superpone. */
-@page pie-listado {
-  size: A4 landscape;
-  margin: var(--print-margin) var(--print-margin) calc(var(--print-margin) + var(--print-gutter));
   @bottom-right {
-    content: "Listado de facturas · Página " counter(page) " de " counter(pages);
     font-family: var(--print-small-family);
     font-size: var(--print-small-size);
     color: var(--paper-ink-muted);
@@ -53,14 +46,6 @@ body.doc-factura {
 
 body.doc-listado {
   page: listado;
-}
-
-body.doc-pie-listado {
-  page: pie-listado;
-}
-
-.pagina-pie {
-  break-after: page;
 }
 
 h1,

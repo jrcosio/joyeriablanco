@@ -26,9 +26,9 @@ Se añade la salida en papel sobre la facturación de 002.
   6 mm de margen (R-1 a R-3).
 - **Factura**: se compone desde la copia guardada al emitir. Se reutiliza `get_factura` de 002:
   estado, enlaces y registro (R-6).
-- **Listado**: se genera **por bloques** de 1.000 filas, con arrastre de la última página y el pie
-  «Página n de m» superpuesto. En la prueba previa, 5.000 filas tardaron 11,6 s con 250 MB de pico,
-  frente a los 750 MB de un documento único (R-7).
+- **Listado**: se genera **por bloques** de 500 filas, con arrastre de la última página y el pie
+  «Página n de m» pintado en cada bloque en una segunda pasada. Medido en el contenedor: 5.000 filas
+  en 19,2 s con 265 MB de pico, frente a los 750 MB de un documento único (R-7).
 - Los errores en una navegación se devuelven como una página HTML en español. Las rutas de PDF
   llevan su propia CSP, que permite el visor del navegador (R-8).
 
@@ -70,8 +70,8 @@ visor de PDF integrado.
 
 **Performance Goals**:
 - SC-001: factura de 20 líneas en menos de 3 s. En la prueba previa, menos de 0,1 s de render.
-- SC-005: listado de 1.000 filas en menos de 15 s, y de 5.000 en menos de 60 s. En la prueba
-  previa, 11,6 s.
+- SC-005: listado de 1.000 filas en menos de 15 s, y de 5.000 en menos de 60 s. Medido en el
+  contenedor: 3,7 s y 19,2 s.
 
 **Constraints**:
 - Sin `float`: los importes se formatean desde `Decimal` (constitución II).

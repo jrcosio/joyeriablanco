@@ -5,11 +5,13 @@ de eventos, y bajo un limitador por proceso: 4 facturas y 1 listado a la vez. As
 acotada aunque varias personas impriman al mismo tiempo.
 
 El listado se maqueta por bloques (`pdf_por_bloques`): un documento único de 5.000 filas llega a
-unos 750 MB, y por bloques de 1.000 se queda en unos 250 MB (prueba previa de R-7).
+unos 750 MB, y por bloques de 500 se queda en unos 270 MB (R-7). El pie se pinta
+en cada bloque con su desfase; superponerlo después con pypdf duplicaba la fuente en cada página.
 """
 
 import io
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, Final
 
 import anyio
@@ -22,7 +24,9 @@ from app.core.pdf.plantillas import directorio_recursos
 
 LIMITE_FACTURAS: Final = anyio.CapacityLimiter(4)
 LIMITE_LISTADOS: Final = anyio.CapacityLimiter(1)
-TAMANO_BLOQUE_LISTADO = 1000  # filas por bloque (R-7); los tests lo reducen
+# Filas por bloque (R-7). Medido en el contenedor con 5.000 filas: 1.000 → 381 MB de pico,
+# 500 → 266 MB, 300 → 224 MB, con unos 19 s en los tres casos. Los tests lo reducen.
+TAMANO_BLOQUE_LISTADO = 500
 
 
 def html_a_documento(html: str) -> Document:
@@ -57,48 +61,64 @@ def _filas_en(pagina: Any) -> int:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class Paginacion:
+    """Pie «Página n de m» de un bloque: su primera página es la `primera` de `total`."""
+
+    primera: int
+    total: int
+
+
 def pdf_por_bloques(
     filas: int,
-    html_bloque: Callable[[int, int, bool, bool], str],
-    html_pie: Callable[[int], str],
+    html_bloque: Callable[[int, int, bool, bool, Paginacion | None], str],
     *,
     titulo: str,
     autor: str,
 ) -> bytes:
-    """Maqueta un listado de `filas` filas por bloques y le superpone el pie «Página n de m».
+    """Maqueta un listado de `filas` filas por bloques, con el pie «Página n de m» exacto.
 
-    - `html_bloque(inicio, fin, primero, ultimo)` es el HTML de las filas `[inicio, fin)`: con la
-      cabecera del listado si es el primero y con los totales si es el último.
-    - De cada bloque que no es el último solo se escriben sus páginas completas. Las filas de su
-      última página pasan al siguiente bloque, así que ninguna página intermedia queda a medias.
-    - `html_pie(m)` es un documento de `m` páginas con solo el pie; se superpone a cada página.
+    `html_bloque(inicio, fin, primero, ultimo, paginacion)` es el HTML de las filas `[inicio, fin)`,
+    con la cabecera del listado si es el primero y los totales si es el último. Con `paginacion`
+    `None`, el pie usa los contadores propios del documento (`counter(pages)`).
+
+    - Si cabe en un bloque (hasta `TAMANO_BLOQUE_LISTADO` filas), una sola pasada.
+    - Si no, una primera pasada de maquetación fija los límites de cada bloque: de cada bloque que
+      no es el último solo cuentan sus páginas completas, y las filas de su última página pasan al
+      siguiente, así que ninguna página intermedia queda a medias. La segunda pasada escribe cada
+      bloque con el número de su primera página y el total ya conocido.
     """
-    escritor = PdfWriter()
+    limites: list[tuple[int, int, int]] = []  # (inicio, fin, páginas)
     inicio, tamano = 0, TAMANO_BLOQUE_LISTADO
     while True:
         fin = min(inicio + tamano, filas)
         ultimo = fin >= filas
-        documento = html_a_documento(html_bloque(inicio, fin, inicio == 0, ultimo))
+        documento = html_a_documento(html_bloque(inicio, fin, inicio == 0, ultimo, None))
+        if ultimo and not limites:  # un solo bloque: ya está listo
+            pdf: bytes = documento.write_pdf()
+            return pdf
         if ultimo:
-            paginas, consumidas = documento.pages, fin - inicio
-        elif len(documento.pages) < 2:  # el bloque cabe en una página: se amplía
+            limites.append((inicio, fin, len(documento.pages)))
+            break
+        if len(documento.pages) < 2:  # el bloque cabe en una página: se amplía
             tamano *= 2
             continue
-        else:
-            paginas = documento.pages[:-1]
-            consumidas = sum(_filas_en(pagina) for pagina in paginas)
-        escritor.append(PdfReader(io.BytesIO(documento.copy(paginas).write_pdf())))
+        completas = documento.pages[:-1]
+        consumidas = sum(_filas_en(pagina) for pagina in completas)
+        limites.append((inicio, inicio + consumidas, len(completas)))
         inicio += consumidas
-        if ultimo:
-            break
-    total = len(escritor.pages)
-    pie = PdfReader(io.BytesIO(html_a_pdf(html_pie(total))))
-    if len(pie.pages) != total:
-        msg = f"El pie tiene {len(pie.pages)} páginas y el listado {total}"
-        raise RuntimeError(msg)
-    for pagina, pie_pagina in zip(escritor.pages, pie.pages, strict=True):
-        pagina.merge_page(pie_pagina)
-        pagina.compress_content_streams()  # sin esto, el PDF unido pesa 10 veces más
+    total = sum(paginas for _, _, paginas in limites)
+    escritor = PdfWriter()
+    primera = 1
+    for inicio, fin, paginas in limites:
+        documento = html_a_documento(
+            html_bloque(inicio, fin, inicio == 0, fin >= filas, Paginacion(primera, total))
+        )
+        if len(documento.pages) != paginas:
+            msg = f"El bloque {inicio}-{fin} tiene {len(documento.pages)} páginas y no {paginas}"
+            raise RuntimeError(msg)
+        escritor.append(PdfReader(io.BytesIO(documento.write_pdf())))
+        primera += paginas
     escritor.add_metadata({"/Title": titulo, "/Author": autor})
     salida = io.BytesIO()
     escritor.write(salida)

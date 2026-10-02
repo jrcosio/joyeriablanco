@@ -7,6 +7,18 @@
 {% block titulo %}Listado de facturas{% endblock %}
 {% block autor %}{{ l.emisor_nombre or "Joyería Blanco" }}{% endblock %}
 {% block clase_cuerpo %}doc-listado{% endblock %}
+{% block estilos %}
+{# Pie «Página n de m» (FR-022): con contadores propios si el listado cabe en un bloque, o con el
+   desfase y el total de la paginación por bloques (core/pdf/render.py → pdf_por_bloques; R-7). #}
+<style>
+{% if paginacion %}
+@page listado { @bottom-right { content: "Listado de facturas · Página " counter(page) " de {{ paginacion.total }}"; } }
+@page listado:first { counter-reset: page {{ paginacion.primera }}; }
+{% else %}
+@page listado { @bottom-right { content: "Listado de facturas · Página " counter(page) " de " counter(pages); } }
+{% endif %}
+</style>
+{% endblock %}
 {% block contenido %}
 {% if cabecera %}
 <header class="cabecera-listado">

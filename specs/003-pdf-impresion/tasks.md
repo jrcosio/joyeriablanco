@@ -265,11 +265,9 @@ rechaza.
   - Emisor de la configuración vigente y fecha y hora de Madrid.
   - `listado_pdf(...) -> DocumentoPdf`, con el nombre según el filtro, y el log sin `q`.
 - [X] T030 [US2] `backend/app/resources/pdf/listado.html`, según contracts/documentos-pdf.md, «Listado» (A4 apaisado, columnas y marcas, vacío y totales), más `render_listado(modelo) -> bytes` en `core/pdf/render.py` (R-7):
-  - Bloques de `TAMANO_BLOQUE_LISTADO = 1000` filas con `HTML(...).render()`.
-  - Escritura de `document.copy(pages[:-1])` y arrastre de las filas de la última página, contadas en el árbol de cajas.
-  - El último bloque, con los totales.
-  - Unión con `PdfWriter` y pie «Listado de facturas · Página n de m» superpuesto con `merge_page`.
-  - `compress_content_streams()`, todo bajo `LIMITE_LISTADOS`.
+  - Bloques de `TAMANO_BLOQUE_LISTADO` filas con `HTML(...).render()` y arrastre de las filas de la última página, contadas en el árbol de cajas.
+  - El último bloque, con los totales. Unión con `PdfWriter`, todo bajo `LIMITE_LISTADOS`.
+  - *Corrección durante implement* (research R-7): el pie superpuesto con `merge_page` duplicaba la fuente en cada página (9,5 MB con 5.000 filas). El pie se pinta en cada bloque, con una primera pasada que fija los límites y una segunda con el desfase y el total. Bloque de 500 filas (266 MB en el contenedor).
 - [X] T031 [US2] Ruta `GET /v1/facturas/listado/pdf` en `backend/app/api/v1/facturas.py`, declarada **antes** de `/{factura_id}`:
   - Filtros con el mismo tipo y validación que `GET /v1/facturas`, mediante `FiltrosListado` compartido.
   - Respuesta PDF como en T022.
