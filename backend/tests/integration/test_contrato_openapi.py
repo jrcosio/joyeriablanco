@@ -21,20 +21,11 @@ METODOS = {"get", "post", "put", "patch", "delete"}
 # Operaciones de 005 aún sin implementar: solo se excluyen del sentido «contrato → API». Cada ruta
 # nueva sale de la lista y T078 la elimina (tasks.md de 005).
 PENDIENTES_005 = {
-    ("/api/v1/presupuestos/parametros", "get"),
     ("/api/v1/presupuestos/listado/pdf", "get"),
-    ("/api/v1/presupuestos", "get"),
-    ("/api/v1/presupuestos", "post"),
-    ("/api/v1/presupuestos/{}", "get"),
     ("/api/v1/presupuestos/{}/pdf", "get"),
     ("/api/v1/presupuestos/{}/modificacion", "post"),
     ("/api/v1/presupuestos/{}/anulacion", "post"),
     ("/api/v1/presupuestos/{}/conversion", "post"),
-    ("/api/v1/borradores-presupuesto", "post"),
-    ("/api/v1/borradores-presupuesto/{}", "get"),
-    ("/api/v1/borradores-presupuesto/{}", "put"),
-    ("/api/v1/borradores-presupuesto/{}", "delete"),
-    ("/api/v1/borradores-presupuesto/{}/emision", "post"),
 }
 
 

@@ -5,10 +5,12 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auditoria,
     borradores,
+    borradores_presupuesto,
     catalogos,
     clientes,
     configuracion,
     facturas,
+    presupuestos,
     sesion,
     usuarios,
 )
@@ -22,3 +24,5 @@ router.include_router(auditoria.router)
 router.include_router(configuracion.router)
 router.include_router(facturas.router)
 router.include_router(borradores.router)
+router.include_router(presupuestos.router)
+router.include_router(borradores_presupuesto.router)

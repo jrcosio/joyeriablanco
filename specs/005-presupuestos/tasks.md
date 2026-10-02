@@ -226,7 +226,7 @@ ampliada.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T021 [P] [US1] Test `backend/tests/integration/test_presupuestos_borradores.py` (FR-012, FR-013, FR-034):
+- [X] T021 [P] [US1] Test `backend/tests/integration/test_presupuestos_borradores.py` (FR-012, FR-013, FR-034):
   - Crear incompleto, sin cliente o sin líneas.
   - Editar con versión y conflicto 409.
   - Cliente desactivado ya elegido que se conserva.
@@ -234,7 +234,7 @@ ampliada.
   - Auditoría: `borrador_presupuesto_creado`, `borrador_presupuesto_editado` (con su *diff*) y `borrador_presupuesto_eliminado`.
   - `valido_hasta < fecha` → 422 en el campo.
   - Fecha futura o anterior al 28/10/2024 → 422 en el campo.
-- [ ] T022 [P] [US1] ⚖️ Test `backend/tests/integration/test_presupuestos_emision.py` (FR-002 a FR-011, FR-014, FR-028, SC-004):
+- [X] T022 [P] [US1] ⚖️ Test `backend/tests/integration/test_presupuestos_emision.py` (FR-002 a FR-011, FR-014, FR-028, SC-004):
   - **Emisión directa y desde borrador**: número `PRE-AAAA-0001` y siguientes. El borrador desaparece.
   - **Importes**: calculados con `compute_totals`, con medio céntimo, oro de inversión (cuota 0 y mención) y límites. Un total enviado → 422.
   - **Copias**: del emisor (IBAN incluido) y del destinatario. Editar la ficha después no cambia el presupuesto.
@@ -247,20 +247,20 @@ ampliada.
   - **Idempotencia**: repetir con la misma clave → 200 y el mismo presupuesto. La clave en otra operación (también una de `anular`) → 409 `idempotencia-conflicto`.
   - **Sin ajuste de PRE** (FR-003): `POST /v1/configuracion/facturacion/contador` solo mueve la serie FAC, y el contador PRE no cambia.
   - **Auditoría**: `presupuesto_emitido`.
-- [ ] T023 [P] [US1] ⚖️ Test `backend/tests/integration/test_numeracion_presupuestos.py` (FR-002, FR-003, SC-002), con commit real y `limpiar_facturacion_confirmada`, como `test_numeracion_concurrencia.py`:
+- [X] T023 [P] [US1] ⚖️ Test `backend/tests/integration/test_numeracion_presupuestos.py` (FR-002, FR-003, SC-002), con commit real y `limpiar_facturacion_confirmada`, como `test_numeracion_concurrencia.py`:
   - 10 sesiones × 20 emisiones dan PRE 1 a 200, sin huecos ni duplicados.
   - Con emisiones FAC simultáneas, las dos series son correlativas e independientes.
   - Una emisión que falla no consume número.
   - La misma `Idempotency-Key` en paralelo da un solo presupuesto.
   - Con fecha del año siguiente, PRE del año siguiente desde 0001.
-- [ ] T024 [P] [US1] Test `backend/tests/integration/test_listado_presupuestos.py` (FR-023 a FR-025):
+- [X] T024 [P] [US1] Test `backend/tests/integration/test_listado_presupuestos.py` (FR-023 a FR-025):
   - Búsqueda sin tildes por número, cliente e identificación.
   - Año (por defecto el actual, o «todos») y mes.
   - Los cuatro órdenes, con desempate y sin duplicar ni omitir al paginar.
   - Borradores con el cliente de la ficha.
   - Estados y caducidad con `hoy` simulado (monkeypatch de `hoy()`).
   - 25 por página por defecto y 100 como máximo.
-- [ ] T025 [P] [US1] Ampliar `backend/tests/integration/test_clientes_ciclo_vida.py` (FR-033): un cliente con solo un borrador de presupuesto, o con un presupuesto emitido, → 409 `cliente-con-documentos`.
+- [X] T025 [P] [US1] Ampliar `backend/tests/integration/test_clientes_ciclo_vida.py` (FR-033): un cliente con solo un borrador de presupuesto, o con un presupuesto emitido, → 409 `cliente-con-documentos`.
 - [ ] T026 [P] [US1] Tests web:
   - `joyeriablanco_web/src/features/presupuestos/PresupuestosPage.test.tsx`: listado, marcas con su tono y su texto, estados vacíos de FR-023, filtros en la URL y acciones con nombre accesible.
   - `PresupuestoModal.test.tsx`: nuevo, guardar borrador, emitir con confirmación, validez propuesta y recalculada, error de validez en el campo, aviso del cliente sin domicilio y que nunca se envían totales.
@@ -270,7 +270,7 @@ ampliada.
 
 ### Implementation for User Story 1
 
-- [ ] T027 [P] [US1] Repositorios:
+- [X] T027 [P] [US1] Repositorios:
   - `backend/app/repositories/borradores_presupuesto.py`: `get(for_update=)`, `save`, `delete` y `MENSAJE_CONFLICTO`.
   - `backend/app/repositories/presupuestos.py`:
     - `lock_presupuestos(db)`: un `pg_advisory_xact_lock` con clave constante (R-6).
@@ -278,7 +278,7 @@ ampliada.
     - `estado` (la función SQL) y `has_documentos(cliente_id)`.
     - `v_listado`, `count_listado` y `list_presupuestos`, con `repositories/listado.py`.
   - `backend/app/repositories/cierres_presupuesto.py`: `insert`, `get_by_presupuesto`, `get_by_factura` y `get_by_idempotency_key`. Las lecturas las usan ya el detalle y el PDF.
-- [ ] T028 [US1] Servicios (R-7):
+- [X] T028 [US1] Servicios (R-7):
   - `backend/app/services/presupuestos.py`:
     - `missing_for_presupuesto(config)` y `check_fecha_presupuesto(fecha, valido_hasta)`.
     - `find_previous_presupuesto(db, clave, operacion, origen)`, sobre presupuestos y cierres (R-7).
@@ -286,15 +286,15 @@ ampliada.
     - `get_presupuesto` → `DetallePresupuesto`: el estado visible, `sustituye_a`, `vigente_actual` (último de la cadena de sustituciones), el cierre con su factura y la factura vigente, y el borrador vinculado. Se lee de forma genérica, aunque los cierres no existan hasta US3 y US4.
     - `list_presupuestos`.
   - `backend/app/services/borradores_presupuesto.py`: CRUD con versión y `emit_borrador_presupuesto`, copiado del patrón de `services/borradores.py`, en el orden de R-7 (`lock_presupuestos` → clave → borrador `FOR UPDATE`).
-- [ ] T029 [P] [US1] Esquemas `backend/app/schemas/presupuesto.py` y `backend/app/schemas/borrador_presupuesto.py`, según el contrato:
+- [X] T029 [P] [US1] Esquemas `backend/app/schemas/presupuesto.py` y `backend/app/schemas/borrador_presupuesto.py`, según el contrato:
   - `PresupuestoEntrada`, `BorradorPresupuestoEntrada`, `BorradorPresupuestoEdicionEntrada`, `BorradorPresupuestoSalida`, `PresupuestoSalida`, `PresupuestoResumenSalida`, `PresupuestoReferencia` (con `fecha`), `CierrePresupuestoSalida` y `ParametrosPresupuestoSalida`.
   - Importes con `schemas/importes.py`.
-- [ ] T030 [US1] Routers:
+- [X] T030 [US1] Routers:
   - `backend/app/api/v1/presupuestos.py`: `GET /parametros` (declarado antes de `/{id}`), `GET ""`, `POST ""` con `Idempotency-Key` y `GET /{id}`.
   - `backend/app/api/v1/borradores_presupuesto.py`: CRUD y `POST /{id}/emision`.
   - Registro en `backend/app/api/v1/__init__.py`.
   - Quitar de `PENDIENTES_005` las 9 operaciones implementadas: 4 de presupuestos y 5 de borradores.
-- [ ] T031 [US1] `backend/app/services/documentos.py`: `DocumentosDeFacturacion` suma `presupuestos.has_documentos` y los borradores de presupuesto. Hace pasar T025.
+- [X] T031 [US1] `backend/app/services/documentos.py`: `DocumentosDeFacturacion` suma `presupuestos.has_documentos` y los borradores de presupuesto. Hace pasar T025.
 - [ ] T032 [US1] Regenerar los tipos (T017) y crear las queries:
   - `joyeriablanco_web/src/api/queries/presupuestos.ts`:
     - `PRESUPUESTOS_KEY`, `presupuestosListaQuery` (con `keepPreviousData`), `presupuestoQuery` y `parametrosPresupuestoQuery`.
