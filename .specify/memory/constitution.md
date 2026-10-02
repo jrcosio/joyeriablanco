@@ -141,15 +141,17 @@ Los **presupuestos** siguen el mismo ciclo, aunque no son documentos fiscales:
   principio IV. El vínculo presupuesto → factura es indefectible y se conserva.
 
 Fuente: FAQ de la AEAT sobre VERI\*FACTU, «Cuestiones generales: conceptos y definiciones»,
-pregunta sobre «Pre-Facturación ("facturas proforma") o Borrador»
+pregunta «¿Se puede implementar un sistema de "Pre-Facturación" ("facturas proforma") o Borrador
+antes de expedir –y registrar– una factura?»
 (`https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/cuestiones-generales-conceptos-definiciones.html`,
 consultada el 2026-10-02):
 
-- «tanto los borradores de factura como las facturas proforma no llevan ningún código "QR"
+- «tanto los borradores de factura como las facturas proforma no llevan ningún código «QR»
   tributario».
 - Los sistemas de prefacturas deben disponer de «elementos de control para la conservación de
   tales documentos preparatorios de forma debidamente vinculada a las facturas o a los registros
-  de facturación que finalmente se emitan».
+  de facturación que finalmente se emitan o, en defecto de factura, de forma que queden registrados
+  y conservados en el sistema».
 
 La FAQ habla de proformas y borradores, no de presupuestos. Aplicarles su criterio es una
 interpretación prudente del proyecto.
