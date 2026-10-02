@@ -231,6 +231,30 @@ async def obtener_parametros(db: DbDep) -> ParametrosFacturacionSalida:
     )
 
 
+RESPUESTA_PDF: dict[int | str, dict[str, Any]] = {
+    status.HTTP_200_OK: {
+        "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}},
+        "description": "PDF listo para imprimir o guardar (003, research R-8)",
+    }
+}
+
+
+# Declarada antes de `/{factura_id}`: si no, «listado» se tomaría por un identificador.
+@router.get("/listado/pdf", response_class=Response, responses=RESPUESTA_PDF)
+async def imprimir_listado(
+    db: DbDep,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    anio: Annotated[AnioListado | None, Query(description="Por defecto, el año en curso")] = None,
+    mes: Annotated[int | None, Query(ge=1, le=12)] = None,
+    orden: Literal["recientes", "antiguas", "total_desc", "total_asc"] = "recientes",
+) -> Response:
+    """Listado completo del filtro en PDF, con los totales de las vigentes (003, US2)."""
+    documento = await impresion.listado_pdf(
+        db, servicio.FiltrosFacturas(q=q, anio=anio, mes=mes, orden=orden)
+    )
+    return respuesta_pdf(documento.nombre, documento.contenido)
+
+
 @router.post("", status_code=status.HTTP_201_CREATED, responses=REPETICION)
 async def emitir_factura(
     datos: FacturaEntrada,
@@ -260,14 +284,6 @@ async def emitir_factura(
 @router.get("/{factura_id}")
 async def obtener_factura(factura_id: uuid.UUID, db: DbDep) -> FacturaSalida:
     return factura_salida(await servicio.get_factura(db, factura_id))
-
-
-RESPUESTA_PDF: dict[int | str, dict[str, Any]] = {
-    status.HTTP_200_OK: {
-        "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}},
-        "description": "PDF listo para imprimir o guardar (003, research R-8)",
-    }
-}
 
 
 @router.get("/{factura_id}/pdf", response_class=Response, responses=RESPUESTA_PDF)

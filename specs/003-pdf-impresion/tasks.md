@@ -228,7 +228,7 @@ rechaza.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T026 [P] [US2] ⚖️ Test `backend/tests/integration/test_pdf_listado.py`. Las facturas se emiten con los servicios reales:
+- [X] T026 [P] [US2] ⚖️ Test `backend/tests/integration/test_pdf_listado.py`. Las facturas se emiten con los servicios reales:
   - **Todas las filas**: más de 100 facturas del filtro, todas en el PDF y una sola vez, en el orden de cada `orden` (los cuatro) y con el mismo desempate que `GET /v1/facturas`.
   - **Filtros**: `q` (nombre, NIF y número, sin tildes), `anio` (número y `todos`) y `mes`. El valor por defecto es el año en curso.
   - **Marcas**: «Borrador» en lugar del número, «Anulada», «Rectificada» y «Exenta».
@@ -244,7 +244,7 @@ rechaza.
   - **Respuesta**: `application/pdf` y `filename` según el filtro.
   - **Errores**: 401 sin sesión, y 422 `validacion` con `mes=13`.
   - **Logs**: no contienen el texto de `q`.
-- [ ] T027 [P] [US2] Tests web:
+- [X] T027 [P] [US2] Tests web:
   - `joyeriablanco_web/src/lib/impresion.test.ts`: `urlPdfListado` con `q`, `anio`, `mes` y `orden` de la URL, sin `pagina` y sin vacíos.
   - `joyeriablanco_web/src/features/facturas/ImprimirListado.test.tsx`:
     - Habilitado con resultados.
@@ -254,33 +254,33 @@ rechaza.
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] `backend/app/repositories/facturas.py` (data-model, «Lecturas nuevas»):
+- [X] T028 [US2] `backend/app/repositories/facturas.py` (data-model, «Lecturas nuevas»):
   - `count_listado(...)`.
   - `list_facturas_impresion(...)`: reutiliza `_filtros` y `_ORDENES`, sin `OFFSET`/`LIMIT`.
   - `totales_vigentes(...)`: el desglose con `JOIN desgloses_factura` agrupado por `tipo_iva` (`NULLS LAST`) y los totales y recuentos con `FILTER`, con `coalesce` a 0.
-- [ ] T029 [US2] `backend/app/services/impresion.py` → `build_listado_impreso(db, filtros) -> ListadoImpreso`:
+- [X] T029 [US2] `backend/app/services/impresion.py` → `build_listado_impreso(db, filtros) -> ListadoImpreso`:
   - Año por defecto como `services/facturas.list_facturas`.
   - Límite `LIMITE_LISTADO_IMPRESO = 5000`, comprobado antes de leer las filas → `ListadoDemasiadoGrande`.
   - Descripción del filtro en palabras: meses en español, y los textos del orden iguales a los del selector de la web.
   - Emisor de la configuración vigente y fecha y hora de Madrid.
   - `listado_pdf(...) -> DocumentoPdf`, con el nombre según el filtro, y el log sin `q`.
-- [ ] T030 [US2] `backend/app/resources/pdf/listado.html`, según contracts/documentos-pdf.md, «Listado» (A4 apaisado, columnas y marcas, vacío y totales), más `render_listado(modelo) -> bytes` en `core/pdf/render.py` (R-7):
+- [X] T030 [US2] `backend/app/resources/pdf/listado.html`, según contracts/documentos-pdf.md, «Listado» (A4 apaisado, columnas y marcas, vacío y totales), más `render_listado(modelo) -> bytes` en `core/pdf/render.py` (R-7):
   - Bloques de `TAMANO_BLOQUE_LISTADO = 1000` filas con `HTML(...).render()`.
   - Escritura de `document.copy(pages[:-1])` y arrastre de las filas de la última página, contadas en el árbol de cajas.
   - El último bloque, con los totales.
   - Unión con `PdfWriter` y pie «Listado de facturas · Página n de m» superpuesto con `merge_page`.
   - `compress_content_streams()`, todo bajo `LIMITE_LISTADOS`.
-- [ ] T031 [US2] Ruta `GET /v1/facturas/listado/pdf` en `backend/app/api/v1/facturas.py`, declarada **antes** de `/{factura_id}`:
+- [X] T031 [US2] Ruta `GET /v1/facturas/listado/pdf` en `backend/app/api/v1/facturas.py`, declarada **antes** de `/{factura_id}`:
   - Filtros con el mismo tipo y validación que `GET /v1/facturas`, mediante `FiltrosListado` compartido.
   - Respuesta PDF como en T022.
   - Se quita de `PENDIENTES_003`.
-- [ ] T032 [US2] Web:
+- [X] T032 [US2] Web:
   - Regenerar los tipos.
   - `urlPdfListado` en `joyeriablanco_web/src/lib/impresion.ts`.
   - `joyeriablanco_web/src/features/facturas/ImprimirListado.tsx`: enlace o botón deshabilitado con su motivo, según `lista.data.total` y `isPending`.
   - Montarlo en las `actions` de `PageHeader` de `FacturasPage.tsx`, con los filtros de `src/routes/_app/facturas.tsx`.
   - En móvil, debajo de «Nueva factura».
-- [ ] T033 [US2] Cierre del contrato y E2E:
+- [X] T033 [US2] Cierre del contrato y E2E:
   - Eliminar `PENDIENTES_003` de `test_contrato_openapi.py`, que pasa a comprobar la igualdad estricta.
   - Ampliar `joyeriablanco_web/e2e/impresion.spec.ts`: filtrar por año y mes, leer el `href` de «Imprimir listado» (con `anio`, `mes` y `orden`, sin `pagina`) y descargarlo con `page.request` (`application/pdf`, `%PDF`).
 

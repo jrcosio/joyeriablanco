@@ -64,6 +64,20 @@ describe('Listado de facturas (US3)', () => {
     expect(screen.queryByText(/Cobrada|Pendiente|Vencida/)).toBeNull()
   })
 
+  it('«Imprimir listado» en la cabecera abre el PDF con los filtros de la URL (003, FR-018)', async () => {
+    conSesion(crearSesion())
+    conListado([fila()], 130)
+    renderApp('/facturas?q=maria&anio=todos&mes=3&orden=total_asc&pagina=2')
+
+    const imprimir = await screen.findByRole('link', { name: 'Imprimir listado' })
+    expect(imprimir).toHaveAttribute(
+      'href',
+      '/api/v1/facturas/listado/pdf?q=maria&anio=todos&mes=3&orden=total_asc',
+    )
+    expect(imprimir).toHaveAttribute('target', '_blank')
+    expect(screen.getByRole('link', { name: 'Nueva factura' })).toBeInTheDocument()
+  })
+
   it('en la columna del IVA, las de oro de inversión dicen «Exenta» (FR-033)', async () => {
     conSesion(crearSesion())
     conListado([

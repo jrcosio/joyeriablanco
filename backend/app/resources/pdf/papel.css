@@ -25,7 +25,8 @@
   background: var(--paper);
 }
 
-/* Pie del listado: documento aparte que se superpone a cada página (research R-7). */
+/* Pie del listado: documento aparte que se superpone a cada página (research R-7). Sin fondo,
+   para no tapar el contenido de la página a la que se superpone. */
 @page pie-listado {
   size: A4 landscape;
   margin: var(--print-margin) var(--print-margin) calc(var(--print-margin) + var(--print-gutter));
@@ -35,10 +36,6 @@
     font-size: var(--print-small-size);
     color: var(--paper-ink-muted);
   }
-}
-
-html {
-  background: var(--paper);
 }
 
 body {
@@ -150,9 +147,10 @@ ul {
   letter-spacing: var(--print-label-tracking);
 }
 
+/* En el listado, la marca baja a otra línea si no cabe junto al número: nunca invade la fecha. */
 .marca-fila {
   display: inline-block;
-  margin-left: 1.5mm;
+  margin-top: 0.6mm;
   padding: 0.3mm 1mm;
   border: 0.75pt solid var(--paper-ink-muted);
   color: var(--paper-ink-muted);

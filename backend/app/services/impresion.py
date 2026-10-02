@@ -1,4 +1,4 @@
-"""Documentos impresos: factura en PDF con su QR tributario (US1) (003; research R-6, R-7).
+"""Documentos impresos: factura con su QR tributario (US1) y listado filtrado (US2) (003; R-6, R-7).
 
 Compone modelos de vista inmutables con todo el texto ya formateado y los entrega a las
 plantillas, que solo pintan. Los datos fiscales salen de la copia guardada en la factura al
@@ -11,22 +11,27 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal
+from typing import Final
 
 from markupsafe import Markup
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import DuplicadoNoDisponible
+from app.core.errors import DuplicadoNoDisponible, ListadoDemasiadoGrande
 from app.core.pdf import plantillas, render, tokens
+from app.core.tiempo import ahora, hoy
 from app.domain.exenciones import mencion_exencion
 from app.domain.formato import (
     format_euros,
     format_fecha,
+    format_fecha_hora,
     format_iban,
     format_identificacion,
     format_porcentaje,
     format_unidades,
     format_web,
+    nombre_mes,
     nombre_pais,
 )
 from app.domain.qr import FRASE_VERIFACTU, build_cotejo_url, qr_svg
@@ -41,6 +46,7 @@ from app.domain.tipos import (
 from app.models.configuracion_facturacion import ConfiguracionFacturacion
 from app.models.factura import Factura
 from app.repositories import configuracion_facturacion
+from app.repositories import facturas as repo_facturas
 from app.services import facturas
 
 logger = logging.getLogger("app.impresion")
@@ -318,3 +324,189 @@ async def factura_pdf(
         round((time.perf_counter() - inicio) * 1000),
     )
     return DocumentoPdf(nombre=f"{modelo.num_serie}.pdf", contenido=contenido)
+
+
+# ------------------------------------------------------------------- listado (US2)
+
+# Máximo de filas del listado impreso (FR-018; Clarifications). La web lo repite para desactivar
+# el botón (`lib/impresion.ts`), y aquí se exige siempre.
+LIMITE_LISTADO_IMPRESO: Final = 5000
+
+# Los textos del selector de orden de la web (`FiltrosFacturas.tsx`).
+TEXTO_ORDEN: Final = {
+    "recientes": "Más recientes",
+    "antiguas": "Más antiguas",
+    "total_desc": "Total mayor",
+    "total_asc": "Total menor",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class FiltroImpreso:
+    busqueda: str
+    anio: str
+    mes: str
+    orden: str
+
+
+@dataclass(frozen=True, slots=True)
+class FilaImpresa:
+    numero: str
+    marca: str | None
+    fecha: str
+    cliente: str
+    identificacion: str
+    base: str
+    iva: str
+    total: str
+
+
+@dataclass(frozen=True, slots=True)
+class ImportesImpresos:
+    etiqueta: str
+    base: str
+    cuota: str
+    total: str
+
+
+@dataclass(frozen=True, slots=True)
+class ListadoImpreso:
+    emisor_nombre: str | None
+    filtro: FiltroImpreso
+    resumen: str
+    filas: tuple[FilaImpresa, ...]
+    desglose: tuple[ImportesImpresos, ...]
+    totales: ImportesImpresos
+    excluidas: str | None
+    nombre_fichero: str
+
+
+def _cuenta(n: int, singular: str, plural: str) -> str:
+    return f"{n} {singular if n == 1 else plural}"
+
+
+def _enumerar(partes: list[str]) -> str:
+    return partes[0] if len(partes) == 1 else f"{', '.join(partes[:-1])} y {partes[-1]}"
+
+
+def _fila(fila: repo_facturas.FilaListado) -> FilaImpresa:
+    marcas = {EstadoFactura.ANULADA: "Anulada", EstadoFactura.RECTIFICADA: "Rectificada"}
+    return FilaImpresa(
+        numero=fila.num_serie or "Borrador",
+        marca=marcas.get(fila.estado),
+        fecha=format_fecha(fila.fecha),
+        cliente=fila.cliente_nombre or "Sin cliente",
+        identificacion=fila.identificacion or "",
+        base=format_euros(fila.base),
+        iva="Exenta" if fila.oro_inversion else format_euros(fila.cuota),
+        total=format_euros(fila.total),
+    )
+
+
+def _importes(etiqueta: str, base: Decimal, cuota: Decimal) -> ImportesImpresos:
+    return ImportesImpresos(
+        etiqueta=etiqueta,
+        base=format_euros(base),
+        cuota=format_euros(cuota),
+        total=format_euros(base + cuota),
+    )
+
+
+def _nombre_fichero(anio: int | None, mes: int | None) -> str:
+    periodo = "todos" if anio is None else str(anio)
+    return f"facturas-{periodo}-{mes:02d}.pdf" if mes else f"facturas-{periodo}.pdf"
+
+
+async def build_listado_impreso(
+    db: AsyncSession, filtros: facturas.FiltrosFacturas
+) -> ListadoImpreso:
+    """Todas las filas del filtro y los totales de sus vigentes (FR-018 a FR-021)."""
+    anio_filtro = hoy().year if filtros.anio is None else filtros.anio  # como la pantalla
+    anio = None if anio_filtro == "todos" else anio_filtro
+    q, mes = filtros.q, filtros.mes
+    total_filas = await repo_facturas.count_listado(db, q=q, anio=anio, mes=mes)
+    if total_filas > LIMITE_LISTADO_IMPRESO:
+        raise ListadoDemasiadoGrande(
+            f"El listado tiene {total_filas:,} facturas y el máximo para imprimir es "
+            f"{LIMITE_LISTADO_IMPRESO:,}. Acota el filtro, por ejemplo por año.".replace(",", "."),
+            extra={"limite": LIMITE_LISTADO_IMPRESO, "total": total_filas},
+        )
+    filas = await repo_facturas.list_facturas_impresion(
+        db, q=q, anio=anio, mes=mes, orden=filtros.orden
+    )
+    totales = await repo_facturas.totales_vigentes(db, q=q, anio=anio, mes=mes)
+    config = await configuracion_facturacion.get(db)
+    busqueda = (filtros.q or "").strip()
+    excluidas = [
+        texto
+        for n, texto in (
+            (totales.borradores, _cuenta(totales.borradores, "borrador", "borradores")),
+            (totales.anuladas, _cuenta(totales.anuladas, "anulada", "anuladas")),
+            (totales.rectificadas, _cuenta(totales.rectificadas, "rectificada", "rectificadas")),
+        )
+        if n
+    ]
+    return ListadoImpreso(
+        emisor_nombre=config.emisor_nombre,
+        filtro=FiltroImpreso(
+            busqueda=f"Búsqueda: “{busqueda}”" if busqueda else "Sin búsqueda",
+            anio="Todos los años" if anio is None else str(anio),
+            mes=nombre_mes(filtros.mes) if filtros.mes else "Todos los meses",
+            orden=TEXTO_ORDEN[filtros.orden],
+        ),
+        resumen=(
+            f"{_cuenta(len(filas), 'factura', 'facturas')} · Generado el "
+            f"{format_fecha_hora(ahora())}"
+        ),
+        filas=tuple(_fila(fila) for fila in filas),
+        desglose=tuple(
+            _importes(
+                "Exenta" if d.tipo_iva is None else f"IVA {format_porcentaje(d.tipo_iva)}",
+                d.base,
+                d.cuota,
+            )
+            for d in totales.desglose
+        ),
+        totales=_importes(
+            f"Total ({_cuenta(totales.vigentes, 'factura', 'facturas')})",
+            totales.base,
+            totales.cuota,
+        ),
+        excluidas=f"No se suman: {_enumerar(excluidas)}" if excluidas else None,
+        nombre_fichero=_nombre_fichero(anio, filtros.mes),
+    )
+
+
+def _html_bloque(modelo: ListadoImpreso, inicio: int, fin: int, primero: bool, ultimo: bool) -> str:
+    return plantillas.render_html(
+        "listado.html",
+        {
+            "l": modelo,
+            "filas": modelo.filas[inicio:fin],
+            "cabecera": primero,
+            "totales": ultimo,
+        },
+    )
+
+
+def _pdf_listado(modelo: ListadoImpreso) -> bytes:
+    return render.pdf_por_bloques(
+        len(modelo.filas),
+        lambda inicio, fin, primero, ultimo: _html_bloque(modelo, inicio, fin, primero, ultimo),
+        lambda paginas: plantillas.render_html("listado_pie.html", {"paginas": paginas}),
+        titulo="Listado de facturas",
+        autor=modelo.emisor_nombre or "Joyería Blanco",
+    )
+
+
+async def listado_pdf(db: AsyncSession, filtros: facturas.FiltrosFacturas) -> DocumentoPdf:
+    inicio = time.perf_counter()
+    modelo = await build_listado_impreso(db, filtros)
+    contenido = await render.en_hilo(lambda: _pdf_listado(modelo), render.LIMITE_LISTADOS)
+    # Sin el texto de búsqueda (FR-029): solo cuántas filas y cuánto ha tardado.
+    logger.info(
+        "PDF del listado de facturas generado: %d filas en %d ms",
+        len(modelo.filas),
+        round((time.perf_counter() - inicio) * 1000),
+    )
+    return DocumentoPdf(nombre=modelo.nombre_fichero, contenido=contenido)

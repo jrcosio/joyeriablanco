@@ -1,0 +1,87 @@
+{#
+  Un bloque del listado impreso (003, FR-018 a FR-022). Disposición: contracts/documentos-pdf.md,
+  «Listado». `l` es el ListadoImpreso; `filas` las de este bloque. El primer bloque lleva la
+  cabecera y el último los totales (core/pdf/render.py → pdf_por_bloques).
+#}
+{% extends "base.html" %}
+{% block titulo %}Listado de facturas{% endblock %}
+{% block autor %}{{ l.emisor_nombre or "Joyería Blanco" }}{% endblock %}
+{% block clase_cuerpo %}doc-listado{% endblock %}
+{% block contenido %}
+{% if cabecera %}
+<header class="cabecera-listado">
+  <img class="logo" src="marca/logo.png" alt="">
+  <div>
+    <h1 class="titulo">Listado de facturas</h1>
+    {% if l.emisor_nombre %}<p class="fuerte">{{ l.emisor_nombre }}</p>{% endif %}
+    <p class="filtro">{{ l.filtro.busqueda }} · Año: {{ l.filtro.anio }} · Mes: {{ l.filtro.mes }} · Orden: {{ l.filtro.orden }}</p>
+    <p class="pequeno">{{ l.resumen }}</p>
+  </div>
+</header>
+{% endif %}
+
+{% if filas %}
+<table class="datos listado">
+  <colgroup>
+    <col class="col-numero"><col class="col-fecha"><col class="col-cliente"><col class="col-identificacion">
+    <col class="col-base"><col class="col-iva"><col class="col-total">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Número</th>
+      <th>Fecha</th>
+      <th>Cliente</th>
+      <th>Identificación</th>
+      <th class="derecha">Base imponible</th>
+      <th class="derecha">IVA</th>
+      <th class="derecha">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for fila in filas %}
+    <tr>
+      <td><span class="cifra">{{ fila.numero }}</span>{% if fila.marca %} <span class="marca-fila">{{ fila.marca }}</span>{% endif %}</td>
+      <td class="cifra">{{ fila.fecha }}</td>
+      <td>{{ fila.cliente }}</td>
+      <td class="cifra">{{ fila.identificacion }}</td>
+      <td class="derecha cifra">{{ fila.base }}</td>
+      <td class="derecha cifra">{{ fila.iva }}</td>
+      <td class="derecha cifra">{{ fila.total }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% elif cabecera %}
+<p class="sin-filas">No hay facturas con este filtro</p>
+{% endif %}
+
+{% if totales %}
+<section class="totales-listado">
+  <h2 class="etiqueta-seccion">Totales de las facturas vigentes</h2>
+  <table class="totales-listado-tabla">
+    <thead>
+      <tr><th></th><th>Base imponible</th><th>IVA</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      {% for d in l.desglose %}
+      <tr>
+        <td>{{ d.etiqueta }}</td>
+        <td class="derecha cifra">{{ d.base }}</td>
+        <td class="derecha cifra">{{ d.cuota }}</td>
+        <td class="derecha cifra">{{ d.total }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="total">
+        <td class="fuerte">{{ l.totales.etiqueta }}</td>
+        <td class="derecha cifra fuerte">{{ l.totales.base }}</td>
+        <td class="derecha cifra fuerte">{{ l.totales.cuota }}</td>
+        <td class="derecha cifra importe-total">{{ l.totales.total }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {% if l.excluidas %}
+  <p class="excluidas pequeno">{{ l.excluidas }}</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

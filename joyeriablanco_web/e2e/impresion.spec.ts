@@ -37,4 +37,35 @@ test.describe('Imprimir', () => {
     await expect(imprimir).toHaveAttribute('href', esperado)
     await descargarPdf(page, esperado)
   })
+
+  test('el listado con el filtro de la pantalla, sin la página (US2)', async ({ page }) => {
+    await iniciarSesion(page, 'empleado.demo')
+    await emitirPorLaApi(page)
+    // El mes en curso tiene al menos la factura recién emitida (sin resultados, el botón se desactiva)
+    const [anio = '', mes = ''] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' })
+      .format(new Date())
+      .split('-')
+
+    await page.goto(`/facturas?anio=todos&orden=total_desc&pagina=2`)
+    const imprimir = page.getByRole('link', { name: 'Imprimir listado' })
+    await expect(imprimir).toHaveAttribute(
+      'href',
+      '/api/v1/facturas/listado/pdf?anio=todos&orden=total_desc',
+    )
+    await expect(imprimir).toHaveAttribute('target', '_blank')
+    const todos = await descargarPdf(
+      page,
+      '/api/v1/facturas/listado/pdf?anio=todos&orden=total_desc',
+    )
+
+    await page.goto(`/facturas?anio=${anio}&mes=${String(Number(mes))}`)
+    const filtrado = await page.getByRole('link', { name: 'Imprimir listado' }).getAttribute('href')
+    expect(filtrado).toBe(`/api/v1/facturas/listado/pdf?anio=${anio}&mes=${String(Number(mes))}`)
+    const delMes = await page.request.get(filtrado ?? '')
+    expect(delMes.status()).toBe(200)
+    expect(delMes.headers()['content-disposition']).toBe(
+      `inline; filename="facturas-${anio}-${mes}.pdf"`,
+    )
+    expect(todos.length).toBeGreaterThan(0)
+  })
 })
