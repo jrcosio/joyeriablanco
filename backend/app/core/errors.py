@@ -282,7 +282,7 @@ def errores_de_validacion(errores: Sequence[Mapping[str, Any]]) -> list[CampoErr
 def _respuesta(request: Request, cuerpo: Mapping[str, Any], status: int) -> Response:
     # La pestaña nueva de «Imprimir» recibe una página en español, nunca JSON (003, FR-028, R-8).
     if es_navegacion_pdf(request):
-        return pagina_error(cuerpo, status)
+        return pagina_error(cuerpo, status, request.url.path)
     respuesta = JSONResponse(dict(cuerpo), status_code=status, media_type=MEDIA_TYPE)
     if es_ruta_pdf(request):  # Caddy no les pone la CSP de la SPA: la trae la API (R-8)
         respuesta.headers["Content-Security-Policy"] = CSP_PDF

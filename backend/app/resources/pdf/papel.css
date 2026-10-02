@@ -1,5 +1,5 @@
 /*
- * Hoja de papel de los documentos impresos: DESIGN.md 1.2, «Paper (print and PDF)».
+ * Hoja de papel de los documentos impresos: DESIGN.md 1.3, «Paper (print and PDF)».
  * Solo tokens (var(--…), generados desde app/core/pdf/tokens.py). Sin colores ni tamaños
  * tipográficos literales (tests/unit/test_tokens_papel.py). Filetes de 1 px = 0.75pt, esquinas a 0
  * y sin sombras. Disposición: specs/003-pdf-impresion/contracts/documentos-pdf.md.
@@ -7,12 +7,13 @@
 
 /* ------------------------------------------------------------------------- páginas */
 
-@page factura {
+/* Factura y presupuesto (005, research R-8). */
+@page documento {
   size: A4 portrait;
   margin: var(--print-margin) var(--print-margin) calc(var(--print-margin) + var(--print-gutter));
   background: var(--paper);
   @bottom-right {
-    content: string(numero-factura) " · Página " counter(page) " de " counter(pages);
+    content: string(numero-documento) " · Página " counter(page) " de " counter(pages);
     font-family: var(--print-small-family);
     font-size: var(--print-small-size);
     color: var(--paper-ink-muted);
@@ -40,8 +41,9 @@ body {
   line-height: var(--print-body-line);
 }
 
-body.doc-factura {
-  page: factura;
+body.doc-factura,
+body.doc-presupuesto {
+  page: documento;
 }
 
 body.doc-listado {
@@ -249,8 +251,8 @@ table.datos td.derecha {
   border-top: 0.75pt solid var(--paper-rule);
 }
 
-.numero-factura {
-  string-set: numero-factura content();
+.numero-documento {
+  string-set: numero-documento content();
 }
 
 .rejilla-datos {

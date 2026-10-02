@@ -150,11 +150,11 @@ deben quedar en verde (T020).
   - Nuevo `backend/app/services/contenido.py` con `DatosLinea`, `check_lineas`, `normalize_lineas`, `previstos`, `copia_emisor(config)` y `copia_destinatario(cliente)`.
   - `backend/app/services/emision.py` y `backend/app/services/borradores.py` pasan a usarlo. `emision.py` reexporta `DatosLinea`.
   - Comprobar `uv run pytest tests/integration/test_emision.py tests/integration/test_borradores.py tests/integration/test_numeracion_concurrencia.py` en verde.
-- [ ] T011 Generalización del listado (R-8.2), sin cambio de comportamiento:
+- [X] T011 Generalización del listado (R-8.2), sin cambio de comportamiento:
   - Nuevo `backend/app/repositories/listado.py`: `filtros(v, *, q, anio, mes)`, `ordenes(v)` y `consulta_filas(v, columnas, condiciones, orden)`, parametrizados con un `table()`.
   - `backend/app/repositories/facturas.py` los usa con `v_listado_facturas`.
   - Comprobar `test_listado_facturas.py` y `test_pdf_listado.py` en verde.
-- [ ] T012 Generalización de la impresión (R-8.3, R-8.4), sin cambio de comportamiento:
+- [X] T012 Generalización de la impresión (R-8.3, R-8.4), sin cambio de comportamiento:
   - Nuevo `backend/app/services/impresion_comun.py`:
     - `DocumentoPdf`, `ParteImpresa`, `ContactoImpreso`, `LineaImpresa` y `DesgloseImpreso`.
     - `domicilio`, `contacto`, `lineas_impresas` y `desglose_impreso`.
@@ -165,7 +165,7 @@ deben quedar en verde (T020).
   - `listado.html`: los textos de 003 pasan a `l.textos` (`ListadoImpreso.textos`).
   - `backend/app/core/pdf/respuestas.py`: `_mensaje` según el documento de la ruta.
   - Comprobar `test_pdf_factura.py`, `test_pdf_listado.py`, `test_pdf_render.py` y `test_tokens_papel.py` en verde, con el texto extraído idéntico al anterior.
-- [ ] T013 Ayudantes de prueba del backend:
+- [X] T013 Ayudantes de prueba del backend:
   - `backend/tests/integration/facturacion_datos.py`: `configurar_facturacion` con validez, `cuerpo_presupuesto(...)`, `emitir_presupuesto(client, csrf, ...)` y `crear_borrador_presupuesto(...)`.
   - `limpiar_facturacion_confirmada`: sustituir el *slice* por índice por una lista explícita, en este orden por las FK:
     1. `cierres_presupuesto`.

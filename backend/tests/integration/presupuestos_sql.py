@@ -21,7 +21,7 @@ async def insertar_presupuesto(
         "usuario": usuario,
         "valido_hasta": extra.get("valido_hasta", "2026-10-31"),
     }
-    presupuesto = (
+    presupuesto: object = (
         await conn.execute(
             text(
                 """
@@ -93,7 +93,7 @@ async def insertar_cierre(
 async def insertar_borrador_factura(
     conn: AsyncConnection, usuario: uuid.UUID, cliente: uuid.UUID, presupuesto: uuid.UUID | None
 ) -> uuid.UUID:
-    borrador = (
+    borrador: object = (
         await conn.execute(
             text(
                 "INSERT INTO borradores_factura (cliente_id, fecha_expedicion, tipo_iva_previsto, "

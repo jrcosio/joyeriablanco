@@ -9,6 +9,7 @@
 """
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, Final
 
 from fastapi import Request, Response
@@ -56,9 +57,27 @@ def es_navegacion_pdf(request: Request) -> bool:
     return "text/html" in request.headers.get("accept", "")
 
 
-def _mensaje(cuerpo: Mapping[str, Any], status: int) -> tuple[str, str, str]:
-    """(mensaje, enlace, texto del enlace) para cada error posible (R-8)."""
+@dataclass(frozen=True, slots=True)
+class _Documento:
+    no_existe: str
+    enlace: str
+    texto_enlace: str
+
+
+_FACTURAS = _Documento("La factura no existe.", "/facturas", "Volver a las facturas")
+_PRESUPUESTOS = _Documento(
+    "El presupuesto no existe.", "/presupuestos", "Volver a los presupuestos"
+)  # 005, contracts/documentos-pdf.md
+
+
+def _documento(ruta: str) -> _Documento:
+    return _PRESUPUESTOS if ruta.startswith("/api/v1/presupuestos/") else _FACTURAS
+
+
+def _mensaje(cuerpo: Mapping[str, Any], status: int, ruta: str) -> tuple[str, str, str]:
+    """(mensaje, enlace, texto del enlace) para cada error posible (R-8), según el documento."""
     tipo = str(cuerpo.get("type", "")).removeprefix("/problemas/")
+    doc = _documento(ruta)
     if status == 401:
         return (
             "Tu sesión ha caducado. Vuelve a la aplicación e inicia sesión de nuevo.",
@@ -66,29 +85,29 @@ def _mensaje(cuerpo: Mapping[str, Any], status: int) -> tuple[str, str, str]:
             "Volver a la aplicación",
         )
     if status == 404:
-        return "La factura no existe.", "/facturas", "Volver a las facturas"
+        return doc.no_existe, doc.enlace, doc.texto_enlace
     if tipo in {
         "duplicado-no-disponible",
         "listado-demasiado-grande",
         "sin-permiso",
         "contrasena-temporal",
     }:
-        return str(cuerpo.get("detail", "")), "/facturas", "Volver a las facturas"
+        return str(cuerpo.get("detail", "")), doc.enlace, doc.texto_enlace
     if status == 422:
         return (
             "Los datos de la petición no son válidos. Vuelve a imprimir desde la aplicación.",
-            "/facturas",
-            "Volver a las facturas",
+            doc.enlace,
+            doc.texto_enlace,
         )
     return (
         "No se ha podido generar el PDF. Vuelve a intentarlo dentro de un momento.",
-        "/facturas",
-        "Volver a las facturas",
+        doc.enlace,
+        doc.texto_enlace,
     )
 
 
-def pagina_error(cuerpo: Mapping[str, Any], status: int) -> HTMLResponse:
-    mensaje, enlace, texto_enlace = _mensaje(cuerpo, status)
+def pagina_error(cuerpo: Mapping[str, Any], status: int, ruta: str) -> HTMLResponse:
+    mensaje, enlace, texto_enlace = _mensaje(cuerpo, status, ruta)
     html = plantillas.render_error(
         titulo=TITULO_ERROR, mensaje=mensaje, enlace=enlace, texto_enlace=texto_enlace
     )

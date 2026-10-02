@@ -5,7 +5,7 @@ propia que confirme, como en los tests de concurrencia.
 """
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -27,11 +27,13 @@ async def configurar_facturacion(
     iva: str = "21",
     modalidad: str | None = "verifactu",
     iban: str | None = None,
+    validez: int = 30,
 ) -> None:
     config = await configuracion_facturacion.get(db, for_update=True)
     config.iva_por_defecto = Decimal(iva)
     config.modalidad = modalidad
     config.emisor_iban = iban
+    config.validez_presupuesto_dias = validez
     config.emisor_nombre = "Joyería Blanco, S.L."
     config.emisor_nif = "B12345674"
     config.emisor_direccion = "Calle Mayor, 1"
@@ -113,17 +115,86 @@ def cabeceras(csrf: str, clave: uuid.UUID | None = None) -> dict[str, str]:
     return {"X-CSRF-Token": csrf, "Idempotency-Key": str(clave or uuid.uuid4())}
 
 
+# ------------------------------------------------------------------- presupuestos (005)
+
+URL_PRESUPUESTOS = "/api/v1/presupuestos"
+URL_BORRADORES_PRESUPUESTO = "/api/v1/borradores-presupuesto"
+
+
+def cuerpo_presupuesto(
+    cliente_id: uuid.UUID | None,
+    *,
+    fecha: date | None = None,
+    valido_hasta: date | None = None,
+    lineas: list[dict[str, Any]] | None = None,
+    oro_inversion: bool = False,
+) -> dict[str, Any]:
+    """Cuerpo de `POST /v1/presupuestos` y de los borradores (contracts/openapi.yaml de 005)."""
+    fecha = fecha or hoy()
+    return {
+        "fecha": fecha.isoformat(),
+        "valido_hasta": (valido_hasta or fecha + timedelta(days=30)).isoformat(),
+        "cliente_id": str(cliente_id) if cliente_id else None,
+        "lineas": LINEAS_CAPTURA if lineas is None else lineas,
+        "oro_inversion": oro_inversion,
+    }
+
+
+async def emitir_presupuesto(
+    client: Any, csrf: str, cliente_id: uuid.UUID, **kwargs: Any
+) -> dict[str, Any]:
+    """Emite un presupuesto por la API y devuelve su `PresupuestoSalida`."""
+    respuesta = await client.post(
+        URL_PRESUPUESTOS, json=cuerpo_presupuesto(cliente_id, **kwargs), headers=cabeceras(csrf)
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    return dict(respuesta.json())
+
+
+async def crear_borrador_presupuesto(
+    client: Any, csrf: str, cliente_id: uuid.UUID | None, **kwargs: Any
+) -> dict[str, Any]:
+    respuesta = await client.post(
+        URL_BORRADORES_PRESUPUESTO,
+        json=cuerpo_presupuesto(cliente_id, **kwargs),
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    return dict(respuesta.json())
+
+
 # ------------------------------------------------------------- datos confirmados (concurrencia)
 
 from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncEngine  # noqa: E402
 
 _TABLAS_CON_TRIGGERS = (
+    "cierres_presupuesto",
     "correcciones_factura",
     "registros_facturacion",
     "desgloses_factura",
     "lineas_factura",
     "facturas",
+    "borradores_factura",
+    "desgloses_presupuesto",
+    "lineas_presupuesto",
+    "presupuestos",
+    "contadores_factura",
+)
+# Orden de borrado por las FK (005, tasks T013): los cierres apuntan a facturas y presupuestos, y
+# los borradores de factura vinculados, a presupuestos.
+_ORDEN_DE_BORRADO = (
+    "cierres_presupuesto",
+    "correcciones_factura",
+    "registros_facturacion",
+    "desgloses_factura",
+    "lineas_factura",
+    "facturas",
+    "borradores_factura",
+    "desgloses_presupuesto",
+    "lineas_presupuesto",
+    "presupuestos",
+    "borradores_presupuesto",
     "contadores_factura",
 )
 
@@ -139,7 +210,7 @@ async def limpiar_facturacion_confirmada(
     async with engine_owner.begin() as conn:
         for tabla in _TABLAS_CON_TRIGGERS:
             await conn.execute(text(f"ALTER TABLE {tabla} DISABLE TRIGGER USER"))
-        for tabla in (*_TABLAS_CON_TRIGGERS[:5], "borradores_factura", "contadores_factura"):
+        for tabla in _ORDEN_DE_BORRADO:
             await conn.execute(text(f"DELETE FROM {tabla}"))  # noqa: S608 — nombres fijos
         for tabla in _TABLAS_CON_TRIGGERS:
             await conn.execute(text(f"ALTER TABLE {tabla} ENABLE TRIGGER USER"))
@@ -148,7 +219,8 @@ async def limpiar_facturacion_confirmada(
                 "UPDATE configuracion_facturacion SET iva_por_defecto = 21, emisor_iban = NULL, "
                 "modalidad = NULL, emisor_nombre = NULL, emisor_nif = NULL, "
                 "emisor_direccion = NULL, emisor_codigo_postal = NULL, emisor_localidad = NULL, "
-                "emisor_provincia_codigo = NULL"
+                "emisor_provincia_codigo = NULL, validez_presupuesto_dias = 30, "
+                "pie_presupuesto = NULL"
             )
         )
         if clientes:

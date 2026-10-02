@@ -1,10 +1,11 @@
 {#
-  Un bloque del listado impreso (003, FR-018 a FR-022). Disposición: contracts/documentos-pdf.md,
-  «Listado». `l` es el ListadoImpreso; `filas` las de este bloque. El primer bloque lleva la
-  cabecera y el último los totales (core/pdf/render.py → pdf_por_bloques).
+  Un bloque del listado impreso de facturas (003, FR-018 a FR-022) o de presupuestos (005, FR-030).
+  Disposición: contracts/documentos-pdf.md, «Listado». `l` es el ListadoImpreso, con sus textos;
+  `filas` las de este bloque. El primer bloque lleva la cabecera y el último los totales
+  (core/pdf/render.py → pdf_por_bloques).
 #}
 {% extends "base.html" %}
-{% block titulo %}Listado de facturas{% endblock %}
+{% block titulo %}{{ l.textos.titulo }}{% endblock %}
 {% block autor %}{{ l.emisor_nombre or "Joyería Blanco" }}{% endblock %}
 {% block clase_cuerpo %}doc-listado{% endblock %}
 {% block estilos %}
@@ -12,10 +13,10 @@
    desfase y el total de la paginación por bloques (core/pdf/render.py → pdf_por_bloques; R-7). #}
 <style>
 {% if paginacion %}
-@page listado { @bottom-right { content: "Listado de facturas · Página " counter(page) " de {{ paginacion.total }}"; } }
+@page listado { @bottom-right { content: "{{ l.textos.titulo }} · Página " counter(page) " de {{ paginacion.total }}"; } }
 @page listado:first { counter-reset: page {{ paginacion.primera }}; }
 {% else %}
-@page listado { @bottom-right { content: "Listado de facturas · Página " counter(page) " de " counter(pages); } }
+@page listado { @bottom-right { content: "{{ l.textos.titulo }} · Página " counter(page) " de " counter(pages); } }
 {% endif %}
 </style>
 {% endblock %}
@@ -24,7 +25,7 @@
 <header class="cabecera-listado">
   <img class="logo" src="marca/logo.png" alt="">
   <div>
-    <h1 class="titulo">Listado de facturas</h1>
+    <h1 class="titulo">{{ l.textos.titulo }}</h1>
     {% if l.emisor_nombre %}<p class="fuerte">{{ l.emisor_nombre }}</p>{% endif %}
     <p class="filtro">{{ l.filtro.busqueda }} · Año: {{ l.filtro.anio }} · Mes: {{ l.filtro.mes }} · Orden: {{ l.filtro.orden }}</p>
     <p class="pequeno">{{ l.resumen }}</p>
@@ -64,12 +65,12 @@
   </tbody>
 </table>
 {% elif cabecera %}
-<p class="sin-filas">No hay facturas con este filtro</p>
+<p class="sin-filas">{{ l.textos.sin_filas }}</p>
 {% endif %}
 
 {% if totales %}
 <section class="totales-listado">
-  <h2 class="etiqueta-seccion">Totales de las facturas vigentes</h2>
+  <h2 class="etiqueta-seccion">{{ l.textos.titulo_totales }}</h2>
   <table class="totales-listado-tabla">
     <thead>
       <tr><th></th><th>Base imponible</th><th>IVA</th><th>Total</th></tr>
