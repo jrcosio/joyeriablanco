@@ -98,9 +98,9 @@ En el Mac, los tiempos son parecidos (0,25 s, 3,6 s y 18,2 s) y la memoria algo 
 | # | Cómo se ha validado |
 |---|---|
 | 1 | `test_pdf_factura.py` (contenido completo, pie «Página n de m») y revisión visual de PDF generados con los datos de desarrollo: ordinaria, rectificativa, rectificada y anulada |
-| 2 | `test_qr.py` (vectores de F-12 §4 y §8, lectura con zxing-cpp y nivel M) y `test_pdf_factura.py` (valores del registro de alta). Además, el QR **pintado por Chromium** a partir de la plantilla real se capturó y se leyó con zxing-cpp: misma URL que el modelo y nivel M. **Pendiente del responsable**: escanearlo con un móvil |
+| 2 | `test_qr.py` (vectores de F-12 §4 y §8, lectura con zxing-cpp y nivel M) y `test_pdf_factura.py` (valores del registro de alta). Además, el QR **pintado por Chromium** a partir de la plantilla real se capturó y se leyó con zxing-cpp: misma URL que el modelo y nivel M. **Validado por el responsable** (2026-10-02): escaneado con un móvil, abre el cotejo de la AEAT |
 | 3 | `test_pdf_factura.py` (frase solo en VERI\*FACTU y `ValidarQRNoVerifactu` en no VERI\*FACTU) |
-| 4 | `test_pdf_factura.py` (árbol de cajas: 35 × 35 mm y 6 mm de margen en la primera página). **Pendiente del responsable**: medirlo en papel |
+| 4 | `test_pdf_factura.py` (árbol de cajas: 35 × 35 mm y 6 mm de margen en la primera página). **Validado por el responsable** (2026-10-02): medido en papel |
 | 5 y 6 | `test_pdf_factura.py`, `ImprimirFactura.test.tsx` y E2E `impresion.spec.ts` |
 | 7 | `test_pdf_factura.py` (DUPLICADO y 409 en una anulada, «Sustituida por» la vigente actual) y `ImprimirFactura.test.tsx` |
 | 8 y 9 | `test_pdf_factura.py` (rectificativa, devolución total, rectificada y exenta) |
@@ -109,7 +109,7 @@ En el Mac, los tiempos son parecidos (0,25 s, 3,6 s y 18,2 s) y la memoria algo 
 | 12 | `ImprimirListado.test.tsx` (desactivado con su motivo) y `test_pdf_listado.py` (422 `listado-demasiado-grande`, también en HTML) |
 | 13 | `test_pdf_factura.py` (página HTML con «Tu sesión ha caducado», sin JSON ni datos técnicos) y, contra Caddy, la misma página |
 | 14 y 15 | `test_configuracion_contacto.py` (validación, auditoría, conservación, versión, 403 y reimpresión con el contacto nuevo), `FacturacionPage.test.tsx` y E2E `configuracion-facturacion.spec.ts` |
-| 16 | Vitest de los componentes en móvil; la revisión visual a 360 px queda **pendiente del responsable** |
+| 16 | Vitest de los componentes en móvil y revisión visual a 360 px, **validada por el responsable** (2026-10-02) |
 
 **Producción**:
 - La imagen `prod` genera un PDF con el contenedor `read_only`, `cap_drop: ALL`, `/tmp` en tmpfs y
@@ -120,10 +120,10 @@ En el Mac, los tiempos son parecidos (0,25 s, 3,6 s y 18,2 s) y la memoria algo 
   - la respuesta lleva la CSP de la API con `object-src 'self'`;
   - no lleva la CSP de la SPA;
   - la SPA conserva `object-src 'none'`.
-- **Pendiente del responsable**:
-  - La simulación completa de producción, que necesita el `.env` de producción con
-    `AEAT_ENTORNO`.
-  - La comprobación del visor de PDF en Chrome, Firefox y Safari (§4).
+- **Validado por el responsable** (2026-10-02):
+  - La simulación completa de producción con `deploy/verificar-produccion.sh`, con el `.env` de
+    producción y `AEAT_ENTORNO`.
+  - El visor de PDF en Chrome, Firefox y Safari de escritorio, y en Safari de iOS (§4).
 
 ## 4. Producción
 

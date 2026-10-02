@@ -350,7 +350,7 @@ con ellos y con su emisor fiscal original. Un empleado recibe 403.
   - `backend/app/resources/README.md`.
   - [quickstart.md](quickstart.md): la sección «Resultado de la validación» con las mediciones de T041.
   - Comprobar que la constitución no necesita enmienda: la restricción «PDF» ya fija WeasyPrint.
-- [ ] T043 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 16). *Hecho* (quickstart, «Resultado de la validación»): revisión visual de PDF reales, QR pintado por Chromium leído con zxing-cpp, imagen `prod` en solo lectura y comprobaciones de CSP contra Caddy. *Pendiente del responsable*: escaneo con un móvil, medición en papel, visor de PDF en cada navegador, revisión a 360 px y simulación completa de producción.
+- [X] T043 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 16). *Hecho* (quickstart, «Resultado de la validación»): revisión visual de PDF reales, QR pintado por Chromium leído con zxing-cpp, imagen `prod` en solo lectura y comprobaciones de CSP contra Caddy. *Validado por el responsable* (2026-10-02): escaneo con un móvil, medición en papel, visor de PDF en cada navegador, revisión a 360 px y simulación completa de producción.
   - Escaneo real del QR con un móvil, medición en papel y visor en Chrome, Firefox y Safari.
   - Simulación de producción (`DOMINIO=localhost TLS_MODO=internal`) con `deploy/verificar-produccion.sh`.
   - Los resultados se anotan en el quickstart.
