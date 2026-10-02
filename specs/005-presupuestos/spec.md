@@ -439,10 +439,13 @@ presupuestos que suman.
 - **FR-008**: **Fecha**: propone la de hoy, en hora de España peninsular, y se puede cambiar.
   - **Superior**: no puede ser posterior a hoy.
   - **Inferior**: no puede ser anterior al 28/10/2024, el mismo límite que la factura (Assumptions).
+  - **Error**: se indica en el propio campo y el servidor lo rechaza con un error de validación en
+    ese campo, al guardar el borrador, al emitir y al modificar.
 - **FR-009**: **Validez**:
   - «Válido hasta» propone la fecha del presupuesto más la validez por defecto de Configuración
     (FR-031) y se puede cambiar en cada presupuesto.
-  - No puede ser anterior a la fecha del presupuesto.
+  - No puede ser anterior a la fecha del presupuesto. El error se indica en el propio campo, como el
+    de la fecha (FR-008).
   - Si se cambia la fecha del presupuesto y «Válido hasta» no se ha tocado, se recalcula.
 - **FR-010**: Al emitir, el presupuesto DEBE guardar una copia de los datos del emisor, IBAN
   incluido si lo hay, y del destinatario, tal como están en ese momento, igual que la factura (002,
@@ -469,10 +472,13 @@ presupuestos que suman.
   - El modal se abre con sus datos precargados.
   - Son editables el cliente, las líneas, la fecha (que propone la de hoy), «Válido hasta» y la
     casilla «Sin IVA (oro de inversión)».
+  - «Válido hasta» se precarga con el del original. Si es anterior a la fecha propuesta, propone esa
+    fecha más la validez por defecto.
   - Al guardar se pide un motivo de texto libre, obligatorio.
   - Se emite un presupuesto nuevo con el siguiente número `PRE`, y el original queda sustituido por
     él.
-  - Si no hay ningún cambio respecto al original, se rechaza.
+  - Si no hay ningún cambio respecto al original, se rechaza. Se comparan el cliente, la fecha,
+    «Válido hasta», las líneas y la casilla de oro de inversión.
 - **FR-016**: Solo un administrador DEBE poder «Anular» un presupuesto pendiente o caducado que no
   esté en facturación, con un motivo de texto libre obligatorio, p. ej. «Rechazado por el cliente».
   La anulación no emite nada.
@@ -534,13 +540,16 @@ presupuestos que suman.
   - Paginación en el servidor (25 por página por defecto y 100 como máximo).
   - Búsqueda, filtros, orden y página reflejados en la dirección.
   - Acciones siempre visibles.
-  - Los mismos estados de pantalla.
+  - Los mismos estados de pantalla:
+    - «Todavía no hay presupuestos», que invita a crear el primero.
+    - «No hay presupuestos en {año}», con «Ver todos los años».
+    - «No hay resultados», con «Limpiar filtros».
 - **FR-024**: **Columnas**: las del listado de facturas, con los mismos anchos según la pantalla:
   número, fecha, cliente, identificación fiscal, base imponible, IVA, total y acciones.
   - No hay columna de estado.
   - Un borrador muestra «Borrador» en lugar del número.
   - Un presupuesto caducado, en facturación, convertido, sustituido o anulado lleva su marca junto
-    al número.
+    al número. La marca es siempre un texto, no solo un color.
   - Uno de oro de inversión muestra «Exenta» en el IVA.
 - **FR-025**: **Búsqueda, filtros y orden**, iguales que en facturas:
   - Búsqueda parcial por número, cliente e identificación, sin distinguir mayúsculas ni tildes.
@@ -552,6 +561,14 @@ presupuestos que suman.
 - **FR-026**: Crear, consultar, editar y modificar un presupuesto DEBE hacerse en un modal por encima
   del listado, con las mismas secciones, comportamiento, accesibilidad y adaptación a móvil que el
   de la factura (002, FR-037, FR-039, FR-040, FR-046 y FR-049).
+  - **Nombres accesibles**:
+    - «Imprimir presupuesto {número}».
+    - «Convertir en factura {número}».
+    - «Abrir borrador de factura de {número}».
+    - «Ver presupuesto {número}».
+    - «Abrir borrador de {cliente}».
+    - «Imprimir listado».
+  - **Imprimir**: el estado «Preparando…» se anuncia a los lectores de pantalla (003, FR-031).
 - **FR-027**: Botones del modal según el caso:
   - **Nuevo**: «Cancelar», «Guardar borrador» y «Emitir presupuesto».
   - **Borrador**: además, «Eliminar borrador».
@@ -578,7 +595,8 @@ presupuestos que suman.
   «Imprimir» a cualquier usuario autenticado. Los borradores no lo ofrecen, y el servidor rechaza su
   PDF. «Imprimir» abre en una pestaña nueva un PDF en A4 vertical, cuyo nombre propuesto es el
   número, p. ej. `PRE-2026-0003.pdf`. El PDF lleva:
-  - **Título**: «PRESUPUESTO».
+  - **Título**: «PRESUPUESTO», en mayúsculas. A diferencia del título «Factura», así se distingue a
+    primera vista de una factura (Clarifications).
   - **Leyenda**: «Documento sin validez fiscal. No es una factura.», justo bajo el título, visible y
     sin tapar ningún dato.
   - **Datos**: el número, la fecha y «Válido hasta: dd/mm/aaaa».
@@ -592,7 +610,9 @@ presupuestos que suman.
     {número}». Un pendiente, un caducado o uno en facturación no llevan marca, porque la fecha de
     validez ya se ve y el borrador de factura todavía no es una factura.
   - **Pie**: el pie de Configuración (FR-031).
-  - **Páginas**: «Página n de m» con el número del presupuesto en cada página.
+  - **Páginas**: como la factura (003, FR-011). Si ocupa varias, cada página lleva el número del
+    presupuesto y «Página n de m», la cabecera de la tabla de líneas se repite y una línea nunca se
+    parte. El aviso no fiscal y las marcas van en la primera página.
   - **Lo que NO lleva** (F-13; constitución 2.3.0): código QR, «QR tributario», la frase
     VERI\*FACTU, dirección de cotejo de la AEAT ni la expresión «DUPLICADO».
   - **Generación**: bajo demanda y sin almacenarse, igual que la factura (003, FR-012).
