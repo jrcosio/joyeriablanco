@@ -37,11 +37,13 @@
   - Las series `PRE`, `FAC` y `REC`.
   - El registro de alta y la huella, para dejar claro qué NO genera un presupuesto.
   - Las expresiones literales del documento impreso.
-- Supuestos que conviene confirmar en `/speckit.clarify`:
-  - Conversión directa o mediante un borrador de factura.
-  - Conversión de un presupuesto caducado, y si una conversión es única.
-  - Permisos de cada operación.
-  - Validez por defecto y pie propio del presupuesto.
-  - Domicilio del cliente para emitir un presupuesto.
-  - IVA aplicable si cambia antes de la conversión.
+- `/speckit.clarify` (2026-10-02) resolvió:
+  - La conversión mediante un borrador de factura vinculado.
+  - El bloqueo del presupuesto mientras ese borrador existe.
+  - La conversión de un presupuesto caducado.
+  - Los permisos.
+  - La validez por defecto y el pie propio.
+- Quedan como supuestos documentados, de bajo impacto:
+  - El domicilio del cliente para emitir un presupuesto.
+  - El IVA aplicable si cambia antes de la conversión, que sigue la regla de 002.
   - Qué presupuestos suman en el listado impreso.

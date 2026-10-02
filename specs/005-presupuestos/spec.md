@@ -47,13 +47,34 @@ que poner PROFORMA / Presupuesto o algo así. Busca cuál es la forma más corre
   - Emisión con número definitivo, desde la que el presupuesto es inalterable.
   - «Modificar» crea un presupuesto nuevo que sustituye al anterior y lo conserva.
   - «Anular» lo cierra con un motivo.
-  - «Convertir en factura» emite una factura ordinaria con su contenido.
+  - «Convertir en factura» lleva su contenido a una factura ordinaria (Session clarify).
 - Q: ¿Cómo se numeran? → A: Serie propia **`PRE-AAAA-NNNN`**, correlativa por año, sin huecos ni
   reutilización y con la misma asignación segura que las facturas, sin ajuste al alza
   (constitución 2.3.0, «Numeración»).
 - Q: ¿El presupuesto lleva QR tributario, la mención VERI\*FACTU o registro de facturación? → A:
   **No**, nunca (F-13; constitución 2.3.0). Solo la factura que resulta de la conversión los lleva,
   como cualquier factura.
+
+### Session 2026-10-02 (clarify)
+
+- Q: ¿«Convertir en factura» emite la factura directamente o crea un borrador de factura? → A:
+  **Crea un borrador de factura** vinculado al presupuesto y precargado con su cliente, sus líneas
+  y su tratamiento del IVA. Se revisa, se puede editar y se emite con el flujo normal de la factura
+  (002, FR-019 a FR-021). El presupuesto queda convertido al emitir esa factura (FR-018 a FR-020).
+- Q: ¿Qué pasa con el presupuesto mientras existe ese borrador? → A: **Queda bloqueado**.
+  - Se muestra «En facturación» y no se puede modificar, anular ni volver a convertir.
+    «Convertir en factura» abre ese mismo borrador.
+  - Pasa a «Convertido en FAC-…» al emitir la factura, en la misma operación.
+  - Si el borrador se elimina, el presupuesto vuelve a estar pendiente (o caducado).
+- Q: ¿Se puede convertir un presupuesto caducado? → A: **Sí**, con un aviso de que la validez ha
+  vencido.
+- Q: ¿Quién puede modificar, anular y convertir? → A: **Como en facturas**. Cualquier usuario
+  crea, emite, imprime y convierte, porque convertir es preparar y emitir una factura, y los
+  empleados ya emiten. Solo los administradores modifican y anulan.
+- Q: ¿Cómo se fija la validez por defecto y qué pie lleva el presupuesto impreso? → A: **30 días**
+  por defecto, configurables de 1 a 365 y editables en cada presupuesto. El presupuesto tiene un
+  **pie propio** y opcional (condiciones, variación del precio del oro…). Si está vacío, lleva el
+  pie de factura (FR-031).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -150,50 +171,58 @@ VERI\*FACTU ni la dirección de cotejo.
 ### User Story 3 - Convertir un presupuesto en factura (Priority: P1)
 
 El cliente acepta el presupuesto `PRE-2026-0003`. El empleado lo abre y pulsa «Convertir en
-factura». Un diálogo resume lo que se va a facturar, propone la fecha de hoy como fecha de
-expedición y pide confirmación. Al confirmar se emite la factura `FAC-2026-0012`, con las mismas
-líneas, el mismo cliente y su registro de alta, su huella y su QR. El presupuesto queda marcado
-«Convertido en FAC-2026-0012», y la factura indica que procede de él.
+factura». Se crea un borrador de factura con el cliente, las líneas y el tratamiento del IVA del
+presupuesto, y se abre en el modal de la factura con la indicación «Procede del presupuesto
+PRE-2026-0003». El empleado lo revisa, cambia lo que haga falta y lo emite como cualquier factura:
+`FAC-2026-0012`, con su registro de alta, su huella y su QR. En esa misma operación, el presupuesto
+queda «Convertido en FAC-2026-0012», y la factura sigue indicando que procede de él.
 
 **Why this priority**: es la razón de ser del presupuesto en el sistema y uno de los cuatro tests
 de cobertura obligatoria de la constitución (principio VII).
 
-**Independent Test**: se convierte un presupuesto y se comprueba lo siguiente:
+**Independent Test**: se convierte un presupuesto y se emite el borrador resultante. Hay que
+comprobar lo siguiente:
 - La factura tiene su contenido, el siguiente número FAC y su registro de alta encadenado.
 - El presupuesto queda convertido, y los dos documentos se enlazan en ambos sentidos.
-- Repetir la conversión, o lanzarla a la vez desde dos sesiones, produce una sola factura.
+- Convertir dos veces, o a la vez desde dos sesiones, produce un solo borrador.
+- Emitir ese borrador dos veces, o a la vez, produce una sola factura.
 
 **Acceptance Scenarios**:
 
 1. **Given** el presupuesto pendiente `PRE-2026-0003`, **When** se pulsa «Convertir en factura» y
    se confirma, **Then**:
-   - Se emite una factura ordinaria con el siguiente número `FAC` del año de su fecha de
-     expedición.
-   - Lleva el cliente, las líneas y el tratamiento del IVA del presupuesto.
-   - Lleva su registro de alta con la huella encadenada, como cualquier factura.
-   - El modal pasa a la consulta de la factura, con el aviso «Factura FAC-… emitida a partir de
-     PRE-2026-0003».
-2. **Given** la factura convertida, **When** se consulta, **Then** indica «Procede del presupuesto
-   PRE-2026-0003», con acceso directo. El presupuesto indica «Convertido en FAC-…», con acceso
-   directo a la factura.
-3. **Given** dos usuarios que convierten el mismo presupuesto a la vez, **When** ambas conversiones
-   terminan, **Then** se emite una sola factura y se consume un solo número FAC. El segundo usuario
-   recibe el aviso de que el presupuesto ya se ha convertido.
-4. **Given** un doble clic o un reintento de red en «Convertir en factura», **When** llega la
-   segunda petición, **Then** devuelve la misma factura sin emitir otra.
-5. **Given** un presupuesto anulado, sustituido o ya convertido, **When** se consulta, **Then** no
+   - Se crea un borrador de factura con el cliente, las líneas (unidades, descripción y precio) y la
+     casilla «Sin IVA (oro de inversión)» del presupuesto.
+   - El borrador propone la fecha de hoy y el IVA vigente, como cualquier borrador.
+   - Se abre en el modal de la factura con «Procede del presupuesto PRE-2026-0003».
+   - No se consume ningún número y no se genera ningún registro.
+2. **Given** ese borrador, **When** se emite tras confirmar, **Then**:
+   - Recibe el siguiente número `FAC` del año de su fecha de expedición.
+   - Se genera su registro de alta con la huella encadenada.
+   - En la misma operación, `PRE-2026-0003` queda «Convertido en FAC-2026-0012».
+   - El aviso es «Factura FAC-2026-0012 emitida. PRE-2026-0003 queda convertido».
+3. **Given** la factura convertida, **When** se consulta, **Then** indica «Procede del presupuesto
+   PRE-2026-0003», con acceso directo. El presupuesto indica «Convertido en FAC-2026-0012», con
+   acceso directo a la factura.
+4. **Given** un presupuesto con su borrador de factura en curso, **When** se consulta o aparece en
+   el listado, **Then** lleva la marca «En facturación». No ofrece «Modificar» ni «Anular», y
+   «Convertir en factura» pasa a «Abrir borrador de factura», que abre ese mismo borrador.
+5. **Given** dos usuarios que pulsan «Convertir en factura» sobre el mismo presupuesto a la vez, o
+   un doble clic, **When** terminan, **Then** existe un solo borrador vinculado y los dos acaban en
+   él.
+6. **Given** el borrador de factura de un presupuesto, **When** se elimina, **Then** el presupuesto
+   vuelve a estar pendiente (o caducado) y se puede convertir, modificar o anular de nuevo.
+7. **Given** un presupuesto anulado, sustituido o ya convertido, **When** se consulta, **Then** no
    ofrece «Convertir en factura», y el servidor rechaza cualquier intento de convertirlo.
-6. **Given** un presupuesto cuyo cliente se ha desactivado o no tiene el domicilio completo,
-   **When** se intenta convertir, **Then** no se emite nada ni se consume ningún número, y se indica
-   qué falta con acceso a la ficha del cliente.
-7. **Given** la configuración de facturación sin modalidad o con los datos del emisor incompletos,
-   **When** se intenta convertir, **Then** no se emite y se indica qué falta, igual que al emitir una
-   factura.
-8. **Given** un presupuesto emitido al 21 % y el IVA por defecto cambiado después al 22 %, **When**
-   se abre el diálogo de conversión, **Then** avisa de que la factura llevará el tipo vigente, con
-   la misma base y el total recalculado, antes de confirmar.
-9. **Given** un presupuesto caducado, **When** se convierte, **Then** el diálogo avisa de que la
-   validez ha vencido y permite continuar.
+8. **Given** un borrador de factura vinculado cuyo cliente se ha desactivado o no tiene el
+   domicilio completo, o la configuración sin modalidad, **When** se intenta emitir, **Then** no se
+   emite nada, se indica qué falta y el presupuesto sigue en facturación, igual que con cualquier
+   borrador (002, FR-004 y FR-017).
+9. **Given** un presupuesto emitido al 21 % y el IVA por defecto cambiado después al 22 %, **When**
+   se convierte, **Then** el borrador avisa de que la factura llevará el tipo vigente, con la misma
+   base y el total recalculado, como cualquier borrador (002, casos límite).
+10. **Given** un presupuesto caducado, **When** se pulsa «Convertir en factura», **Then** la
+    confirmación avisa de que la validez ha vencido y permite continuar.
 
 ---
 
@@ -267,8 +296,8 @@ presupuestos que suman.
 3. **Given** un filtro sin resultados o con más de 5.000, **When** se mira el listado, **Then**
    «Imprimir listado» está desactivado con su motivo, igual que en facturas.
 4. **Given** el entorno de desarrollo recién preparado, **When** se cargan los datos de ejemplo,
-   **Then** hay presupuestos ficticios de varios meses: borradores, pendientes, caducados,
-   convertidos (con su factura), sustituidos y anulados.
+   **Then** hay presupuestos ficticios de varios meses: borradores, pendientes, caducados, en
+   facturación (con su borrador de factura), convertidos (con su factura), sustituidos y anulados.
 
 ---
 
@@ -282,8 +311,16 @@ presupuestos que suman.
   queda ningún número consumido (ni `PRE` ni `FAC`), ningún registro a medias ni ningún cambio de
   estado. El borrador o el presupuesto siguen como estaban.
 - **Conversión frente a modificación o anulación simultáneas**: si un administrador anula o
-  modifica un presupuesto mientras otro usuario lo convierte, solo una de las dos operaciones tiene
-  efecto. La otra se rechaza con el aviso de que el presupuesto ya ha cambiado.
+  modifica un presupuesto mientras otro usuario pulsa «Convertir en factura», solo una de las dos
+  operaciones tiene efecto. La otra se rechaza con el aviso de que el presupuesto ya ha cambiado.
+- **Borrador de factura vinculado**:
+  - Se edita como cualquier borrador, incluidos el cliente, las líneas, la fecha y la casilla de oro
+    de inversión. La factura puede acabar distinta del presupuesto: eso es lo que permite revisar
+    antes de emitir.
+  - Su fecha de expedición no puede ser anterior a la fecha del presupuesto. Se indica en el propio
+    campo, como el resto de límites de fecha (002, FR-018).
+  - Si otro usuario lo emite o lo elimina a la vez, se aplican las reglas de los borradores de
+    factura (002, casos límite).
 - **Factura convertida que después se corrige**: la factura se anula o se rectifica como cualquier
   otra (002, FR-023 a FR-027). El presupuesto sigue convertido y su acceso directo lleva a la
   factura vigente que la sustituye, si la hay. Un presupuesto no se convierte dos veces.
@@ -291,17 +328,14 @@ presupuestos que suman.
   de validez, en hora de España peninsular. La caducidad no es una operación: no genera auditoría
   ni cambia el presupuesto, que se puede seguir consultando, imprimiendo, modificando, anulando y
   convirtiendo.
-- **Fecha de expedición de la factura convertida**: propone la de hoy y se puede cambiar dentro de
-  los límites de cualquier factura (002, FR-018). Además, no puede ser anterior a la fecha del
-  presupuesto.
 - **IVA cambiado entre el presupuesto y la conversión**: la factura lleva el tipo de Configuración
-  vigente al emitirla (002, FR-013), con la misma base. El diálogo lo avisa antes de confirmar. El
-  presupuesto conserva el tipo con el que se emitió.
+  vigente al emitirla (002, FR-013), con la misma base. El borrador lo avisa, como cualquier
+  borrador. El presupuesto conserva el tipo con el que se emitió.
 - **Presupuesto de oro de inversión**: la factura convertida también lo es, exenta (002, FR-052),
   y el cambio del IVA por defecto no le afecta.
 - **Cambios en el cliente después de emitir el presupuesto**: el presupuesto conserva los datos del
-  cliente tal como estaban al emitirlo. La factura convertida copia los datos de la ficha **en el
-  momento de la conversión**, como cualquier factura (002, FR-016).
+  cliente tal como estaban al emitirlo. La factura convertida copia los datos de la ficha **al
+  emitirse**, como cualquier factura (002, FR-016).
 - **Cliente con presupuestos**: no se puede borrar, tampoco si solo tiene borradores. Se ofrece
   desactivarlo (001, FR-037).
 - **Borrador de presupuesto incompleto**: puede guardarse sin cliente o sin líneas. Todo se exige al
@@ -311,7 +345,7 @@ presupuestos que suman.
 - **Edición simultánea de un borrador**: el segundo en guardar recibe el aviso de que el borrador ha
   cambiado, como en facturas (002, FR-020).
 - **Doble envío**: un doble clic o un reintento de red en «Emitir», «Modificar», «Anular» o
-  «Convertir en factura» nunca genera dos documentos (FR-028).
+  «Convertir en factura» nunca genera dos documentos ni dos borradores (FR-028).
 - **Usuario eliminado**: los presupuestos que emitió siguen mostrando su nombre con la marca
   «(eliminado)» (001, FR-061).
 - **Validez anterior a la fecha**: «Válido hasta» no puede ser anterior a la fecha del presupuesto.
@@ -333,11 +367,14 @@ presupuestos que suman.
   Estado visible de un presupuesto emitido:
   - **Pendiente**: sin cierre y dentro de su validez. No lleva marca.
   - **Caducado**: sin cierre y con la fecha de validez vencida.
+  - **En facturación**: pendiente o caducado, con un borrador de factura vinculado en curso
+    (FR-018). Lleva esta marca en lugar de la de caducado.
   - **Convertido**: convertido en una factura.
   - **Sustituido**: sustituido por otro presupuesto.
   - **Anulado**: anulado con motivo.
 
-  El estado se deriva de los cierres y de la fecha, y no se guarda en el propio presupuesto.
+  El estado se deriva de los cierres, del borrador vinculado y de la fecha, y no se guarda en el
+  propio presupuesto.
 - **FR-002**: La serie de presupuestos DEBE numerarse `PRE-AAAA-NNNN`:
   - `AAAA` es el año de la fecha del presupuesto.
   - `NNNN` es un correlativo de cuatro dígitos que empieza en `0001` cada año natural y crece en
@@ -389,7 +426,7 @@ presupuestos que suman.
 - **FR-011**: Para emitir un presupuesto DEBEN estar completos los datos del emisor de
   Configuración (002, FR-001). La modalidad VERI\*FACTU no se exige, porque el presupuesto no genera
   registros. El cliente DEBE estar activo. Su domicilio no se exige: si le falta, el resumen del
-  cliente avisa de que no se podrá convertir en factura hasta completarlo (FR-019).
+  cliente avisa de que la factura convertida no se podrá emitir hasta completarlo (FR-019).
 
 #### Borrador y emisión
 
@@ -403,7 +440,8 @@ presupuestos que suman.
 
 #### Modificar y anular (sustitución trazable)
 
-- **FR-015**: Solo un administrador DEBE poder «Modificar» un presupuesto pendiente o caducado:
+- **FR-015**: Solo un administrador DEBE poder «Modificar» un presupuesto pendiente o caducado que
+  no esté en facturación:
   - El modal se abre con sus datos precargados.
   - Son editables el cliente, las líneas, la fecha (que propone la de hoy), «Válido hasta» y la
     casilla «Sin IVA (oro de inversión)».
@@ -411,8 +449,9 @@ presupuestos que suman.
   - Se emite un presupuesto nuevo con el siguiente número `PRE`, y el original queda sustituido por
     él.
   - Si no hay ningún cambio respecto al original, se rechaza.
-- **FR-016**: Solo un administrador DEBE poder «Anular» un presupuesto pendiente o caducado, con un
-  motivo de texto libre obligatorio, p. ej. «Rechazado por el cliente». La anulación no emite nada.
+- **FR-016**: Solo un administrador DEBE poder «Anular» un presupuesto pendiente o caducado que no
+  esté en facturación, con un motivo de texto libre obligatorio, p. ej. «Rechazado por el cliente».
+  La anulación no emite nada.
 - **FR-017**: El original y su cierre DEBEN conservarse intactos y enlazados en ambos sentidos:
   - El historial de cada presupuesto muestra su cierre, con el tipo, la fecha, el autor, el motivo
     si lo hay y el documento que lo materializa.
@@ -420,46 +459,49 @@ presupuestos que suman.
     el que se convirtió.
   - Un presupuesto que sustituye a otro muestra «Sustituye a PRE-…».
 
-  El servidor DEBE rechazar cualquier modificación o anulación que pida un empleado, y cualquier
-  operación sobre un presupuesto que ya tenga un cierre.
+  El servidor DEBE rechazar cualquier modificación o anulación que pida un empleado, cualquier
+  operación sobre un presupuesto que ya tenga un cierre y la modificación o anulación de uno en
+  facturación.
 
 #### Conversión en factura
 
 - **FR-018**: Un presupuesto pendiente o caducado DEBE ofrecer «Convertir en factura» a cualquier
-  usuario autenticado. La conversión emite directamente una factura ordinaria, sin pasar por un
-  borrador de factura:
-  - El cliente es el del presupuesto.
-  - Las líneas (unidades, descripción y precio) y el tratamiento del IVA son los del presupuesto.
-  - La fecha de expedición se elige en el diálogo (casos límite).
-  - Por lo demás, es una emisión normal de factura: siguiente número `FAC`, copia del emisor y del
-    destinatario, registro de alta, huella encadenada y QR (002, FR-007, FR-016 y FR-028 a FR-030).
-- **FR-019**: La conversión DEBE exigir lo mismo que emitir una factura:
-  - La configuración emisible, con los datos del emisor y la modalidad (002, FR-004).
-  - Un cliente facturable: activo, con la identificación fiscal y el domicilio completo (002,
-    FR-017).
+  usuario autenticado. Tras una confirmación, que avisa si el presupuesto está caducado, crea un
+  **borrador de factura vinculado** al presupuesto (Clarifications, clarify):
+  - Precargado con el cliente, las líneas (unidades, descripción y precio) y la casilla «Sin IVA
+    (oro de inversión)» del presupuesto.
+  - La fecha y el IVA previsto son los de cualquier borrador nuevo: hoy y el tipo vigente.
+  - No consume ningún número ni genera ningún registro.
+  - Se abre en el modal de la factura, que indica «Procede del presupuesto {número}» con acceso
+    directo.
 
-  Si falta algo, no se emite nada y se indica qué falta.
-- **FR-020**: La conversión DEBE ser atómica y única:
-  - La factura, su registro y el cierre del presupuesto se guardan juntos o no se guarda nada.
-  - Un presupuesto se convierte como mucho una vez. Dos conversiones simultáneas del mismo
-    presupuesto producen una sola factura.
-  - Una conversión simultánea a una modificación o una anulación del mismo presupuesto: solo una de
-    las dos tiene efecto.
+  Un presupuesto tiene como mucho un borrador de factura vinculado. Si ya lo tiene, «Convertir en
+  factura» pasa a «Abrir borrador de factura» y abre ese borrador. Una petición de conversión
+  repetida o simultánea no crea otro.
+- **FR-019**: El borrador vinculado DEBE comportarse como cualquier borrador de factura (002, FR-019
+  a FR-021): se edita, se guarda, se elimina y se emite con las mismas validaciones, incluidas la
+  configuración emisible y el cliente facturable (002, FR-004 y FR-017). Además, su fecha de
+  expedición no puede ser anterior a la fecha del presupuesto.
+- **FR-020**: La conversión DEBE quedar completa al **emitir** el borrador vinculado, de forma
+  atómica y única:
+  - La factura, su registro de alta y el cierre de conversión del presupuesto se guardan juntos o no
+    se guarda nada.
+  - Un presupuesto se convierte como mucho una vez. Si al emitir ya tiene un cierre, la emisión se
+    rechaza y no se consume ningún número.
+  - La emisión del borrador es idempotente y segura frente a emisiones simultáneas, como la de
+    cualquier borrador (002, FR-047).
   - La conversión no altera el encadenamiento de huellas. El registro de la factura convertida es
     como el de cualquier factura emitida.
-- **FR-021**: El diálogo «Convertir en factura» DEBE mostrar:
-  - El cliente, el número de líneas y el total que tendrá la factura.
-  - La fecha de expedición, editable.
-  - Avisos, si proceden:
-    - el tipo de IVA ha cambiado desde que se emitió el presupuesto, con el total nuevo;
-    - el presupuesto está caducado;
-    - el cliente no es facturable.
-
-  Tras convertir, el modal pasa a la consulta de la factura emitida, con el aviso «Factura {número}
-  emitida a partir de {presupuesto}».
+  - Si el borrador vinculado se elimina, el presupuesto vuelve a estar pendiente (o caducado), y el
+    borrado queda en la auditoría.
+- **FR-021**: Mientras un presupuesto está **en facturación** no se puede modificar, anular ni
+  volver a convertir (FR-015 a FR-017). Una conversión simultánea a una modificación o una anulación
+  del mismo presupuesto: solo una de las dos tiene efecto, y la otra se rechaza con el aviso de que
+  el presupuesto ya ha cambiado.
 - **FR-022**: La consulta de una factura que procede de una conversión DEBE indicar «Procede del
-  presupuesto {número}», con acceso directo. Las correcciones posteriores de esa factura siguen las
-  reglas de 002 y no cambian el presupuesto.
+  presupuesto {número}», con acceso directo. El borrador vinculado lo indica también. Tras emitirlo,
+  el aviso es «Factura {número} emitida. {presupuesto} queda convertido». Las correcciones
+  posteriores de esa factura siguen las reglas de 002 y no cambian el presupuesto.
 
 #### Listado y búsqueda
 
@@ -473,7 +515,8 @@ presupuestos que suman.
   número, fecha, cliente, identificación fiscal, base imponible, IVA, total y acciones.
   - No hay columna de estado.
   - Un borrador muestra «Borrador» en lugar del número.
-  - Un presupuesto caducado, convertido, sustituido o anulado lleva su marca junto al número.
+  - Un presupuesto caducado, en facturación, convertido, sustituido o anulado lleva su marca junto
+    al número.
   - Uno de oro de inversión muestra «Exenta» en el IVA.
 - **FR-025**: **Búsqueda, filtros y orden**, iguales que en facturas:
   - Búsqueda parcial por número, cliente e identificación, sin distinguir mayúsculas ni tildes.
@@ -492,14 +535,18 @@ presupuestos que suman.
     - Todos: «Cerrar», «Imprimir» (con la casilla del número de cuenta si lo tiene) y «Convertir
       en factura».
     - Solo administradores: además, «Anular» y «Modificar».
+  - **En facturación**: «Cerrar», «Imprimir» y «Abrir borrador de factura».
   - **Convertido, sustituido o anulado**: «Cerrar» e «Imprimir».
 
 #### Operaciones seguras
 
-- **FR-028**: Emitir, modificar, anular y convertir DEBEN ser **idempotentes** frente a un doble
+- **FR-028**: Emitir, modificar y anular un presupuesto DEBEN ser **idempotentes** frente a un doble
   envío, igual que en facturas (002, FR-047):
   - La misma clave de operación devuelve el resultado de la primera petición.
   - Una clave usada en otra operación o sobre otro documento se rechaza.
+
+  «Convertir en factura» repetido devuelve el borrador vinculado que ya existe (FR-018), y la
+  emisión de ese borrador es idempotente como la de cualquier borrador (FR-020).
 
 #### Impresión
 
@@ -518,7 +565,8 @@ presupuestos que suman.
   - **Número de cuenta**: la casilla «Incluir número de cuenta» funciona igual que en la factura
     (003, FR-010).
   - **Marcas** en la primera página: «ANULADO», «SUSTITUIDO por {número}» o «CONVERTIDO en
-    {número}». Un pendiente o un caducado no llevan marca, porque la fecha de validez ya se ve.
+    {número}». Un pendiente, un caducado o uno en facturación no llevan marca, porque la fecha de
+    validez ya se ve y el borrador de factura todavía no es una factura.
   - **Pie**: el pie de Configuración (FR-031).
   - **Páginas**: «Página n de m» con el número del presupuesto en cada página.
   - **Lo que NO lleva** (F-13; constitución 2.3.0): código QR, «QR tributario», la frase
@@ -530,7 +578,8 @@ presupuestos que suman.
   - Las columnas de FR-024.
   - Cabecera con el título «Listado de presupuestos» y el filtro.
   - **Totales por tipo de IVA y generales**: solo de los presupuestos que **cuentan**, que son los
-    pendientes, los caducados y los convertidos. Los sustituidos no cuentan, porque su sustituto ya
+    pendientes, los caducados, los que están en facturación y los convertidos. Los sustituidos no
+    cuentan, porque su sustituto ya
     está en la suma. Los anulados y los borradores tampoco. Se indica cuántas filas quedan fuera y
     por qué.
 
@@ -553,7 +602,9 @@ presupuestos que suman.
   (001, FR-037). El sistema responde con el motivo y sugiere desactivarlo.
 - **FR-034**: DEBEN quedar en la auditoría:
   - La creación, la modificación y el borrado de borradores de presupuesto.
-  - La emisión, la modificación, la anulación y la conversión.
+  - La emisión, la modificación y la anulación.
+  - La conversión: la creación del borrador vinculado, con el presupuesto de origen, y la emisión
+    de la factura con el cierre de conversión.
   - Los cambios de la configuración de FR-031.
 
   Los importes se guardan como texto decimal exacto (constitución II).
@@ -561,8 +612,8 @@ presupuestos que suman.
   (002, FR-051). Solo pueden registrar identificadores internos, números de presupuesto y de
   factura y el tipo de operación.
 - **FR-036**: Los datos de ejemplo del entorno de desarrollo DEBEN incluir presupuestos ficticios de
-  varios meses en todos los estados: borradores, pendientes, caducados, convertidos con su factura,
-  sustituidos y anulados. Su carga sigue prohibida en producción (001, FR-045).
+  varios meses en todos los estados: borradores, pendientes, caducados, en facturación con su
+  borrador de factura, convertidos con su factura, sustituidos y anulados. Su carga sigue prohibida en producción (001, FR-045).
 - **FR-037**: Las pantallas, el modal y el documento impreso DEBEN cumplir `docs/DESIGN.md`, también
   su sección «Paper». La leyenda y las marcas del presupuesto impreso y las marcas del listado se
   añaden a `docs/DESIGN.md` antes de implementarlas («Conformidad con el sistema de diseño»).
@@ -585,11 +636,13 @@ presupuestos que suman.
   presupuesto, y es inalterable. Tiene tres tipos:
   - **Sustitución**: enlaza con el presupuesto nuevo y lleva motivo.
   - **Anulación**: lleva motivo.
-  - **Conversión**: enlaza con la factura emitida.
+  - **Conversión**: enlaza con la factura emitida. Se crea al emitir el borrador vinculado.
 
   Además guarda el autor y la fecha. Es lo que alimenta el historial y el estado.
 - **Serie y contador** (de 002): se añade la serie `PRE`, con un contador por año que serializa las
   asignaciones simultáneas. No admite ajuste.
+- **Borrador de factura** (de 002): puede estar vinculado a un presupuesto, como mucho uno por
+  presupuesto. Mientras existe, el presupuesto está en facturación.
 - **Factura** (de 002): la que procede de una conversión queda enlazada con su presupuesto a través
   del cierre de conversión. La factura en sí no cambia.
 - **Configuración de facturación** (de 002 y 003): se amplía con la validez por defecto y el pie de
@@ -601,14 +654,16 @@ presupuestos que suman.
 ### Measurable Outcomes
 
 - **SC-001**: Un empleado crea y emite un presupuesto de tres líneas para un cliente de la cartera en
-  menos de 2 minutos desde que pulsa «Nuevo presupuesto». Lo convierte en factura en menos de
-  30 segundos desde su consulta.
+  menos de 2 minutos desde que pulsa «Nuevo presupuesto». Lo convierte y emite la factura sin
+  cambios en menos de 1 minuto desde su consulta.
 - **SC-002**: En 200 emisiones de presupuestos repartidas entre 10 usuarios simultáneos, los números
   `PRE` resultantes son consecutivos, sin ningún hueco ni duplicado. Si a la vez se emiten facturas,
   ninguna serie se ve afectada por la otra.
-- **SC-003**: En 20 intentos simultáneos de convertir el mismo presupuesto, con claves distintas, se
-  emite exactamente una factura, el contador `FAC` avanza en uno y la cadena de registros crece en
-  uno. Con la misma clave, todos reciben esa misma factura.
+- **SC-003**: En 20 intentos simultáneos de convertir el mismo presupuesto se crea exactamente un
+  borrador vinculado. En 20 emisiones simultáneas de ese borrador se emite exactamente una factura,
+  el contador `FAC` avanza en uno, la cadena de registros crece en uno y el presupuesto queda
+  convertido una sola vez. Una conversión que coincide con la anulación del presupuesto deja solo
+  uno de los dos resultados.
 - **SC-004**: En un juego de casos de cálculo con medios céntimos, cantidades con decimales e
   importes grandes, el 100 % de las bases, cuotas y totales de presupuestos coincide al céntimo con
   la referencia. Con el mismo tipo de IVA, la factura convertida coincide al céntimo con su
@@ -644,9 +699,9 @@ presupuestos que suman.
   (002, «Conformidad con el sistema de diseño»): botones, tablas, chips de marca de 1 px con
   esquinas a 0 y estados de pantalla.
   - La marca «Borrador» usa el mismo tono que en facturas.
-  - El tono de cada marca nueva (caducado, convertido, sustituido y anulado) se fija en el plan
-    con los tonos de estado de `docs/DESIGN.md`. El documento ya asocia el ámbar a los
-    presupuestos abiertos («Open estimates»).
+  - El tono de cada marca nueva (caducado, en facturación, convertido, sustituido y anulado) se
+    fija en el plan con los tonos de estado de `docs/DESIGN.md`. El documento ya asocia el ámbar a
+    los presupuestos abiertos («Open estimates»).
 - **Paper**: el presupuesto impreso sigue la sección «Paper» de `docs/DESIGN.md`. Dos elementos no
   tienen todavía definición en el documento:
   - La leyenda de documento sin validez fiscal. `paper-alert` está reservado a las marcas de estado
@@ -712,8 +767,9 @@ añade F-13.
 - **Otras features**: la remisión de los registros a la AEAT (004), que incluirá las facturas
   convertidas como cualquier otra.
 - **Facturas proforma** como documento distinto del presupuesto (Clarifications).
-- **Conversión parcial**: facturar solo parte de las líneas, varias facturas desde un presupuesto o
-  una factura desde varios presupuestos.
+- **Conversiones múltiples**: varias facturas desde un presupuesto o una factura desde varios
+  presupuestos. Facturar solo parte de las líneas se consigue editando el borrador vinculado, y el
+  presupuesto queda convertido igualmente.
 - **Conversiones repetidas**: volver a convertir un presupuesto cuya factura se anuló. Para
   facturar de nuevo se emite un presupuesto o una factura nuevos.
 - **Aceptación formal**: estados «enviado», «aceptado» o «rechazado», firma del cliente y
@@ -731,8 +787,9 @@ añade F-13.
 - **Permisos**, iguales que en facturas (002, Assumptions):
   - Empleados y administradores crean, editan y borran borradores, emiten, imprimen y convierten.
   - Solo los administradores modifican y anulan presupuestos emitidos y cambian la configuración.
-- **Conversión directa**: convertir emite la factura sin pasar por un borrador de factura. Si hay
-  que cambiar algo antes de facturar, primero se modifica el presupuesto.
+- **Conversión mediante borrador** (Clarifications, clarify): el borrador vinculado se puede editar
+  libremente, incluido el cliente. El vínculo con el presupuesto se mantiene, porque la factura
+  nace de él (F-13).
 - **Validez por defecto de 30 días**: es la práctica habitual en presupuestos de encargo. Se puede
   cambiar en Configuración y en cada presupuesto.
 - **Límite inferior de la fecha**: el 28/10/2024, el mismo que el de la factura. Así el filtro de
@@ -740,7 +797,8 @@ añade F-13.
   límites de la AEAT.
 - **Caducidad sin marca en el PDF**: la fecha «Válido hasta» ya lo indica, y reimprimir un
   presupuesto caducado sirve, por ejemplo, para el archivo.
-- **Totales del listado impreso**: suman lo presupuestado neto: pendientes, caducados y convertidos.
+- **Totales del listado impreso**: suman lo presupuestado neto: pendientes, caducados, en
+  facturación y convertidos.
   Los sustituidos quedan fuera para no contar dos veces una oferta renegociada.
 - **Volumen**: del orden de las facturas o algo mayor. Los objetivos de rendimiento se fijan con
   20.000 presupuestos.
@@ -750,6 +808,7 @@ añade F-13.
   - Numeración `PRE` bajo concurrencia.
   - Importes y redondeos del presupuesto y de la factura convertida.
   - Encadenamiento de huellas con conversiones (SC-005).
-  - Conversión presupuesto → factura con concurrencia e idempotencia (SC-003).
+  - Conversión presupuesto → factura con concurrencia e idempotencia, tanto al crear el borrador
+    vinculado como al emitirlo (SC-003).
 
   Además se prueba la inalterabilidad del presupuesto en el almacenamiento (SC-006).
