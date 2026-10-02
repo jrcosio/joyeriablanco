@@ -51,6 +51,13 @@ colors:
   success: '#10b981'
   warning: '#f59e0b'
   danger: '#ef4444'
+  paper: '#ffffff'
+  paper-ink: '#2d3037'
+  paper-ink-muted: '#434750'
+  paper-accent: '#7c580a'
+  paper-rule: '#b48a3c'
+  paper-alert: '#93000a'
+  paper-qr: '#000000'
 typography:
   headline-xl:
     fontFamily: Bodoni Moda
@@ -133,6 +140,49 @@ typography:
     fontWeight: '700'
     lineHeight: 12px
     letterSpacing: 0.16em
+  print-title:
+    fontFamily: Bodoni Moda
+    fontSize: 22pt
+    fontWeight: '400'
+    lineHeight: 26pt
+    letterSpacing: -0.01em
+  print-total:
+    fontFamily: Bodoni Moda
+    fontSize: 15pt
+    fontWeight: '500'
+    lineHeight: 18pt
+  print-heading:
+    fontFamily: Manrope
+    fontSize: 8pt
+    fontWeight: '700'
+    lineHeight: 11pt
+    letterSpacing: 0.12em
+  print-body:
+    fontFamily: Manrope
+    fontSize: 9pt
+    fontWeight: '400'
+    lineHeight: 12pt
+  print-body-strong:
+    fontFamily: Manrope
+    fontSize: 9pt
+    fontWeight: '600'
+    lineHeight: 12pt
+  print-label:
+    fontFamily: Manrope
+    fontSize: 7pt
+    fontWeight: '600'
+    lineHeight: 9pt
+    letterSpacing: 0.12em
+  print-small:
+    fontFamily: Manrope
+    fontSize: 7.5pt
+    fontWeight: '400'
+    lineHeight: 10pt
+  print-table:
+    fontFamily: Manrope
+    fontSize: 8.5pt
+    fontWeight: '400'
+    lineHeight: 11pt
 spacing:
   gutter: 1.5rem
   gutter-mobile: 1rem
@@ -144,6 +194,8 @@ spacing:
   space-lg: 1.5rem
   space-xl: 2.5rem
   space-xxl: 4rem
+  print-margin: 15mm
+  print-gutter: 6mm
 ---
 
 ## Brand & Style
@@ -239,8 +291,36 @@ The geometric framework adheres to absolute angularity:
 ### Cards & Dossiers
 - Flat `surface-container` background bounded by a 1px rule. Sections within cards (e.g., client provenance, gemological certificate links) are segmented by hairline internal dividers with `space-md` internal margins.
 
+## Paper (print and PDF)
+
+Printed documents (invoices, invoice listings and, later, estimates) are rendered as PDF on white
+paper. The application itself keeps its single dark theme; this section applies only to paper.
+
+- **Colors:** `paper` is the page; `paper-ink` (derived from `inverse-on-surface`) is the main
+  text and `paper-ink-muted` (derived from `secondary-container`) the labels and secondary text.
+  `paper-accent` (derived from `inverse-primary`) is the legible antique gold on white for the
+  grand total and section accents. `paper-rule` (derived from `primary-container`) is the colour
+  of every hairline and of the totals frame. `paper-alert` (derived from `error-container`) is
+  reserved for status marks such as «ANULADA», «RECTIFICADA» or «DUPLICADO». `paper-qr` is pure
+  black, for maximum contrast of the tax QR code on white.
+- **Typography:** sizes are in points. `print-title` (Bodoni Moda) for the document title and
+  `print-total` (Bodoni Moda) for the grand total; everything else in Manrope: `print-body` for
+  data, `print-body-strong` for emphasised data, `print-heading` and `print-label` in uppercase
+  with letter-spacing for headings and labels, `print-table` for tabular rows and `print-small`
+  for footers and notes. Figures are always tabular.
+- **Shapes and depth:** no shadows and no coloured backgrounds except the totals frame; corners at
+  0; every rule is a 1px hairline (`0.75pt`) in `paper-rule`.
+- **Layout:** A4, `print-margin` page margins and `print-gutter` between columns. Data tables
+  follow «Data Tables & Invoicing Grids»: uppercase header labels, horizontal hairlines only, and
+  the grand total in Bodoni Moda inside a `paper-rule`-framed summary box.
+- **Status marks:** small uppercase `print-label` text in `paper-alert` inside a 1px `paper-alert`
+  box with 0 radius. Marks never overlap other content (no watermarks).
+
 ## Changelog
 
+- **1.2 (2026-10-01):** Paper tokens (`paper*` colours, `print-*` typography in points,
+  `print-margin` and `print-gutter`) and the «Paper (print and PDF)» section for printed documents
+  (feature 003). Approved by the project owner.
 - **1.1 (2026-09-27):** Resolved internal inconsistency between frontmatter tokens and prose hex
   values in favour of the frontmatter (which the reference mockups follow). Prose now references
   tokens by name. Added `success`, `warning` and `danger` tokens. Approved by the project owner

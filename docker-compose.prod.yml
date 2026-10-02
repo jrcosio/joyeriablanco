@@ -14,6 +14,7 @@ x-backend: &backend
     DB_NAME: joyeriablanco
     ORIGEN_PERMITIDO: https://${DOMINIO:?Falta DOMINIO}
     SESION_COOKIE_SEGURA: "true"
+    AEAT_ENTORNO: ${AEAT_ENTORNO:?Falta AEAT_ENTORNO (pruebas o produccion)}
   security_opt:
     - no-new-privileges:true
   cap_drop: [ALL]

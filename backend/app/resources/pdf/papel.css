@@ -1,0 +1,448 @@
+/*
+ * Hoja de papel de los documentos impresos: DESIGN.md 1.2, «Paper (print and PDF)».
+ * Solo tokens (var(--…), generados desde app/core/pdf/tokens.py). Sin colores ni tamaños
+ * tipográficos literales (tests/unit/test_tokens_papel.py). Filetes de 1 px = 0.75pt, esquinas a 0
+ * y sin sombras. Disposición: specs/003-pdf-impresion/contracts/documentos-pdf.md.
+ */
+
+/* ------------------------------------------------------------------------- páginas */
+
+@page factura {
+  size: A4 portrait;
+  margin: var(--print-margin) var(--print-margin) calc(var(--print-margin) + var(--print-gutter));
+  background: var(--paper);
+  @bottom-right {
+    content: string(numero-factura) " · Página " counter(page) " de " counter(pages);
+    font-family: var(--print-small-family);
+    font-size: var(--print-small-size);
+    color: var(--paper-ink-muted);
+  }
+}
+
+/* El texto del pie lo pone listado.html, según la paginación por bloques (research R-7). */
+@page listado {
+  size: A4 landscape;
+  margin: var(--print-margin) var(--print-margin) calc(var(--print-margin) + var(--print-gutter));
+  background: var(--paper);
+  @bottom-right {
+    font-family: var(--print-small-family);
+    font-size: var(--print-small-size);
+    color: var(--paper-ink-muted);
+  }
+}
+
+body {
+  margin: 0;
+  color: var(--paper-ink);
+  font-family: var(--print-body-family);
+  font-size: var(--print-body-size);
+  font-weight: var(--print-body-weight);
+  line-height: var(--print-body-line);
+}
+
+body.doc-factura {
+  page: factura;
+}
+
+body.doc-listado {
+  page: listado;
+}
+
+h1,
+h2,
+p,
+dl,
+dd,
+ul {
+  margin: 0;
+  padding: 0;
+}
+
+ul {
+  list-style: none;
+}
+
+/* ----------------------------------------------------------------------- tipografía */
+
+.titulo {
+  font-family: var(--print-title-family);
+  font-size: var(--print-title-size);
+  font-weight: var(--print-title-weight);
+  line-height: var(--print-title-line);
+  letter-spacing: var(--print-title-tracking);
+}
+
+.etiqueta-seccion {
+  font-family: var(--print-heading-family);
+  font-size: var(--print-heading-size);
+  font-weight: var(--print-heading-weight);
+  line-height: var(--print-heading-line);
+  letter-spacing: var(--print-heading-tracking);
+  text-transform: uppercase;
+  color: var(--paper-accent);
+  margin-bottom: 1.5mm;
+}
+
+.etiqueta {
+  font-family: var(--print-label-family);
+  font-size: var(--print-label-size);
+  font-weight: var(--print-label-weight);
+  line-height: var(--print-label-line);
+  letter-spacing: var(--print-label-tracking);
+  text-transform: uppercase;
+  color: var(--paper-ink-muted);
+}
+
+.fuerte {
+  font-weight: var(--print-body-strong-weight);
+}
+
+.pequeno {
+  font-family: var(--print-small-family);
+  font-size: var(--print-small-size);
+  line-height: var(--print-small-line);
+  color: var(--paper-ink-muted);
+}
+
+.cifra {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.derecha {
+  text-align: right;
+}
+
+/* Marcas de estado: recuadro de 1 px, sin superponerse a nada (FR-009, FR-033). El texto va tal
+   cual lo fija la spec («ANULADA», «Sustituida por…»): sin text-transform. */
+.marcas {
+  margin-top: 2mm;
+}
+
+.marca {
+  display: inline-block;
+  margin-right: 2mm;
+  padding: 0.6mm 1.6mm;
+  border: 0.75pt solid var(--paper-alert);
+  color: var(--paper-alert);
+  font-family: var(--print-label-family);
+  font-size: var(--print-label-size);
+  font-weight: var(--print-label-weight);
+  line-height: var(--print-label-line);
+  letter-spacing: var(--print-label-tracking);
+}
+
+/* En el listado, la marca baja a otra línea si no cabe junto al número: nunca invade la fecha. */
+.marca-fila {
+  display: inline-block;
+  margin-top: 0.6mm;
+  padding: 0.3mm 1mm;
+  border: 0.75pt solid var(--paper-ink-muted);
+  color: var(--paper-ink-muted);
+  font-family: var(--print-label-family);
+  font-size: var(--print-label-size);
+  font-weight: var(--print-label-weight);
+  letter-spacing: var(--print-label-tracking);
+}
+
+/* ----------------------------------------------------------------- tablas de datos */
+
+table.datos {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+table.datos thead {
+  display: table-header-group;
+}
+
+table.datos tr {
+  break-inside: avoid;
+}
+
+table.datos th {
+  padding: 1.2mm 1.5mm;
+  border-bottom: 0.75pt solid var(--paper-rule);
+  text-align: left;
+  vertical-align: bottom;
+  font-family: var(--print-label-family);
+  font-size: var(--print-label-size);
+  font-weight: var(--print-label-weight);
+  letter-spacing: var(--print-label-tracking);
+  text-transform: uppercase;
+  color: var(--paper-ink-muted);
+}
+
+table.datos td {
+  padding: 1.4mm 1.5mm;
+  border-bottom: 0.75pt solid var(--paper-rule);
+  vertical-align: top;
+  font-family: var(--print-table-family);
+  font-size: var(--print-table-size);
+  line-height: var(--print-table-line);
+}
+
+table.datos th.derecha,
+table.datos td.derecha {
+  text-align: right;
+}
+
+/* -------------------------------------------------------------------------- factura */
+
+.cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+/* QR tributario (F-12 §3; R-2): al principio, arriba a la izquierda, con su texto encima y,
+   en VERI*FACTU, la frase debajo, ambos centrados y al tamaño de los datos. */
+.qr-bloque {
+  width: calc(var(--qr-lado) + 2 * var(--qr-margen));
+  text-align: center;
+}
+
+.qr-texto {
+  font-family: var(--print-body-strong-family);
+  font-size: var(--print-body-strong-size);
+  font-weight: var(--print-body-strong-weight);
+  line-height: var(--print-body-strong-line);
+}
+
+#qr {
+  width: var(--qr-lado);
+  height: var(--qr-lado);
+  padding: var(--qr-margen);
+  background: var(--paper);
+}
+
+#qr svg {
+  display: block;
+  width: var(--qr-lado);
+  height: var(--qr-lado);
+}
+
+.emisor {
+  text-align: right;
+}
+
+.logo {
+  height: 18mm;
+  margin-bottom: 2mm;
+}
+
+.emisor-nombre {
+  font-weight: var(--print-body-strong-weight);
+}
+
+.contacto {
+  margin-top: 1.5mm;
+}
+
+.identificacion {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: var(--print-gutter);
+  padding-top: var(--print-gutter);
+  border-top: 0.75pt solid var(--paper-rule);
+}
+
+.numero-factura {
+  string-set: numero-factura content();
+}
+
+.rejilla-datos {
+  display: flex;
+}
+
+.rejilla-datos > div {
+  margin-left: var(--print-gutter);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.identificacion .titulo {
+  white-space: nowrap;
+}
+
+.rectificacion {
+  margin-top: var(--print-gutter);
+  padding-left: 3mm;
+  border-left: 0.75pt solid var(--paper-rule);
+}
+
+.cliente {
+  margin-top: var(--print-gutter);
+}
+
+.detalle {
+  margin-top: var(--print-gutter);
+}
+
+.lineas .col-unidades {
+  width: 12%;
+}
+
+.lineas .col-descripcion {
+  width: 56%;
+}
+
+.lineas .col-precio,
+.lineas .col-importe {
+  width: 16%;
+}
+
+.devolucion {
+  padding: 2mm 0;
+  border-top: 0.75pt solid var(--paper-rule);
+  border-bottom: 0.75pt solid var(--paper-rule);
+}
+
+/* «Totals Section» de DESIGN.md: caja con marco paper-rule y total en Bodoni Moda. */
+.totales-bloque {
+  break-inside: avoid;
+  margin-top: var(--print-gutter);
+}
+
+table.totales {
+  width: 80mm;
+  margin-left: auto;
+  border: 0.75pt solid var(--paper-rule);
+  border-collapse: collapse;
+}
+
+table.totales td {
+  padding: 1.2mm 3mm;
+}
+
+table.totales tr.total td {
+  border-top: 0.75pt solid var(--paper-rule);
+  padding-top: 2mm;
+  padding-bottom: 2mm;
+}
+
+.importe-total {
+  font-family: var(--print-total-family);
+  font-size: var(--print-total-size);
+  font-weight: var(--print-total-weight);
+  line-height: var(--print-total-line);
+  color: var(--paper-accent);
+}
+
+.importe-rectificacion {
+  margin-top: 1.5mm;
+  text-align: right;
+}
+
+.mencion {
+  margin-top: 3mm;
+}
+
+.pago {
+  break-inside: avoid;
+  margin-top: var(--print-gutter);
+}
+
+.iban {
+  font-weight: var(--print-body-strong-weight);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--print-label-tracking);
+}
+
+.pie-factura {
+  break-inside: avoid;
+  margin-top: var(--print-gutter);
+  padding-top: 2mm;
+  border-top: 0.75pt solid var(--paper-rule);
+  white-space: pre-line;
+}
+
+/* -------------------------------------------------------------------------- listado */
+
+.cabecera-listado {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--print-gutter);
+}
+
+.cabecera-listado .logo {
+  height: 14mm;
+  margin: 0 var(--print-gutter) 0 0;
+}
+
+.cabecera-listado .filtro {
+  margin-top: 1mm;
+}
+
+.listado .col-numero {
+  width: 13%;
+}
+
+.listado .col-fecha {
+  width: 9%;
+}
+
+.listado .col-cliente {
+  width: 36%;
+}
+
+.listado .col-identificacion {
+  width: 12%;
+}
+
+.listado .col-base {
+  width: 10%;
+}
+
+.listado .col-iva {
+  width: 9%;
+}
+
+.listado .col-total {
+  width: 11%;
+}
+
+.sin-filas {
+  padding: 3mm 0;
+  border-top: 0.75pt solid var(--paper-rule);
+  border-bottom: 0.75pt solid var(--paper-rule);
+}
+
+.totales-listado {
+  break-inside: avoid;
+  margin-top: var(--print-gutter);
+}
+
+table.totales-listado-tabla {
+  width: 140mm;
+  margin-left: auto;
+  border: 0.75pt solid var(--paper-rule);
+  border-collapse: collapse;
+}
+
+table.totales-listado-tabla td,
+table.totales-listado-tabla th {
+  padding: 1.2mm 3mm;
+}
+
+table.totales-listado-tabla th {
+  text-align: right;
+  font-family: var(--print-label-family);
+  font-size: var(--print-label-size);
+  font-weight: var(--print-label-weight);
+  letter-spacing: var(--print-label-tracking);
+  text-transform: uppercase;
+  color: var(--paper-ink-muted);
+  border-bottom: 0.75pt solid var(--paper-rule);
+}
+
+table.totales-listado-tabla tr.total td {
+  border-top: 0.75pt solid var(--paper-rule);
+}
+
+.excluidas {
+  margin-top: 1.5mm;
+  text-align: right;
+}

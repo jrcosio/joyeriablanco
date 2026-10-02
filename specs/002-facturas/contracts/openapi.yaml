@@ -397,6 +397,12 @@ components:
           description: "Confirma un IVA por defecto nuevo que no está en la lista oficial de hoy. Sin ella, 422 `tipo-iva-sin-confirmar` (R-20)"
         modalidad: { oneOf: [{ $ref: "#/components/schemas/Modalidad" }, { type: "null" }] }
         emisor: { $ref: "#/components/schemas/DatosEmisor" }
+        contacto:
+          $ref: "../../003-pdf-impresion/contracts/openapi.yaml#/components/schemas/ContactoEmisor"
+          description: "Ampliado en 003 (FR-024, research R-9). Opcional: si falta, se conservan los valores actuales"
+        pie_factura:
+          $ref: "../../003-pdf-impresion/contracts/openapi.yaml#/components/schemas/PieFactura"
+          description: "Ampliado en 003 (FR-024, research R-9). Opcional: si falta, se conserva el valor actual"
     ConfiguracionFacturacionSalida:
       type: object
       required: [version, iva_por_defecto, modalidad, emisor, emision_posible, faltan, proximo_numero, modalidad_bloqueada, tipos_iva_oficiales, actualizado_en]
@@ -412,6 +418,12 @@ components:
         tipos_iva_oficiales: { type: array, items: { $ref: "#/components/schemas/TipoIva" }, description: "Lista de F-3 §15.1 para hoy. Solo para el aviso (R-20)" }
         actualizado_en: { type: string, format: date-time }
         actualizado_por: { oneOf: [{ $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }, { type: "null" }] }
+        contacto:
+          $ref: "../../003-pdf-impresion/contracts/openapi.yaml#/components/schemas/ContactoEmisor"
+          description: "Ampliado en 003 (FR-024): contacto no fiscal de la joyería, impreso en las facturas"
+        pie_factura:
+          $ref: "../../003-pdf-impresion/contracts/openapi.yaml#/components/schemas/PieFactura"
+          description: "Ampliado en 003 (FR-024)"
 
     AjusteContadorEntrada:
       type: object

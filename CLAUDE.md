@@ -71,6 +71,8 @@ docker compose logs -f api
 docker compose down                           # -v para borrar también los datos
 
 # Backend (dentro de backend/; los tests usan la BD joyeriablanco_test del servicio db)
+brew install pango                # una vez en macOS: WeasyPrint (PDF) lo necesita (003, R-4)
+export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib   # en ~/.zshrc: para que WeasyPrint encuentre Pango
 uv sync
 uv run pytest                     # tests contra PostgreSQL real
 uv run pytest -k clientes         # un subconjunto
@@ -87,7 +89,8 @@ npm run lint && npm run typecheck && npm run test && npm run build && npm run ch
 uv --directory ../backend run joyeria exportar-openapi && npm run gen:api  # regenerar tipos
 npx playwright test               # E2E: levanta api-e2e con BD propia y Vite en :5174
 
-# Producción (ver quickstart §4 y §5)
+# Producción (ver quickstart §4 y §5). El .env de producción necesita AEAT_ENTORNO
+# (pruebas | produccion): sin él la API no arranca (003, research R-3).
 docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 deploy/verificar-produccion.sh <dominio>
 ```

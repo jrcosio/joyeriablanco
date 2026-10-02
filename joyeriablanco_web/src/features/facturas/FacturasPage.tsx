@@ -15,6 +15,7 @@ import { ErrorState } from '../../components/ui/ErrorState'
 import { Pagination } from '../../components/ui/Pagination'
 import { anioEnCurso } from '../../lib/fechas'
 import { FiltrosFacturas } from './FiltrosFacturas'
+import { ImprimirListado } from './ImprimirListado'
 import { TablaFacturas } from './TablaFacturas'
 
 const claseBotonPrimario =
@@ -135,7 +136,19 @@ export function FacturasPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Facturas" actions={<NuevaFactura />} />
+      <PageHeader
+        title="Facturas"
+        actions={
+          <>
+            <NuevaFactura />
+            <ImprimirListado
+              filtros={filtros}
+              total={lista.data?.total}
+              cargando={lista.isPending || lista.isPlaceholderData}
+            />
+          </>
+        }
+      />
       <FiltrosFacturas filtros={filtros} onChange={onFiltros} />
       <Card className="overflow-hidden bg-surface-container-low" aria-live="polite">
         {contenido}

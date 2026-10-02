@@ -31,6 +31,7 @@ from app.core.errors import (
 from app.core.http import Origen
 from app.core.tiempo import hoy
 from app.domain.codigos_postales import provincia_from_codigo_postal
+from app.domain.contacto import normalize_pie, validate_correo, validate_telefono, validate_web
 from app.domain.exenciones import MENCION_EXENCION_ORO_INVERSION
 from app.domain.iban import normalize_iban, validate_iban
 from app.domain.identificacion import normalize_identificacion, validate_nif
@@ -66,6 +67,11 @@ CAMPOS_AUDITADOS: Final = (
     "emisor_localidad",
     "emisor_provincia_codigo",
     "emisor_iban",
+    # Contacto y pie de factura (003, FR-026)
+    "emisor_telefono",
+    "emisor_correo",
+    "emisor_web",
+    "pie_factura",
 )
 
 
@@ -112,6 +118,10 @@ class _DatosNormalizados:
     emisor_localidad: str | None
     emisor_provincia_codigo: str | None
     emisor_iban: str | None
+    emisor_telefono: str | None
+    emisor_correo: str | None
+    emisor_web: str | None
+    pie_factura: str | None
 
     def como_dict(self) -> Mapping[str, object]:
         return {campo: getattr(self, campo) for campo in CAMPOS_AUDITADOS}
@@ -141,7 +151,39 @@ def _tipo_iva(entrada: ConfiguracionFacturacionEntrada, actual: Decimal) -> tupl
     return tipo, True
 
 
-def _normalizar(entrada: ConfiguracionFacturacionEntrada, tipo_iva: Decimal) -> _DatosNormalizados:
+def _contacto(
+    entrada: ConfiguracionFacturacionEntrada,
+    actual: ConfiguracionFacturacion,
+    errores: list[CampoError],
+) -> tuple[str | None, str | None, str | None, str | None]:
+    """Teléfono, correo, web y pie (003, FR-024; R-9). Lo que no viene en la petición se queda."""
+    if "contacto" in entrada.model_fields_set:
+        contacto = entrada.contacto
+        telefono = _vacio(contacto.telefono) if contacto else None
+        correo = _vacio(contacto.correo) if contacto else None
+        web = _vacio(contacto.web) if contacto else None
+        for campo, valor, validar in (
+            ("contacto.telefono", telefono, validate_telefono),
+            ("contacto.correo", correo, validate_correo),
+            ("contacto.web", web, validate_web),
+        ):
+            if valor is not None and (motivo := validar(valor)):
+                errores.append(CampoError(campo, motivo))
+        correo = correo.lower() if correo else None
+    else:
+        telefono, correo, web = actual.emisor_telefono, actual.emisor_correo, actual.emisor_web
+    if "pie_factura" in entrada.model_fields_set:
+        pie = normalize_pie(entrada.pie_factura) if entrada.pie_factura else None
+    else:
+        pie = actual.pie_factura
+    return telefono, correo, web, pie
+
+
+def _normalizar(
+    entrada: ConfiguracionFacturacionEntrada,
+    tipo_iva: Decimal,
+    actual: ConfiguracionFacturacion,
+) -> _DatosNormalizados:
     errores: list[CampoError] = []
     nif = _vacio(entrada.emisor.nif)
     if nif is not None:
@@ -160,6 +202,7 @@ def _normalizar(entrada: ConfiguracionFacturacionEntrada, tipo_iva: Decimal) -> 
         iban = normalize_iban(iban)
         if motivo := validate_iban(iban):
             errores.append(CampoError("emisor.iban", motivo))
+    telefono, correo, web, pie = _contacto(entrada, actual, errores)
     if errores:
         raise DatosNoValidos(errores=errores)
     return _DatosNormalizados(
@@ -172,6 +215,10 @@ def _normalizar(entrada: ConfiguracionFacturacionEntrada, tipo_iva: Decimal) -> 
         emisor_localidad=_vacio(entrada.emisor.localidad),
         emisor_provincia_codigo=provincia,
         emisor_iban=iban,
+        emisor_telefono=telefono,
+        emisor_correo=correo,
+        emisor_web=web,
+        pie_factura=pie,
     )
 
 
@@ -186,7 +233,7 @@ async def update_config(
     if config.version != entrada.version:
         raise ConflictoVersion("La configuración ha cambiado desde que la abriste.")
     tipo_iva, fuera_de_lista = _tipo_iva(entrada, config.iva_por_defecto)
-    datos = _normalizar(entrada, tipo_iva)
+    datos = _normalizar(entrada, tipo_iva, config)
     if datos.modalidad != config.modalidad and await registros.exists_any(db):
         raise ModalidadBloqueada
     antes = {campo: getattr(config, campo) for campo in CAMPOS_AUDITADOS}

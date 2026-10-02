@@ -14,6 +14,8 @@ from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 
+from app.domain.tipos import EntornoAeat
+
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
 _REPO_DIR = _BACKEND_DIR.parent
 
@@ -66,6 +68,11 @@ class Settings(BaseSettings):
     sif_id_sistema: str = Field(default="JB", pattern=r"^[A-Z0-9]{2}$")
     sif_numero_instalacion: str = Field(default="1", min_length=1, max_length=100)
 
+    # --- AEAT (003, research R-3) ---
+    # Entorno de la dirección de cotejo del QR (F-12 §5). Vacío equivale a `pruebas` fuera de
+    # producción; en producción hay que fijarlo expresamente.
+    aeat_entorno: EntornoAeat | None = None
+
     # --- Varios ---
     zona_horaria: str = "Europe/Madrid"
     openapi_destino: Path = _REPO_DIR / "joyeriablanco_web" / "src" / "api" / "openapi.json"
@@ -80,6 +87,9 @@ class Settings(BaseSettings):
                 msg = "En producción ORIGEN_PERMITIDO debe usar https://"
                 raise ValueError(msg)
             self._exigir_productor()
+            if self.aeat_entorno is None:
+                msg = "En producción hay que fijar AEAT_ENTORNO (pruebas o produccion)"
+                raise ValueError(msg)
         return self
 
     def _exigir_productor(self) -> None:
@@ -136,6 +146,10 @@ class Settings(BaseSettings):
     @property
     def es_produccion(self) -> bool:
         return self.entorno is Entorno.PRODUCCION
+
+    @property
+    def entorno_aeat(self) -> EntornoAeat:
+        return self.aeat_entorno or EntornoAeat.PRUEBAS
 
 
 @lru_cache

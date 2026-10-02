@@ -60,6 +60,12 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
     assert estado.config.modalidad == "verifactu"
     assert estado.config.emisor_nombre == "Joyería Blanco (demo)"
     assert estado.config.emisor_iban == "ES9121000418450200051332"  # R-22
+    # Contacto y pie ficticios (003, FR-032)
+    assert estado.config.emisor_telefono == "+34 900 000 000"
+    assert estado.config.emisor_correo == "info@joyeriablanco.demo"
+    assert estado.config.emisor_web == "joyeriablanco.demo"
+    assert estado.config.pie_factura is not None
+    assert estado.config.pie_factura.startswith("Texto de ejemplo.")
 
     todas = list(
         (
@@ -152,6 +158,7 @@ async def test_se_niega_en_produccion(db: AsyncSession, monkeypatch: pytest.Monk
     monkeypatch.setenv("SIF_PRODUCTOR_NOMBRE", "Productora de pruebas, S.L.")
     monkeypatch.setenv("SIF_PRODUCTOR_NIF", "12345678Z")
     monkeypatch.setenv("ORIGEN_PERMITIDO", "https://joyeria.example.com")
+    monkeypatch.setenv("AEAT_ENTORNO", "pruebas")  # obligatorio en producción (003, R-3)
     get_settings.cache_clear()
     try:
         with pytest.raises(SinPermiso):

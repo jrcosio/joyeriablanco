@@ -1,11 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { iniciarSesion } from './helpers/acceso'
 import { dni, unico } from './helpers/entorno'
-
-interface FacturaCreada {
-  id: string
-  num_serie: string
-}
+import { emitirPorLaApi, type FacturaCreada } from './helpers/facturas'
 
 /** Da de alta desde el modal un cliente facturable con nombre único y lo deja elegido. */
 async function nuevoClienteDesdeElModal(page: Page, modal: Locator, prefijo: string) {
@@ -24,53 +20,6 @@ async function nuevoClienteDesdeElModal(page: Page, modal: Locator, prefijo: str
     `${nombre} · ${dni(numero)}`,
   )
   return { nombre, numero }
-}
-
-/** Emite por la API, con la sesión del navegador, una factura a un cliente nuevo: por defecto,
- * de dos líneas con IVA. */
-async function emitirPorLaApi(
-  page: Page,
-  lineas: { unidades: string; descripcion: string; precio_unitario: string }[] = [
-    { unidades: '1', descripcion: 'Anillo', precio_unitario: '1200.00' },
-    { unidades: '2', descripcion: 'Ajuste', precio_unitario: '45.00' },
-  ],
-): Promise<FacturaCreada & { cliente: string }> {
-  const sesion = (await (await page.request.get('/api/v1/sesion')).json()) as {
-    csrf_token: string
-  }
-  // Como el navegador: CSRF y origen de la página (la API rechaza otros orígenes).
-  const cabeceras = {
-    'X-CSRF-Token': sesion.csrf_token,
-    Origin: new URL(page.url()).origin,
-  }
-  const numero = unico()
-  const nombre = `Cliente Corrección ${String(numero)}`
-  const cliente = await page.request.post('/api/v1/clientes', {
-    headers: cabeceras,
-    data: {
-      tipo: 'particular',
-      nombre,
-      identificacion_tipo: 'NIF',
-      identificacion_numero: dni(numero),
-      direccion: 'Calle Recogidas, 12',
-      codigo_postal: '18005',
-      localidad: 'Granada',
-    },
-  })
-  expect(cliente.status()).toBe(201)
-  const { id } = (await cliente.json()) as { id: string }
-  const factura = await page.request.post('/api/v1/facturas', {
-    headers: { ...cabeceras, 'Idempotency-Key': crypto.randomUUID() },
-    data: {
-      fecha_expedicion: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(
-        new Date(),
-      ),
-      cliente_id: id,
-      lineas,
-    },
-  })
-  expect(factura.status()).toBe(201)
-  return { ...((await factura.json()) as FacturaCreada), cliente: nombre }
 }
 
 async function previsto(modal: Locator): Promise<string> {

@@ -31,6 +31,8 @@ function crearConfiguracion(
     tipos_iva_oficiales: ['0.00', '4.00', '10.00', '21.00'],
     actualizado_en: '2026-09-29T08:00:00Z',
     actualizado_por: null,
+    contacto: { telefono: null, correo: null, web: null },
+    pie_factura: null,
     ...parcial,
   }
 }
@@ -219,8 +221,76 @@ describe('Configuración → Facturación (US1)', () => {
           localidad: null,
           iban: null,
         },
+        contacto: { telefono: null, correo: null, web: null },
+        pie_factura: null,
       },
     ])
+  })
+
+  it('contacto y pie de factura: opcionales, con su ayuda y su contador (003, FR-024, FR-025)', async () => {
+    conSesion(admin)
+    const enviados = conConfiguracion(
+      crearConfiguracion({
+        contacto: { telefono: '+34 942 000 000', correo: null, web: 'joyeriablanco.es' },
+        pie_factura: 'Gracias por su confianza.',
+      }),
+    )
+    renderApp('/configuracion/facturacion')
+    const user = userEvent.setup()
+
+    const telefono = await screen.findByRole('textbox', { name: 'Teléfono' })
+    expect(telefono).toHaveValue('+34 942 000 000')
+    expect(telefono).not.toBeRequired()
+    expect(screen.getByRole('textbox', { name: 'Web' })).toHaveValue('joyeriablanco.es')
+    const pie = screen.getByRole('textbox', { name: 'Pie de factura' })
+    expect(pie).toHaveValue('Gracias por su confianza.')
+    expect(screen.getByText('25 / 600')).toBeInTheDocument()
+    expect(
+      screen.getByText(/se imprimen en todas las facturas, también en las ya emitidas/i),
+    ).toBeInTheDocument()
+
+    await user.clear(telefono)
+    await user.type(screen.getByRole('textbox', { name: 'Correo electrónico' }), 'info@joyeria.es')
+    await user.clear(pie)
+    await user.type(pie, 'Línea 1{Enter}Línea 2')
+    await user.click(screen.getByRole('button', { name: 'Guardar configuración' }))
+
+    expect(await screen.findByText('Configuración de facturación guardada')).toBeInTheDocument()
+    expect(enviados[0]).toMatchObject({
+      contacto: { telefono: null, correo: 'info@joyeria.es', web: 'joyeriablanco.es' },
+      pie_factura: 'Línea 1\nLínea 2',
+    })
+  })
+
+  it('muestra en su campo los errores del contacto y del pie', async () => {
+    conSesion(admin)
+    conConfiguracion(crearConfiguracion())
+    server.use(
+      http.put('*/api/v1/configuracion/facturacion', () =>
+        HttpResponse.json(
+          {
+            type: '/problemas/validacion',
+            title: 'Datos no válidos',
+            status: 422,
+            errores: [
+              { campo: 'contacto.telefono', mensaje: 'Debe tener al menos 6 dígitos.' },
+              { campo: 'contacto.web', mensaje: 'Escribe un dominio.' },
+              { campo: 'pie_factura', mensaje: 'Como máximo 600 caracteres.' },
+            ],
+          },
+          { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
+      ),
+    )
+    renderApp('/configuracion/facturacion')
+    const user = userEvent.setup()
+
+    await user.type(await screen.findByRole('textbox', { name: 'Teléfono' }), '94')
+    await user.click(screen.getByRole('button', { name: 'Guardar configuración' }))
+
+    expect(await screen.findByText('Debe tener al menos 6 dígitos.')).toBeInTheDocument()
+    expect(screen.getByText('Escribe un dominio.')).toBeInTheDocument()
+    expect(screen.getByText('Como máximo 600 caracteres.')).toBeInTheDocument()
   })
 
   it('muestra los errores del servidor en su campo', async () => {

@@ -99,6 +99,16 @@ class CausaRectificacion(StrEnum):
         )
 
 
+# Texto de cada causa, el mismo que muestra la web (`lib/facturacion.ts`, CAUSAS_RECTIFICACION) y
+# que imprime la rectificativa (003, FR-008, research R-6).
+TEXTO_CAUSA_RECTIFICACION: Final[dict[CausaRectificacion, str]] = {
+    CausaRectificacion.DEVOLUCION_O_PRECIO: (
+        "Devolución, descuento o cambio de precio posterior a la venta, o IVA mal aplicado"
+    ),
+    CausaRectificacion.ERROR_DATOS: "Error en datos o importes de la factura",
+}
+
+
 class MotivoModificacion(StrEnum):
     """Motivo declarado al modificar o anular una factura emitida (FR-024, FR-025)."""
 
@@ -122,6 +132,13 @@ class Modalidad(StrEnum):
 
     VERIFACTU = "verifactu"
     NO_VERIFACTU = "no_verifactu"
+
+
+class EntornoAeat(StrEnum):
+    """Entorno de la AEAT de la dirección de cotejo del QR (003, FR-017, research R-3)."""
+
+    PRUEBAS = "pruebas"
+    PRODUCCION = "produccion"
 
 
 class EstadoRemision(StrEnum):

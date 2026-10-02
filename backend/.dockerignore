@@ -11,3 +11,4 @@ htmlcov/
 *.log
 Dockerfile*
 .dockerignore
+.fontconfig/

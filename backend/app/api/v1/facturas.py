@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response, status
 from pydantic import Field
 
 from app.api.deps import AdminSession, CurrentSession, DbDep, OrigenDep, get_current_session
+from app.core.pdf.respuestas import respuesta_pdf
 from app.domain.exenciones import is_oro_inversion, mencion_exencion
 from app.domain.tipos import CausaRectificacion, MotivoModificacion, TipoCorreccion, TipoFactura
 from app.models.factura import Factura
@@ -30,7 +31,7 @@ from app.schemas.factura import (
     TotalesSalida,
 )
 from app.schemas.usuario import UsuarioReferencia
-from app.services import configuracion_facturacion, emision
+from app.services import configuracion_facturacion, emision, impresion
 from app.services import facturas as servicio
 from app.services.facturas import CorreccionVista, DetalleFactura
 
@@ -230,6 +231,30 @@ async def obtener_parametros(db: DbDep) -> ParametrosFacturacionSalida:
     )
 
 
+RESPUESTA_PDF: dict[int | str, dict[str, Any]] = {
+    status.HTTP_200_OK: {
+        "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}},
+        "description": "PDF listo para imprimir o guardar (003, research R-8)",
+    }
+}
+
+
+# Declarada antes de `/{factura_id}`: si no, «listado» se tomaría por un identificador.
+@router.get("/listado/pdf", response_class=Response, responses=RESPUESTA_PDF)
+async def imprimir_listado(
+    db: DbDep,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    anio: Annotated[AnioListado | None, Query(description="Por defecto, el año en curso")] = None,
+    mes: Annotated[int | None, Query(ge=1, le=12)] = None,
+    orden: Literal["recientes", "antiguas", "total_desc", "total_asc"] = "recientes",
+) -> Response:
+    """Listado completo del filtro en PDF, con los totales de las vigentes (003, US2)."""
+    documento = await impresion.listado_pdf(
+        db, servicio.FiltrosFacturas(q=q, anio=anio, mes=mes, orden=orden)
+    )
+    return respuesta_pdf(documento.nombre, documento.contenido)
+
+
 @router.post("", status_code=status.HTTP_201_CREATED, responses=REPETICION)
 async def emitir_factura(
     datos: FacturaEntrada,
@@ -259,6 +284,20 @@ async def emitir_factura(
 @router.get("/{factura_id}")
 async def obtener_factura(factura_id: uuid.UUID, db: DbDep) -> FacturaSalida:
     return factura_salida(await servicio.get_factura(db, factura_id))
+
+
+@router.get("/{factura_id}/pdf", response_class=Response, responses=RESPUESTA_PDF)
+async def imprimir_factura(
+    factura_id: uuid.UUID,
+    db: DbDep,
+    iban: Annotated[bool, Query(description="Incluir el IBAN copiado en la factura")] = False,
+    duplicado: Annotated[
+        bool, Query(description="Expedir como duplicado (ROF art. 14); 409 si está anulada")
+    ] = False,
+) -> Response:
+    """Factura en PDF con su QR tributario (003, US1). Cualquier sesión, como la consulta."""
+    documento = await impresion.factura_pdf(db, factura_id, iban=iban, duplicado=duplicado)
+    return respuesta_pdf(documento.nombre, documento.contenido)
 
 
 @router.post("/{factura_id}/anulacion")

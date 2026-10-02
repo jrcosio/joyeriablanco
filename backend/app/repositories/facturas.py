@@ -16,9 +16,11 @@ from sqlalchemy import (
     Date,
     Integer,
     Numeric,
+    Select,
     Text,
     UnaryExpression,
     Uuid,
+    and_,
     column,
     exists,
     extract,
@@ -152,19 +154,8 @@ _ORDENES: dict[str, tuple[UnaryExpression[Any], ...]] = {
 }
 
 
-async def list_facturas(
-    session: AsyncSession,
-    *,
-    q: str | None,
-    anio: int | None,
-    mes: int | None,
-    orden: str,
-    pagina: int,
-    tamano: int,
-) -> tuple[list[FilaListado], int]:
-    condiciones = _filtros(q=q, anio=anio, mes=mes)
-    total = await session.scalar(select(func.count()).select_from(v_listado).where(*condiciones))
-    stmt = (
+def _consulta_filas(condiciones: list[ColumnElement[bool]], orden: str) -> Select[Any]:
+    return (
         select(
             _v.tipo_documento,
             _v.id,
@@ -180,10 +171,11 @@ async def list_facturas(
         )
         .where(*condiciones)
         .order_by(*_ORDENES[orden])
-        .offset((pagina - 1) * tamano)
-        .limit(tamano)
     )
-    filas = [
+
+
+async def _filas(session: AsyncSession, stmt: Select[Any]) -> list[FilaListado]:
+    return [
         FilaListado(
             tipo_documento=f.tipo_documento,
             id=f.id,
@@ -199,4 +191,103 @@ async def list_facturas(
         )
         for f in await session.execute(stmt)
     ]
-    return filas, int(total or 0)
+
+
+async def count_listado(
+    session: AsyncSession, *, q: str | None, anio: int | None, mes: int | None
+) -> int:
+    condiciones = _filtros(q=q, anio=anio, mes=mes)
+    total = await session.scalar(select(func.count()).select_from(v_listado).where(*condiciones))
+    return int(total or 0)
+
+
+async def list_facturas(
+    session: AsyncSession,
+    *,
+    q: str | None,
+    anio: int | None,
+    mes: int | None,
+    orden: str,
+    pagina: int,
+    tamano: int,
+) -> tuple[list[FilaListado], int]:
+    total = await count_listado(session, q=q, anio=anio, mes=mes)
+    stmt = (
+        _consulta_filas(_filtros(q=q, anio=anio, mes=mes), orden)
+        .offset((pagina - 1) * tamano)
+        .limit(tamano)
+    )
+    return await _filas(session, stmt), total
+
+
+# ------------------------------------------------------------ listado impreso (003, US2)
+
+
+async def list_facturas_impresion(
+    session: AsyncSession, *, q: str | None, anio: int | None, mes: int | None, orden: str
+) -> list[FilaListado]:
+    """Todas las filas del filtro, sin paginar, en el orden y con el desempate de la pantalla."""
+    return await _filas(session, _consulta_filas(_filtros(q=q, anio=anio, mes=mes), orden))
+
+
+@dataclass(frozen=True, slots=True)
+class DesgloseVigentes:
+    tipo_iva: Decimal | None  # None: base exenta de oro de inversión
+    base: Decimal
+    cuota: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class TotalesVigentes:
+    desglose: list[DesgloseVigentes]
+    vigentes: int
+    base: Decimal
+    cuota: Decimal
+    total: Decimal
+    borradores: int
+    anuladas: int
+    rectificadas: int
+
+
+async def totales_vigentes(
+    session: AsyncSession, *, q: str | None, anio: int | None, mes: int | None
+) -> TotalesVigentes:
+    """Totales de las facturas vigentes del filtro (FR-021, data-model «Totales del listado»)."""
+    condiciones = _filtros(q=q, anio=anio, mes=mes)
+    es_vigente = and_(_v.tipo_documento == "factura", _v.estado == EstadoFactura.VIGENTE.value)
+    desglose = await session.execute(
+        select(
+            DesgloseFactura.tipo_iva,
+            func.sum(DesgloseFactura.base),
+            func.sum(DesgloseFactura.cuota),
+        )
+        .select_from(v_listado)
+        .join(DesgloseFactura, DesgloseFactura.factura_id == _v.id)
+        .where(es_vigente, *condiciones)
+        .group_by(DesgloseFactura.tipo_iva)
+        .order_by(DesgloseFactura.tipo_iva.desc().nulls_last())
+    )
+    cero = Decimal("0.00")
+    resumen = (
+        await session.execute(
+            select(
+                func.count().filter(es_vigente),
+                func.coalesce(func.sum(_v.base).filter(es_vigente), cero),
+                func.coalesce(func.sum(_v.cuota).filter(es_vigente), cero),
+                func.coalesce(func.sum(_v.total).filter(es_vigente), cero),
+                func.count().filter(_v.tipo_documento == "borrador"),
+                func.count().filter(_v.estado == EstadoFactura.ANULADA.value),
+                func.count().filter(_v.estado == EstadoFactura.RECTIFICADA.value),
+            ).where(*condiciones)
+        )
+    ).one()
+    return TotalesVigentes(
+        desglose=[DesgloseVigentes(tipo, base, cuota) for tipo, base, cuota in desglose],
+        vigentes=int(resumen[0]),
+        base=Decimal(resumen[1]),
+        cuota=Decimal(resumen[2]),
+        total=Decimal(resumen[3]),
+        borradores=int(resumen[4]),
+        anuladas=int(resumen[5]),
+        rectificadas=int(resumen[6]),
+    )
