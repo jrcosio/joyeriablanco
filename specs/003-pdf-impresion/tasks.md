@@ -298,11 +298,11 @@ con ellos y con su emisor fiscal original. Un empleado recibe 403.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T034 [P] [US3] Test `backend/tests/unit/domain/test_contacto.py`:
+- [X] T034 [P] [US3] Test `backend/tests/unit/domain/test_contacto.py`:
   - `validate_telefono`: los casos de clientes de 001 FR-055.
   - `normalize_web` y `display_web`: dominio, `https://…/` → `joyeriablanco.es`, y un esquema distinto de `http(s)` rechazado.
   - Normalización del pie: `\r\n` → `\n` y espacios de los extremos recortados.
-- [ ] T035 [P] [US3] Test `backend/tests/integration/test_configuracion_contacto.py`:
+- [X] T035 [P] [US3] Test `backend/tests/integration/test_configuracion_contacto.py`:
   - `PUT` con `contacto` y `pie_factura`, y `GET` que los devuelve.
   - Errores 422 en `contacto.telefono`, `contacto.correo`, `contacto.web` y `pie_factura` (más de 600 caracteres).
   - El correo, en minúsculas.
@@ -311,7 +311,7 @@ con ellos y con su emisor fiscal original. Un empleado recibe 403.
   - Conflicto de versión → 409. Empleado → 403.
   - Integración con US1: tras cambiar el teléfono, reimprimir una factura antigua muestra el nuevo con el emisor fiscal copiado (US3-5).
   - Los tests de clientes siguen en verde, porque la regla del teléfono no cambia.
-- [ ] T036 [P] [US3] Test web en `joyeriablanco_web/src/features/configuracion/FacturacionPage.test.tsx`:
+- [X] T036 [P] [US3] Test web en `joyeriablanco_web/src/features/configuracion/FacturacionPage.test.tsx`:
   - Los cuatro campos en «Datos del emisor», sin la marca de necesarios.
   - La ayuda de FR-025 y el contador «n / 600».
   - Envío con `contacto` y `pie_factura`, también `null`.
@@ -319,18 +319,18 @@ con ellos y con su emisor fiscal original. Un empleado recibe 403.
 
 ### Implementation for User Story 3
 
-- [ ] T037 [P] [US3] `backend/app/domain/contacto.py`:
+- [X] T037 [P] [US3] `backend/app/domain/contacto.py`:
   - `validate_telefono`, que se mueve de `services/clientes.py` sin cambiar la regla.
   - `normalize_web`, `display_web` y `normalize_pie`.
   - `backend/app/services/clientes.py` pasa a usar `validate_telefono`.
-- [ ] T038 [US3] Esquemas y servicio (R-9):
+- [X] T038 [US3] Esquemas y servicio (R-9):
   - `backend/app/schemas/configuracion_facturacion.py`: `ContactoEntrada`, `ContactoSalida` y `pie_factura`, opcionales en la entrada y presentes en la salida.
   - `backend/app/services/configuracion_facturacion.py`: normalizar y validar con `domain/contacto.py` y `email-validator`, conservar lo que no venga en la petición (`model_fields_set`) y añadir los campos a `CAMPOS_AUDITADOS`.
   - `backend/app/api/v1/configuracion.py → _salida`: los devuelve.
-- [ ] T039 [US3] `backend/app/services/datos_ejemplo.py`:
+- [X] T039 [US3] `backend/app/services/datos_ejemplo.py`:
   - Teléfono `+34 900 000 000`, correo `info@joyeriablanco.demo`, web `joyeriablanco.demo` y un pie ficticio de protección de datos marcado «Texto de ejemplo» (FR-032).
   - Ampliar `backend/tests/integration/test_datos_ejemplo.py`.
-- [ ] T040 [US3] Web:
+- [X] T040 [US3] Web:
   - Regenerar los tipos.
   - `joyeriablanco_web/src/features/configuracion/FacturacionPage.tsx`: los campos en el esquema Zod y el formulario, con `TextField` (`tel` y `email`) y un área de texto de 4 filas con contador, con el mismo marco que `TextField`.
   - Mapear los errores en su campo y la ayuda de FR-025.

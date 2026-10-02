@@ -60,6 +60,12 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
     assert estado.config.modalidad == "verifactu"
     assert estado.config.emisor_nombre == "Joyería Blanco (demo)"
     assert estado.config.emisor_iban == "ES9121000418450200051332"  # R-22
+    # Contacto y pie ficticios (003, FR-032)
+    assert estado.config.emisor_telefono == "+34 900 000 000"
+    assert estado.config.emisor_correo == "info@joyeriablanco.demo"
+    assert estado.config.emisor_web == "joyeriablanco.demo"
+    assert estado.config.pie_factura is not None
+    assert estado.config.pie_factura.startswith("Texto de ejemplo.")
 
     todas = list(
         (

@@ -23,8 +23,19 @@ class DatosEmisorEntrada(EntradaBase):
     iban: Annotated[TextoOpcional, Field(max_length=42)] | None = None
 
 
+class ContactoEntrada(EntradaBase):
+    """Contacto no fiscal de la joyería, impreso en las facturas (003, FR-024; R-9)."""
+
+    telefono: Annotated[TextoOpcional, Field(max_length=30)] | None = None
+    correo: Annotated[TextoOpcional, Field(max_length=254)] | None = None
+    web: Annotated[TextoOpcional, Field(max_length=200)] | None = None
+
+
 class ConfiguracionFacturacionEntrada(EntradaBase):
-    """Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23)."""
+    """Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23).
+
+    `contacto` y `pie_factura` (003) son opcionales: si no vienen, se conservan los actuales.
+    """
 
     version: Annotated[int, Field(ge=1)]
     iva_por_defecto: TipoIvaEntrada
@@ -32,6 +43,8 @@ class ConfiguracionFacturacionEntrada(EntradaBase):
     confirmar_tipo_iva: bool = False
     modalidad: Modalidad | None
     emisor: DatosEmisorEntrada
+    contacto: ContactoEntrada | None = None
+    pie_factura: Annotated[str, Field(max_length=600)] | None = None
 
 
 class DatosEmisorSalida(SalidaBase):
@@ -42,6 +55,12 @@ class DatosEmisorSalida(SalidaBase):
     localidad: str | None
     iban: str | None
     provincia: str | None
+
+
+class ContactoSalida(SalidaBase):
+    telefono: str | None
+    correo: str | None
+    web: str | None
 
 
 class ConfiguracionFacturacionSalida(SalidaBase):
@@ -59,6 +78,8 @@ class ConfiguracionFacturacionSalida(SalidaBase):
     ]
     actualizado_en: datetime
     actualizado_por: UsuarioReferencia | None
+    contacto: ContactoSalida
+    pie_factura: str | None
 
 
 class AjusteContadorEntrada(EntradaBase):

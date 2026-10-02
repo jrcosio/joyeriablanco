@@ -40,6 +40,7 @@ from app.repositories import usuarios as usuarios_repo
 from app.schemas.cliente import ClienteEntrada
 from app.schemas.configuracion_facturacion import (
     ConfiguracionFacturacionEntrada,
+    ContactoEntrada,
     DatosEmisorEntrada,
 )
 from app.services import borradores as borradores_srv
@@ -105,6 +106,15 @@ EMISOR_DEMO: Final = DatosEmisorEntrada(
     codigo_postal="18001",
     localidad="Granada",
     iban="ES91 2100 0418 4502 0005 1332",  # IBAN de ejemplo con dígito de control válido (R-22)
+)
+# Contacto y pie de factura ficticios (003, FR-032): dominio `.demo`, que nunca existe.
+CONTACTO_DEMO: Final = ContactoEntrada(
+    telefono="+34 900 000 000", correo="info@joyeriablanco.demo", web="joyeriablanco.demo"
+)
+PIE_DEMO: Final = (
+    "Texto de ejemplo. Responsable del tratamiento: Joyería Blanco (demo). Sus datos se usan solo "
+    "para la facturación y se conservan durante los plazos legales.\n"
+    "Puede ejercer sus derechos de acceso, rectificación y supresión en la tienda."
 )
 DIAS_FACTURAS: Final = 182  # unos 6 meses (R-16)
 
@@ -252,7 +262,8 @@ async def _crear_usuarios(
 
 
 async def _configurar_facturacion(db: AsyncSession, admin: Usuario) -> None:
-    """Configuración demo (R-16): IVA general, emisor ficticio con IBAN y modalidad VERI*FACTU."""
+    """Configuración demo (R-16): IVA general, emisor ficticio con IBAN, modalidad VERI*FACTU, y
+    contacto y pie de factura ficticios (003, FR-032)."""
     config = await configuracion_repo.get(db)
     await configuracion_facturacion.update_config(
         db,
@@ -262,6 +273,8 @@ async def _configurar_facturacion(db: AsyncSession, admin: Usuario) -> None:
                 "iva_por_defecto": "21.00",
                 "modalidad": Modalidad.VERIFACTU,
                 "emisor": EMISOR_DEMO,
+                "contacto": CONTACTO_DEMO,
+                "pie_factura": PIE_DEMO,
             }
         ),
         actor=admin,

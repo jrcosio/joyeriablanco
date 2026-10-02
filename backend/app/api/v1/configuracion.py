@@ -8,6 +8,7 @@ from app.schemas.configuracion_facturacion import (
     AjusteContadorSalida,
     ConfiguracionFacturacionEntrada,
     ConfiguracionFacturacionSalida,
+    ContactoSalida,
     DatosEmisorSalida,
 )
 from app.schemas.usuario import UsuarioReferencia
@@ -44,6 +45,12 @@ def _salida(estado: servicio.EstadoConfiguracion) -> ConfiguracionFacturacionSal
         actualizado_por=(
             UsuarioReferencia.from_model(config.actualizado_por) if config.actualizado_por else None
         ),
+        contacto=ContactoSalida(
+            telefono=config.emisor_telefono,
+            correo=config.emisor_correo,
+            web=config.emisor_web,
+        ),
+        pie_factura=config.pie_factura,
     )
 
 

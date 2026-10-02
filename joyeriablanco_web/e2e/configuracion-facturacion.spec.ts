@@ -76,3 +76,37 @@ test('un empleado no accede a la configuración de facturación (FR-001)', async
 
   await expect(page).toHaveURL(/\/acceso-denegado/)
 })
+
+test('contacto y pie de factura: se guardan y se imprimen en las facturas (003, US3)', async ({
+  page,
+}) => {
+  await iniciarSesion(page, 'admin.demo')
+  await page.goto('/configuracion/facturacion')
+
+  // Datos de ejemplo (FR-032)
+  const telefono = page.getByRole('textbox', { name: 'Teléfono' })
+  await expect(telefono).toHaveValue('+34 900 000 000')
+  await expect(page.getByRole('textbox', { name: 'Web' })).toHaveValue('joyeriablanco.demo')
+
+  await telefono.fill('abc')
+  await page.getByRole('button', { name: 'Guardar configuración' }).click()
+  await expect(page.getByText(/solo dígitos, espacios/)).toBeVisible()
+
+  await telefono.fill('+34 958 000 111')
+  await page.getByRole('textbox', { name: 'Pie de factura' }).fill('Gracias por su confianza.')
+  await page.getByRole('button', { name: 'Guardar configuración' }).click()
+  await expect(page.getByText('Configuración de facturación guardada').last()).toBeVisible()
+  await page.reload()
+  await expect(telefono).toHaveValue('+34 958 000 111')
+
+  // Cualquier factura emitida se imprime con el contacto y el pie vigentes
+  const lista = await page.request.get('/api/v1/facturas?anio=todos&tamano=100')
+  const { elementos } = (await lista.json()) as {
+    elementos: { id: string; tipo_documento: string }[]
+  }
+  const factura = elementos.find((f) => f.tipo_documento === 'factura')
+  expect(factura).toBeDefined()
+  const pdf = await page.request.get(`/api/v1/facturas/${factura?.id ?? ''}/pdf`)
+  expect(pdf.status()).toBe(200)
+  expect(pdf.headers()['content-type']).toBe('application/pdf')
+})

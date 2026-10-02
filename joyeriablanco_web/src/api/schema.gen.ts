@@ -343,6 +343,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/facturas/listado/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Imprimir Listado
+         * @description Listado completo del filtro en PDF, con los totales de las vigentes (003, US2).
+         */
+        get: operations["imprimir_listado_api_v1_facturas_listado_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/facturas/{factura_id}": {
         parameters: {
             query?: never;
@@ -807,6 +827,8 @@ export interface components {
         /**
          * ConfiguracionFacturacionEntrada
          * @description Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23).
+         *
+         *     `contacto` y `pie_factura` (003) son opcionales: si no vienen, se conservan los actuales.
          */
         ConfiguracionFacturacionEntrada: {
             /** Version */
@@ -823,6 +845,9 @@ export interface components {
             confirmar_tipo_iva: boolean;
             modalidad: components["schemas"]["Modalidad"] | null;
             emisor: components["schemas"]["DatosEmisorEntrada"];
+            contacto?: components["schemas"]["ContactoEntrada"] | null;
+            /** Pie Factura */
+            pie_factura?: string | null;
         };
         /** ConfiguracionFacturacionSalida */
         ConfiguracionFacturacionSalida: {
@@ -854,6 +879,30 @@ export interface components {
              */
             actualizado_en: string;
             actualizado_por: components["schemas"]["UsuarioReferencia"] | null;
+            contacto: components["schemas"]["ContactoSalida"];
+            /** Pie Factura */
+            pie_factura: string | null;
+        };
+        /**
+         * ContactoEntrada
+         * @description Contacto no fiscal de la joyería, impreso en las facturas (003, FR-024; R-9).
+         */
+        ContactoEntrada: {
+            /** Telefono */
+            telefono?: string | null;
+            /** Correo */
+            correo?: string | null;
+            /** Web */
+            web?: string | null;
+        };
+        /** ContactoSalida */
+        ContactoSalida: {
+            /** Telefono */
+            telefono: string | null;
+            /** Correo */
+            correo: string | null;
+            /** Web */
+            web: string | null;
         };
         /** CorreccionSalida */
         CorreccionSalida: {
@@ -2311,6 +2360,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParametrosFacturacionSalida"];
+                };
+            };
+        };
+    };
+    imprimir_listado_api_v1_facturas_listado_pdf_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                /** @description Por defecto, el año en curso */
+                anio?: number | "todos" | null;
+                mes?: number | null;
+                orden?: "recientes" | "antiguas" | "total_desc" | "total_asc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF listo para imprimir o guardar (003, research R-8) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

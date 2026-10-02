@@ -4,7 +4,6 @@ El servidor es la fuente de verdad (principio VI): normaliza, valida la identifi
 reglas oficiales, deriva la provincia del código postal y detecta duplicados y conflictos.
 """
 
-import re
 import uuid
 from dataclasses import dataclass
 from typing import Final
@@ -22,6 +21,7 @@ from app.core.errors import (
 )
 from app.core.http import Origen
 from app.domain.codigos_postales import provincia_from_codigo_postal
+from app.domain.contacto import validate_telefono
 from app.domain.identificacion import validate_identificacion
 from app.domain.paises import es_codigo_pais
 from app.domain.tipos import TipoEvento
@@ -32,9 +32,6 @@ from app.repositories import clientes as repo
 from app.schemas.cliente import ClienteEdicionEntrada, ClienteEntrada, ClienteExistente
 from app.services.auditoria import diff, record_event
 from app.services.documentos import ClienteDocumentosChecker
-
-_TELEFONO: Final = re.compile(r"[0-9 +()\-]+")
-MIN_DIGITOS_TELEFONO: Final = 6
 
 # Campos que se comparan para auditar una edición (FR-021).
 CAMPOS_EDITABLES: Final = (
@@ -127,16 +124,8 @@ async def _normalizar(db: AsyncSession, entrada: ClienteEntrada) -> DatosCliente
         provincia_codigo = None  # la lista oficial solo aplica en España
 
     telefono = _limpio(entrada.telefono)
-    if telefono is not None:
-        if not _TELEFONO.fullmatch(telefono):
-            errores.append(
-                CampoError(
-                    "telefono",
-                    "Teléfono no válido: solo dígitos, espacios, +, paréntesis y guiones.",
-                )
-            )
-        elif sum(c.isdigit() for c in telefono) < MIN_DIGITOS_TELEFONO:
-            errores.append(CampoError("telefono", "Debe tener al menos 6 dígitos."))
+    if telefono is not None and (motivo := validate_telefono(telefono)):
+        errores.append(CampoError("telefono", motivo))
 
     if errores:
         raise DatosNoValidos(errores=errores)

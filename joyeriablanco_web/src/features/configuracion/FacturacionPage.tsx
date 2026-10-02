@@ -55,6 +55,11 @@ const esquema = z.object({
   codigo_postal: z.string().max(10),
   localidad: z.string().max(100),
   iban: z.string().max(42),
+  // Contacto y pie de factura (003, FR-024): opcionales, no fiscales
+  telefono: z.string().max(30),
+  correo: z.string().max(254),
+  web: z.string().max(200),
+  pie: z.string().max(600, 'Como máximo 600 caracteres.'),
 })
 type Valores = z.infer<typeof esquema>
 type CampoFormulario = keyof Valores
@@ -68,6 +73,10 @@ const CAMPO_DEL_SERVIDOR: Record<string, CampoFormulario> = {
   'emisor.codigo_postal': 'codigo_postal',
   'emisor.localidad': 'localidad',
   'emisor.iban': 'iban',
+  'contacto.telefono': 'telefono',
+  'contacto.correo': 'correo',
+  'contacto.web': 'web',
+  pie_factura: 'pie',
 }
 
 function valoresIniciales(config: ConfiguracionFacturacionSalida): Valores {
@@ -80,6 +89,10 @@ function valoresIniciales(config: ConfiguracionFacturacionSalida): Valores {
     codigo_postal: config.emisor.codigo_postal ?? '',
     localidad: config.emisor.localidad ?? '',
     iban: formatearIban(config.emisor.iban ?? ''),
+    telefono: config.contacto.telefono ?? '',
+    correo: config.contacto.correo ?? '',
+    web: config.contacto.web ?? '',
+    pie: config.pie_factura ?? '',
   }
 }
 
@@ -103,6 +116,13 @@ function aCuerpo(
       localidad: vacioANulo(valores.localidad),
       iban: vacioANulo(normalizarIban(valores.iban)),
     },
+    // Siempre se envían, también vacíos, para poder borrarlos (contracts/ui-rutas.md)
+    contacto: {
+      telefono: vacioANulo(valores.telefono),
+      correo: vacioANulo(valores.correo),
+      web: vacioANulo(valores.web),
+    },
+    pie_factura: vacioANulo(valores.pie),
   }
 }
 
@@ -177,9 +197,17 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
   const tipoPendiente = porConfirmar ? tipoEscrito(porConfirmar.iva_por_defecto) : null
 
   const texto = (
-    name: 'nombre' | 'nif' | 'direccion' | 'codigo_postal' | 'localidad',
+    name:
+      | 'nombre'
+      | 'nif'
+      | 'direccion'
+      | 'codigo_postal'
+      | 'localidad'
+      | 'telefono'
+      | 'correo'
+      | 'web',
     label: string,
-    extra: { className?: string; inputMode?: 'numeric' } = {},
+    extra: { className?: string; inputMode?: 'numeric'; type?: 'tel' | 'email' } = {},
   ) => (
     <Controller
       control={control}
@@ -293,7 +321,30 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
               />
             )}
           />
+          {texto('telefono', 'Teléfono', { type: 'tel' })}
+          {texto('correo', 'Correo electrónico', { type: 'email' })}
+          {texto('web', 'Web', { className: 'md:col-span-2' })}
+          <Controller
+            control={control}
+            name="pie"
+            render={({ field, fieldState }) => (
+              <TextField
+                label="Pie de factura"
+                multiline
+                description={`${String(field.value.length)} / 600`}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                error={fieldState.error?.message}
+                className="md:col-span-2"
+              />
+            )}
+          />
         </div>
+        <p className="body-sm text-on-surface-variant">
+          El teléfono, el correo, la web y el pie se imprimen en todas las facturas, también en las
+          ya emitidas. No forman parte de los datos fiscales.
+        </p>
       </fieldset>
 
       <Alerta mensaje={error} />
