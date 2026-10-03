@@ -16,6 +16,7 @@ pudiera hacer saltándose los triggers (R-8, límite conocido).
 import logging
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,7 +35,7 @@ from app.models.registro_facturacion import RegistroFacturacion
 from app.models.usuario import Usuario
 from app.repositories import facturas
 from app.repositories import registros as registros_repo
-from app.services import cadena
+from app.services import cadena, firma
 from app.services.auditoria import ACTOR_CONSOLA, record_event
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,40 @@ class ResultadoIntegridad:
     @property
     def integra(self) -> bool:
         return self.discrepancia is None
+
+
+@dataclass(frozen=True, slots=True)
+class ComprobacionRegistro:
+    """Comprobación inmediata de un registro (004, FR-011; Orden, arts. 6.b y 6.d)."""
+
+    huella_correcta: bool
+    firma_correcta: bool | None  # None: el registro no lleva firma (VERI*FACTU)
+
+
+def check_signature(
+    xml: bytes | None, certificado_huella: str | None, fecha_hora_huso_gen: str
+) -> bool | None:
+    """La firma verifica en la fecha de generación y es del certificado guardado (R-9)."""
+    if xml is None:
+        return None
+    try:
+        verificada = firma.verificar(xml, en=datetime.fromisoformat(fecha_hora_huso_gen))
+    except firma.FirmaNoValida:
+        return False
+    return verificada.huella == certificado_huella
+
+
+def check_registro(registro: RegistroFacturacion) -> ComprobacionRegistro:
+    try:
+        huella_correcta = cadena.recompute_huella(registro) == registro.huella
+    except ValueError:
+        huella_correcta = False
+    return ComprobacionRegistro(
+        huella_correcta=huella_correcta,
+        firma_correcta=check_signature(
+            registro.xml_firmado, registro.certificado_huella, registro.fecha_hora_huso_gen
+        ),
+    )
 
 
 def _problema_de_totales(factura: Factura) -> str | None:

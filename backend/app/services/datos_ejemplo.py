@@ -8,6 +8,9 @@
   emiten con `emision.emit_factura`, de modo que sus registros quedan encadenados (002, R-16).
 - Los presupuestos (005, FR-036) se emiten, convierten, modifican y anulan también con sus
   servicios. Las conversiones emiten facturas de hoy, encadenadas como las demás.
+- Se cargan en No VERI*FACTU (004, FR-032): los registros quedan firmados con el certificado
+  instalado, que fuera de producción es uno de pruebas (`joyeria generar-certificado-pruebas`).
+  Sin certificado utilizable no se carga nada.
 """
 
 import random
@@ -21,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import Duplicado, SinPermiso
+from app.core.errors import Duplicado, EmisionNoDisponible, SinPermiso
 from app.core.http import Origen
 from app.core.security import hash_password
 from app.core.tiempo import ahora, hoy
@@ -48,8 +51,16 @@ from app.schemas.configuracion_facturacion import (
 )
 from app.services import borradores as borradores_srv
 from app.services import borradores_presupuesto as borradores_presupuesto_srv
+from app.services import (
+    certificado,
+    configuracion_facturacion,
+    conversion,
+    emision,
+    presupuestos,
+    usuarios,
+)
 from app.services import clientes as clientes_srv
-from app.services import configuracion_facturacion, conversion, emision, presupuestos, usuarios
+from app.services.certificado import TEXTO_MOTIVO
 
 if TYPE_CHECKING:
     from faker import Faker
@@ -268,8 +279,8 @@ async def _crear_usuarios(
 
 
 async def _configurar_facturacion(db: AsyncSession, admin: Usuario) -> None:
-    """Configuración demo (R-16): IVA general, emisor ficticio con IBAN, modalidad VERI*FACTU, y
-    contacto y pie de factura ficticios (003, FR-032)."""
+    """Configuración demo (R-16): IVA general, emisor ficticio con IBAN, modalidad No VERI*FACTU
+    (004, FR-032), y contacto y pie de factura ficticios (003, FR-032)."""
     config = await configuracion_repo.get(db)
     await configuracion_facturacion.update_config(
         db,
@@ -277,7 +288,7 @@ async def _configurar_facturacion(db: AsyncSession, admin: Usuario) -> None:
             {
                 "version": config.version,
                 "iva_por_defecto": "21.00",
-                "modalidad": Modalidad.VERIFACTU,
+                "modalidad": Modalidad.NO_VERIFACTU,
                 "emisor": EMISOR_DEMO,
                 "contacto": CONTACTO_DEMO,
                 "pie_factura": PIE_DEMO,
@@ -585,6 +596,13 @@ async def cargar(
     if get_settings().es_produccion:
         msg = "La carga de datos de ejemplo no está permitida en producción."
         raise SinPermiso(msg)
+    if (motivo := certificado.estado().motivo) is not None:
+        raise EmisionNoDisponible(
+            "Los registros de ejemplo se firman y el certificado no es utilizable "
+            f"({TEXTO_MOTIVO[motivo]}). Fuera de producción, créalo con "
+            "`joyeria generar-certificado-pruebas`.",
+            extra={"faltan": ["certificado"], "motivo": motivo.value},
+        )
     resumen = ResumenCarga()
     rng = random.Random(semilla)  # noqa: S311 — datos ficticios, no criptográficos
     if await usuarios_repo.get_by_nombre_usuario(db, "admin.demo") is not None:

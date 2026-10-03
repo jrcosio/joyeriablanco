@@ -8,6 +8,7 @@ export const FALTA_PARA_EMITIR: Record<string, string> = {
   'emisor.direccion': 'Dirección del emisor',
   'emisor.codigo_postal': 'Código postal del emisor',
   'emisor.localidad': 'Localidad del emisor',
+  certificado: 'un certificado de firma utilizable', // 004, FR-004
 }
 
 export function textoFalta(clave: string): string {

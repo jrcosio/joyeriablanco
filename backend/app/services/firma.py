@@ -52,6 +52,9 @@ from app.domain.xml_registro import NS_DS
 from app.services.certificado import CertificadoFirma
 
 logger = logging.getLogger(__name__)
+# signxml escribe en DEBUG el XML canonicalizado, con datos personales e importes. Nunca debe
+# llegar a los registros de actividad, sea cual sea el nivel configurado (004, FR-033).
+logging.getLogger("signxml").setLevel(logging.WARNING)
 
 XSD_DIR: Final = Path(__file__).resolve().parents[1] / "resources" / "aeat" / "xsd"
 _URL_XMLDSIG: Final = "http://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd"

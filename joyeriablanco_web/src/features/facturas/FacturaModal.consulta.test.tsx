@@ -394,3 +394,62 @@ describe('Modificar una factura emitida (US5)', () => {
     expect(screen.getByRole('link', { name: 'Ver FAC-2026-0012' })).toBeInTheDocument()
   })
 })
+
+describe('Registros firmados en la consulta (004, FR-011)', () => {
+  beforeEach(() => {
+    conCatalogos()
+    conFacturacion()
+  })
+
+  it('cada registro dice que está firmado, por quién y si su huella y su firma son correctas', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    conFactura([crearFactura()])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0005' })
+    expect(within(modal).getByText('Firmado · JOYERIA BLANCO (PRUEBAS)')).toBeInTheDocument()
+    expect(within(modal).getByText('Huella correcta')).toBeInTheDocument()
+    expect(within(modal).getByText('Firma correcta')).toBeInTheDocument()
+    expect(within(modal).queryByText(/Remisión/)).toBeNull()
+  })
+
+  it('una huella o una firma que no cuadran se marcan como incorrectas', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    const base = crearFactura()
+    conFactura([
+      crearFactura({
+        registros: base.registros.map((r) => ({
+          ...r,
+          huella_correcta: false,
+          firma_correcta: false,
+        })),
+      }),
+    ])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0005' })
+    expect(within(modal).getByText('Huella incorrecta')).toBeInTheDocument()
+    expect(within(modal).getByText('Firma incorrecta')).toBeInTheDocument()
+  })
+
+  it('un registro de VERI*FACTU, sin firma, lo dice en lugar del resultado de la firma', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    const base = crearFactura()
+    conFactura([
+      crearFactura({
+        registros: base.registros.map((r) => ({
+          ...r,
+          estado_remision: 'pendiente',
+          firmado: false,
+          certificado_titular: null,
+          firma_correcta: null,
+        })),
+      }),
+    ])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0005' })
+    expect(within(modal).getByText('Sin firma (VERI*FACTU)')).toBeInTheDocument()
+    expect(within(modal).queryByText(/Firma correcta|Firma incorrecta/)).toBeNull()
+  })
+})

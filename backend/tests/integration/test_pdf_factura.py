@@ -162,9 +162,9 @@ async def test_factura_ordinaria_con_todo_el_contenido_obligatorio(
 
     numero = factura["num_serie"]
     assert numero == f"FAC-{ANIO}-0001"
+    assert FRASE not in texto  # No VERI*FACTU, la modalidad de la joyería (004, FR-030)
     for esperado in (
         "QR tributario:",
-        FRASE,
         "Factura",
         numero,  # FR-003.a
         _fecha(factura["fecha_expedicion"]),  # b
@@ -406,6 +406,8 @@ async def test_duplicado_en_vigente_y_rectificada_y_rechazado_en_anulada(
 async def test_qr_con_los_valores_del_registro_de_alta(
     client: AsyncClient, csrf: str, maria: Cliente, db: AsyncSession
 ) -> None:
+    """En VERI*FACTU, que el modelo sigue admitiendo (constitución IV): con la frase."""
+    await configurar_facturacion(db, modalidad="verifactu")
     factura = await _emitir(client, csrf, maria)
     [alta] = await registros.list_by_factura(db, uuid.UUID(factura["id"]))
 

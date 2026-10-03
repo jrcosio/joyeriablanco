@@ -13,6 +13,7 @@ from app.domain.exenciones import is_oro_inversion, mencion_exencion
 from app.domain.tipos import CausaRectificacion, MotivoModificacion, TipoCorreccion, TipoFactura
 from app.models.factura import Factura
 from app.models.presupuesto import Presupuesto
+from app.models.registro_facturacion import RegistroFacturacion
 from app.schemas.comunes import Pagina
 from app.schemas.configuracion_facturacion import DatosEmisorSalida, ParametrosFacturacionSalida
 from app.schemas.factura import (
@@ -36,6 +37,7 @@ from app.schemas.usuario import UsuarioReferencia
 from app.services import configuracion_facturacion, emision, impresion
 from app.services import facturas as servicio
 from app.services.facturas import CorreccionVista, DetalleFactura
+from app.services.integridad import ComprobacionRegistro
 
 router = APIRouter(
     prefix="/facturas", tags=["facturas"], dependencies=[Depends(get_current_session)]
@@ -171,17 +173,22 @@ def factura_salida(detalle: DetalleFactura) -> FacturaSalida:
         correcciones=[_correccion(v) for v in detalle.correcciones],
         emitida_en=f.emitida_en,
         emitida_por=UsuarioReferencia.from_model(f.emitida_por),
-        registros=[
-            RegistroResumen(
-                tipo=r.tipo,
-                secuencia=r.secuencia,
-                huella=r.huella,
-                fecha_hora_huso_gen=r.fecha_hora_huso_gen,
-                estado_remision=r.estado_remision,
-            )
-            for r in detalle.registros
-        ],
+        registros=[_registro(r, detalle.comprobaciones.get(r.id)) for r in detalle.registros],
         presupuesto_origen=presupuesto_referencia(detalle.presupuesto_origen),
+    )
+
+
+def _registro(r: RegistroFacturacion, comprobacion: ComprobacionRegistro | None) -> RegistroResumen:
+    return RegistroResumen(
+        tipo=r.tipo,
+        secuencia=r.secuencia,
+        huella=r.huella,
+        fecha_hora_huso_gen=r.fecha_hora_huso_gen,
+        estado_remision=r.estado_remision,
+        firmado=r.xml_firmado is not None,
+        certificado_titular=r.certificado_titular,
+        huella_correcta=comprobacion.huella_correcta if comprobacion else None,
+        firma_correcta=comprobacion.firma_correcta if comprobacion else None,
     )
 
 
@@ -239,6 +246,7 @@ async def obtener_parametros(db: DbDep) -> ParametrosFacturacionSalida:
         proximo_numero=parametros.proximo_numero,
         hoy=parametros.hoy,
         fecha_minima=parametros.fecha_minima,
+        certificado_caduca_el=parametros.certificado_caduca_el,
         mencion_exencion_oro_inversion=parametros.mencion_exencion_oro_inversion,
     )
 

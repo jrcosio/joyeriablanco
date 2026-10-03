@@ -268,6 +268,28 @@ describe('Modal «Nueva factura» (US2)', () => {
     expect(screen.getByText(/Un administrador debe completarlo/)).toBeInTheDocument()
   })
 
+  it('sin certificado de firma utilizable no deja emitir y lo explica (004, FR-004)', async () => {
+    conSesion(crearSesion({ rol: 'administrador' }))
+    conFacturacion({ ...PARAMETROS, emision_posible: false, faltan: ['certificado'] })
+    renderApp('/facturas/nueva')
+
+    await modalListo()
+    expect(screen.getByRole('button', { name: 'Emitir factura' })).toBeDisabled()
+    expect(
+      screen.getByText(/No se puede emitir todavía: falta un certificado de firma utilizable/),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Completar la configuración' })).toBeNull()
+  })
+
+  it('avisa de que el certificado caduca pronto, sin impedir emitir (004, FR-003)', async () => {
+    conSesion(crearSesion())
+    conFacturacion({ ...PARAMETROS, certificado_caduca_el: '2026-10-28' })
+    renderApp('/facturas/nueva')
+
+    await modalListo()
+    expect(screen.getByText('El certificado de firma caduca el 28/10/2026.')).toBeInTheDocument()
+  })
+
   it('pide confirmación antes de descartar lo escrito', async () => {
     conSesion(crearSesion())
     conFacturacion()

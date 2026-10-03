@@ -180,6 +180,18 @@ class TipoEventoSif(StrEnum):
     RESUMEN = "10"
 
 
+class MotivoNoUtilizable(StrEnum):
+    """Por qué el certificado de firma no es utilizable (004, FR-003, research R-6)."""
+
+    NO_INSTALADO = "no_instalado"
+    ILEGIBLE = "ilegible"
+    CADUCADO = "caducado"
+    AUN_NO_VALIDO = "aun_no_valido"
+    SIN_CLAVE_PRIVADA = "sin_clave_privada"
+    NO_APTO_PARA_FIRMAR = "no_apto_para_firmar"
+    DE_PRUEBAS_EN_PRODUCCION = "de_pruebas_en_produccion"
+
+
 class TipoAnomalia(StrEnum):
     """F-17, `TipoAnomaliaType`: los códigos que detecta la comprobación (004, research R-10)."""
 

@@ -16,7 +16,6 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
 from hashlib import sha256
 from pathlib import Path
 from typing import Final
@@ -29,22 +28,13 @@ from cryptography.x509.oid import ExtensionOID, NameOID
 
 from app.core.config import Settings, get_settings
 from app.core.tiempo import ahora
+from app.domain.tipos import MotivoNoUtilizable
 
 logger = logging.getLogger(__name__)
 
 AVISO_CADUCIDAD: Final = timedelta(days=30)  # FR-003
 MARCA_PRUEBAS: Final = "PRUEBAS - SIN VALIDEZ"
 _PREFIJOS_IDENTIFICACION: Final = re.compile(r"^(IDC[A-Z]{2}|VAT[A-Z]{2})-")
-
-
-class MotivoNoUtilizable(StrEnum):
-    NO_INSTALADO = "no_instalado"
-    ILEGIBLE = "ilegible"
-    CADUCADO = "caducado"
-    AUN_NO_VALIDO = "aun_no_valido"
-    SIN_CLAVE_PRIVADA = "sin_clave_privada"
-    NO_APTO_PARA_FIRMAR = "no_apto_para_firmar"
-    DE_PRUEBAS_EN_PRODUCCION = "de_pruebas_en_produccion"
 
 
 TEXTO_MOTIVO: Final[dict[MotivoNoUtilizable, str]] = {

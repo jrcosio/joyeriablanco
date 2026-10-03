@@ -95,6 +95,11 @@ test.describe('Facturas', () => {
     await expect(detalle.getByText('1.560,90 €')).toBeVisible()
     await expect(detalle.getByText(/Registro de alta nº \d+/)).toBeVisible()
     await expect(detalle.getByText(/Huella [0-9A-F]{16}…/)).toBeVisible()
+    // No VERI*FACTU (004, FR-011): firmado con el certificado de pruebas de E2E y comprobado.
+    await expect(detalle.getByText('Firmado · JOYERIA BLANCO (PRUEBAS)')).toBeVisible()
+    await expect(detalle.getByText('Huella correcta')).toBeVisible()
+    await expect(detalle.getByText('Firma correcta')).toBeVisible()
+    await expect(detalle.getByText(/Remisión/)).toHaveCount(0)
   })
 
   test('borrador: guardar, reabrirlo desde el listado, editarlo y emitirlo (US4)', async ({

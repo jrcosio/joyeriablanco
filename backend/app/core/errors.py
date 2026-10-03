@@ -198,7 +198,7 @@ class SinCambios(ProblemaError):
 class ModalidadBloqueada(ProblemaError):
     status, tipo, titulo = 409, "modalidad-bloqueada", "Modalidad bloqueada"
     detalle_por_defecto = (
-        "Ya hay registros de facturación: el cambio de modalidad llega con la remisión a la AEAT."
+        "Ya hay registros de facturación: la modalidad no se puede cambiar (No VERI*FACTU)."
     )
 
 

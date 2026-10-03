@@ -22,6 +22,7 @@ import { Dialog } from '../../components/ui/Dialog'
 import { ModalDocumento } from '../../components/ui/ModalDocumento'
 import { toast } from '../../components/ui/toast-store'
 import { textoFalta } from '../../lib/facturacion'
+import { fechaCorta } from '../../lib/fechas'
 import { useClaveOperacion } from '../../lib/idempotencia'
 import { AvisoCambioIva } from '../documentos/AvisoCambioIva'
 import { CargandoModal } from '../documentos/CargandoModal'
@@ -45,6 +46,16 @@ const YA_NO_EXISTE =
 
 function AvisoNoEmitible({ faltan }: { faltan: readonly string[] }) {
   const { usuario } = useSesion()
+  // El certificado lo instala quien despliega el sistema, no se completa en Configuración (004).
+  const configuracion = faltan.filter((f) => f !== 'certificado')
+  if (configuracion.length === 0) {
+    return (
+      <p className="body-sm text-on-surface-variant">
+        No se puede emitir todavía: falta {textoFalta('certificado')}. Avisa al responsable
+        técnico.
+      </p>
+    )
+  }
   return (
     <p className="body-sm text-on-surface-variant">
       No se puede emitir todavía: falta {faltan.map(textoFalta).join(', ')}.{' '}
@@ -239,6 +250,11 @@ function FormularioFactura({
             Cancelar
           </Button>
           {parametros.emision_posible ? null : <AvisoNoEmitible faltan={parametros.faltan} />}
+          {parametros.certificado_caduca_el ? (
+            <p className="body-sm text-warning">
+              El certificado de firma caduca el {fechaCorta(parametros.certificado_caduca_el)}.
+            </p>
+          ) : null}
           {borrador ? (
             <Button
               variant="danger"

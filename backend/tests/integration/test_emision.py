@@ -83,11 +83,12 @@ async def test_emitir_asigna_numero_calcula_importes_y_genera_el_registro(
     (registro,) = factura["registros"]
     assert registro["tipo"] == "alta"
     assert registro["secuencia"] == 1
-    assert registro["estado_remision"] == "pendiente"
+    assert registro["estado_remision"] == "no_aplica"  # No VERI*FACTU (004, FR-031)
 
     guardado = (await db.execute(select(RegistroFacturacion))).scalar_one()
     assert guardado.primer_registro
-    assert guardado.modalidad == "verifactu"
+    assert guardado.modalidad == "no_verifactu"
+    assert guardado.xml_firmado is not None  # firmado antes de insertarlo (004, R-4)
     assert cadena.recompute_huella(guardado) == guardado.huella == registro["huella"]
     contenido = guardado.contenido
     assert contenido["IDFactura"]["NumSerieFactura"] == factura["num_serie"]
@@ -168,7 +169,7 @@ async def test_sin_configuracion_completa_no_se_emite(
 
     assert respuesta.status_code == 409
     assert respuesta.json()["type"] == "/problemas/emision-no-disponible"
-    assert "modalidad" in respuesta.json()["faltan"]
+    assert "emisor.nombre" in respuesta.json()["faltan"]  # la modalidad ya está fijada (004)
 
 
 @pytest.mark.parametrize(

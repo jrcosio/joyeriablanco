@@ -35,6 +35,17 @@ function crearConfiguracion(
     pie_factura: null,
     validez_presupuesto_dias: 30,
     pie_presupuesto: null,
+    certificado: {
+      estado: 'utilizable',
+      motivo: null,
+      titular: 'JOYERIA BLANCO (PRUEBAS)',
+      identificacion: 'B12345674',
+      emisor: 'JOYERIA BLANCO (PRUEBAS)',
+      valido_desde: '2026-10-02T18:00:00Z',
+      valido_hasta: '2027-10-02T18:00:00Z',
+      dias_restantes: 363,
+      caduca_pronto: false,
+    },
     ...parcial,
   }
 }

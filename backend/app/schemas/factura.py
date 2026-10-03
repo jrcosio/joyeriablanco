@@ -131,6 +131,13 @@ class RegistroResumen(SalidaBase):
     huella: str
     fecha_hora_huso_gen: str
     estado_remision: str
+    # Ampliado en 004 (FR-011; Orden, arts. 6.b y 6.d): firma y comprobación inmediata.
+    firmado: bool
+    certificado_titular: str | None
+    huella_correcta: bool | None
+    firma_correcta: Annotated[
+        bool | None, Field(description="Nulo si el registro no lleva firma (VERI*FACTU)")
+    ]
 
 
 class CorreccionSalida(SalidaBase):

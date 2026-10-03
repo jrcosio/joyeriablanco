@@ -1224,6 +1224,8 @@ export interface components {
             validez_presupuesto_dias: number;
             /** Pie Presupuesto */
             pie_presupuesto: string | null;
+            /** @description Ampliado en 004 (FR-003) */
+            certificado: components["schemas"]["EstadoCertificado"];
         };
         /**
          * ContactoEntrada
@@ -1315,6 +1317,35 @@ export interface components {
              * @example 1290.00
              */
             cuota: string;
+        };
+        /**
+         * EstadoCertificado
+         * @description Estado del certificado de firma (004, FR-003). Nunca la contraseña ni la clave.
+         */
+        EstadoCertificado: {
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "utilizable" | "no_utilizable";
+            motivo: components["schemas"]["MotivoNoUtilizable"] | null;
+            /** Titular */
+            titular: string | null;
+            /** Identificacion */
+            identificacion: string | null;
+            /** Emisor */
+            emisor: string | null;
+            /** Valido Desde */
+            valido_desde: string | null;
+            /** Valido Hasta */
+            valido_hasta: string | null;
+            /** Dias Restantes */
+            dias_restantes: number | null;
+            /**
+             * Caduca Pronto
+             * @description 30 días o menos (FR-003)
+             */
+            caduca_pronto: boolean;
         };
         /**
          * EstadoFactura
@@ -1619,6 +1650,12 @@ export interface components {
          * @enum {string}
          */
         MotivoModificacion: "no_debio_emitirse" | "factura_entregada";
+        /**
+         * MotivoNoUtilizable
+         * @description Por qué el certificado de firma no es utilizable (004, FR-003, research R-6).
+         * @enum {string}
+         */
+        MotivoNoUtilizable: "no_instalado" | "ilegible" | "caducado" | "aun_no_valido" | "sin_clave_privada" | "no_apto_para_firmar" | "de_pruebas_en_produccion";
         /** Pagina[ClienteResumenSalida] */
         Pagina_ClienteResumenSalida_: {
             /** Elementos */
@@ -1683,6 +1720,11 @@ export interface components {
             hoy: string;
             /** Fecha Minima */
             fecha_minima: string | null;
+            /**
+             * Certificado Caduca El
+             * @description Ampliado en 004 (FR-003): caducidad si quedan 30 días o menos
+             */
+            certificado_caduca_el?: string | null;
             /** Mencion Exencion Oro Inversion */
             mencion_exencion_oro_inversion: string;
         };
@@ -1885,6 +1927,17 @@ export interface components {
             fecha_hora_huso_gen: string;
             /** Estado Remision */
             estado_remision: string;
+            /** Firmado */
+            firmado: boolean;
+            /** Certificado Titular */
+            certificado_titular: string | null;
+            /** Huella Correcta */
+            huella_correcta: boolean | null;
+            /**
+             * Firma Correcta
+             * @description Nulo si el registro no lleva firma (VERI*FACTU)
+             */
+            firma_correcta: boolean | null;
         };
         /**
          * Rol
@@ -1932,7 +1985,7 @@ export interface components {
          * TipoEvento
          * @enum {string}
          */
-        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente" | "borrador_presupuesto_creado" | "borrador_presupuesto_editado" | "borrador_presupuesto_eliminado" | "presupuesto_emitido" | "presupuesto_modificado" | "presupuesto_anulado" | "presupuesto_convertido";
+        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente" | "borrador_presupuesto_creado" | "borrador_presupuesto_editado" | "borrador_presupuesto_eliminado" | "presupuesto_emitido" | "presupuesto_modificado" | "presupuesto_anulado" | "presupuesto_convertido" | "registros_exportados" | "integridad_comprobada";
         /**
          * TipoFactura
          * @description Lista L2 de DsRegistroVeriFactu.xlsx v1.0 (research R-3, R-4). Solo las de esta feature.

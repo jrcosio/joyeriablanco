@@ -12,8 +12,9 @@ import pytest
 from pydantic import SecretStr
 
 from app.core.config import Entorno, Settings
+from app.domain.tipos import MotivoNoUtilizable
 from app.services import certificado
-from app.services.certificado import CertificadoNoUtilizable, MotivoNoUtilizable
+from app.services.certificado import CertificadoNoUtilizable
 from tests.certificados import CONTRASENA_PRUEBAS, escribir_pkcs12
 
 AHORA = datetime.now(UTC)

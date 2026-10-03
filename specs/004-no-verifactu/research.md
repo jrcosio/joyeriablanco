@@ -394,10 +394,12 @@ cambia y la firma sigue verificándose fuera del sistema.
   el campo («VERI\*FACTU no está disponible: el sistema no tiene capacidad de remisión»). El
   bloqueo con registros (002) se mantiene, con el mensaje revisado.
 - **Datos de ejemplo**:
-  - se cargan en `no_verifactu`;
-  - si no hay certificado configurado, la carga genera uno de prueba en una carpeta temporal o
-    usa el de `CERTIFICADO_RUTA`;
-  - en E2E, `global-setup` genera el `.p12` y lo pasa a `api-e2e`.
+  - se cargan en `no_verifactu`, firmados con el certificado de `CERTIFICADO_RUTA`;
+  - sin certificado utilizable no se carga nada: el error indica cómo crear uno de pruebas
+    (`joyeria generar-certificado-pruebas`). Generar uno temporal obligaría a cambiar los ajustes a
+    mitad de la carga, y la API no podría luego emitir con él (ajustado en la implementación);
+  - en desarrollo, `docker-compose.yml` apunta a `backend/var/certificados/pruebas.p12`, y en E2E,
+    `global-setup` genera el suyo antes de cargar.
 
 ## R-15. Pantallas
 

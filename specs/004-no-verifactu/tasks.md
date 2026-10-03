@@ -186,7 +186,7 @@ firma se verifica. Sin certificado, no se emite y no se consume número.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T022 [P] [US1] ⚖️ Test `backend/tests/integration/test_firma_registros.py`:
+- [X] T022 [P] [US1] ⚖️ Test `backend/tests/integration/test_firma_registros.py`:
   - alta, rectificativa (alta REC), anulación y anulación con reemisión dejan registros con
     `xml_firmado` válido contra F-15, verificable, con `certificado_titular` y
     `certificado_huella`, y con `estado_remision` `no_aplica`;
@@ -199,12 +199,13 @@ firma se verifica. Sin certificado, no se emite y no se consume número.
     - no hay factura, registro ni número consumido (contador);
   - los parámetros de facturación incluyen `certificado` en `faltan` y `certificado_caduca_el`;
   - en `verifactu` no se firma (el modelo sigue admitiendo las dos modalidades).
-- [ ] T023 [P] [US1] ⚖️ Concurrencia: `backend/tests/integration/test_numeracion_concurrencia.py` (002)
+- [X] T023 [P] [US1] ⚖️ Concurrencia: `backend/tests/integration/test_numeracion_concurrencia.py` (002)
   y el encadenamiento bajo concurrencia, en `no_verifactu` con firma: sin huecos y con cada
   registro firmado.
-- [ ] T024 [P] [US1] Tests web:
-  - `joyeriablanco_web/src/features/facturas/HistorialFactura.test.tsx`: «Firmado · titular», los
-    chips de huella y firma, y «Sin firma (VERI\*FACTU)»; ya no aparece «Remisión: pendiente»;
+- [X] T024 [P] [US1] Tests web:
+  - `joyeriablanco_web/src/features/facturas/FacturaModal.consulta.test.tsx` (el historial se
+    prueba dentro de la consulta): «Firmado · titular», los chips de huella y firma, y «Sin firma
+    (VERI\*FACTU)»; ya no aparece «Remisión: pendiente»;
   - `FacturaModal.test.tsx`: el aviso de certificado que falta o que caduca pronto.
 
 ### Implementation for User Story 1
@@ -216,35 +217,35 @@ firma se verifica. Sin certificado, no se emite y no se consume número.
   3. guardan `xml_firmado`, `certificado_titular` y `certificado_huella`, con `no_aplica`.
 
   Si algo falla, `EmisionNoDisponible(faltan=["certificado"], motivo=…)`.
-- [ ] T026 [US1] Paso a No VERI\*FACTU por defecto (R-14; FR-030 a FR-032):
+- [X] T026 [US1] Paso a No VERI\*FACTU por defecto (R-14; FR-030 a FR-032):
   - `backend/tests/integration/facturacion_datos.configurar_facturacion` usa
     `modalidad="no_verifactu"` por defecto;
   - `backend/app/services/datos_ejemplo.py` carga en `no_verifactu`, con el certificado de
-    `CERTIFICADO_RUTA` o, si no hay ninguno, con uno de prueba temporal. Test en
+    `CERTIFICADO_RUTA`. Sin certificado utilizable no carga nada (R-14). Test en
     `backend/tests/integration/test_datos_ejemplo.py`: los registros quedan firmados;
   - las suites de 002, 003 y 005 siguen en verde. Se ajustan las expectativas: `estado_remision`
     pasa a `no_aplica`, y el QR del PDF sigue siendo el de cotejo No VERI\*FACTU, sin la frase
     (003, FR-030);
   - el fixture web `joyeriablanco_web/src/test/facturas.ts` pasa a `no_aplica`.
-- [ ] T027 [US1] `backend/app/services/configuracion_facturacion.py`:
+- [X] T027 [US1] `backend/app/services/configuracion_facturacion.py`:
   - `faltan` incluye `certificado` cuando no es utilizable;
   - `certificado_caduca_el` en los parámetros;
   - el bloque `certificado` en la salida;
   - `modalidad: verifactu` se rechaza con 422 en el campo;
   - el mensaje de `ModalidadBloqueada` se revisa (R-14).
-- [ ] T028 [US1] Esquemas y API de 002, con el contrato «ampliado en 004»:
+- [X] T028 [US1] Esquemas y API de 002, con el contrato «ampliado en 004»:
   - `backend/app/schemas/factura.py → RegistroResumen` (`firmado`, `certificado_titular`,
     `huella_correcta` y `firma_correcta`), calculado en `backend/app/services/facturas.get_factura`
     con `firma.verificar` y la huella recalculada;
   - `schemas/configuracion_facturacion.py`: `certificado` y `certificado_caduca_el`.
-- [ ] T029 [US1] Web:
+- [X] T029 [US1] Web:
   - regenerar los tipos (`exportar-openapi` y `gen:api`);
   - `joyeriablanco_web/src/features/facturas/HistorialFactura.tsx`: firmado y chips;
   - `lib/facturacion.ts → textoFalta('certificado')`;
   - el aviso de caducidad en `FacturaModal.tsx`.
 
   Hace pasar T024.
-- [ ] T030 [US1] E2E en `joyeriablanco_web/e2e/facturas.spec.ts`: la consulta de una factura emitida
+- [X] T030 [US1] E2E en `joyeriablanco_web/e2e/facturas.spec.ts`: la consulta de una factura emitida
   muestra «Firmado» y «Firma correcta».
 
 **Checkpoint**: MVP. Toda factura nueva deja su registro firmado, y sin certificado no se factura.
