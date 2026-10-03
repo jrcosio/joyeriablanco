@@ -18,7 +18,7 @@ fuente oficial está en «Preguntas abiertas» (R-16).
 | F-17 | `EventosSIF.xsd` | `…/tikeV1.0/cont/ws/EventosSIF.xsd` | IDVersion 1.0 | `cc7347c6a9a57a0c8edbc6b9ddcce55176452d0db0e68369477e207e9fbdd7e7` |
 | F-18 | `AnexosEjemplosFirmaRegFact.zip`: `ejemploRegistro.xml` y `ejemploRegistro-firmado-epes-xades4j.xml` | `https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Espec-Tecnicas/AnexosEjemplosFirmaRegFact.zip` | con F-14 | `66fac533bef6c93c041b08704bf538843fe552052a2994899aba0875c2c4b24e` |
 | F-19 | Ejemplos de declaraciones responsables | `https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica/ejemplo-declaracion-responsable.html` | página HTML | — |
-| F-20 | `xmldsig-core-schema.xsd` (W3C), que importan F-15 y F-17 | `http://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd` | REC 2002 | se anota al guardarla (R-2) |
+| F-20 | `xmldsig-core-schema.xsd` (W3C), que importan F-15 y F-17 | `http://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd` | REC 2002 | `d102ad3df7664c307e0c2c776ba4a90513b1969974d8a940bae1a77f9f21e15d` |
 
 ### Transcripción de lo que rige el diseño
 

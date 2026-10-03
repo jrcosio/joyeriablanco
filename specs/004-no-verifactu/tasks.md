@@ -52,24 +52,24 @@ Fundacional (XML, firma, certificado, migración)
 
 **Purpose**: dependencias, copias oficiales de los esquemas y el test de contrato preparado para 004.
 
-- [ ] T001 Dependencias en `backend/pyproject.toml`:
+- [X] T001 Dependencias en `backend/pyproject.toml`:
   - `signxml>=5.1,<6`, que trae `lxml` y `cryptography`;
   - `lxml-stubs` en desarrollo, si mypy lo necesita.
 
   Después, `uv lock` y `uv sync`, y comprobar que mypy estricto sigue en verde (sin `ignore` sin
   justificar).
-- [ ] T002 [P] Copias oficiales en `backend/app/resources/aeat/xsd/`:
+- [X] T002 [P] Copias oficiales en `backend/app/resources/aeat/xsd/`:
   - `SuministroInformacion.xsd`, `SuministroLR.xsd` y `EventosSIF.xsd` (F-15 a F-17);
   - `xmldsig-core-schema.xsd` (F-20), con su SHA-256;
   - `README.md` con la URL, la fecha y el SHA-256 de cada uno;
   - un test unitario, `backend/tests/unit/test_fuentes_aeat.py`, que comprueba los SHA-256 de
     research.md.
-- [ ] T003 [P] Test de contrato en `backend/tests/integration/test_contrato_openapi.py`:
+- [X] T003 [P] Test de contrato en `backend/tests/integration/test_contrato_openapi.py`:
   - una lista `PENDIENTES_004` con las 8 operaciones de [contracts/openapi.yaml](contracts/openapi.yaml);
   - `test_hay_un_contrato_por_feature` incluye `004-no-verifactu`.
 
   Las tareas de cada ruta vacían la lista y T066 la elimina.
-- [ ] T004 [P] `backend/app/__init__.py`: `__version__ = "0.4.0"` (research R-13).
+- [X] T004 [P] `backend/app/__init__.py`: `__version__ = "0.4.0"` (research R-13).
 
 **Checkpoint**: `uv run pytest` en verde, con el contrato pendiente declarado.
 
