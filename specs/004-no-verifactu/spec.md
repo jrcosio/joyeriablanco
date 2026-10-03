@@ -44,6 +44,21 @@ todo».
 - Q: ¿Quién es el productor del sistema y suscribe la declaración responsable? → A: **La propia
   Joyería Blanco**, desarrollo para uso propio (RRSIF, art. 13; Orden, art. 15).
 
+### Session 2026-10-03 (clarify)
+
+- Q: ¿Cuándo se generan los eventos de inicio y fin del funcionamiento (Orden, art. 9.1.a y b)? →
+  A: **En cada arranque y en cada parada del servicio**. Al arrancar se anota el inicio. Al
+  pararse, el resumen y el fin (art. 9.2: «antes de cerrarse o apagarse»). Varios procesos del
+  servidor cuentan como un solo arranque.
+- Q: ¿Qué entrega la exportación de un periodo? → A: **Un ZIP con un XML por registro**:
+  - cada registro, tal cual se firmó y sin reempaquetarlo, para que su firma siga verificándose;
+  - un índice legible en CSV, con número de secuencia, tipo, factura, fecha y huella;
+  - un manifiesto con el SHA-256 de cada fichero.
+- Q: ¿Quién ve la alarma de integridad (art. 6.f)? → A: **Todos los usuarios**, en todas las
+  pantallas. Solo los administradores entran al detalle y lanzan la comprobación.
+- Q: ¿La integridad se comprueba también de forma automática? → A: **No, solo bajo demanda**,
+  desde la web o la consola. La FAQ (F-4, p. 30) no lo exige.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Cada factura deja su registro firmado (Priority: P1)
@@ -354,14 +369,15 @@ factura.
 
 - **FR-012**: El sistema DEBE detectar y registrar, cuando se produzcan, los eventos del art. 9.1 de
   la Orden:
-  - a) inicio del funcionamiento como No VERI\*FACTU;
-  - b) fin del funcionamiento;
+  - a) inicio del funcionamiento como No VERI\*FACTU, en cada arranque del servicio;
+  - b) fin del funcionamiento, en cada parada ordenada del servicio;
   - c) y e) lanzamiento de la detección de anomalías en los registros de facturación y en los de
     evento;
   - d) y f) detección de anomalías en unos y otros;
   - h) e i) exportación de registros de facturación y de evento de un periodo.
 
-  El g), restauración de copias desde el propio sistema, no aplica.
+  Varios procesos del servidor que arrancan a la vez cuentan como un solo arranque
+  (Clarifications). El g), restauración de copias desde el propio sistema, no aplica.
 - **FR-013**: El sistema DEBE generar un registro resumen de eventos (Orden, art. 9.2):
   - por cada 6 horas operativo y disponible;
   - aunque no haya pasado nada en ese tiempo;
@@ -386,9 +402,11 @@ factura.
 
 #### Comprobación de integridad y anomalías
 
-- **FR-017**: Un administrador DEBE poder lanzar, bajo demanda, la comprobación de toda la cadena o
-  de una parte: desde la web («Comprobar integridad», con un rango opcional) y desde la consola
-  (`verificar-cadena`). La comprobación revisa, de los registros de facturación y de los de evento:
+- **FR-017**: Un administrador DEBE poder lanzar la comprobación de toda la cadena o de una parte
+  desde la web («Comprobar integridad», con un rango opcional) y desde la consola
+  (`verificar-cadena`). Es **solo bajo demanda**: no hay comprobación automática periódica
+  (Clarifications; F-4, p. 30). La comprobación revisa, de los registros de facturación y de los de
+  evento:
   - la integridad de las huellas;
   - la integridad de las firmas;
   - la trazabilidad de la cadena;
@@ -422,12 +440,16 @@ factura.
   - los registros de evento.
 
   El resultado es un fichero descargable.
-- **FR-023**: La exportación DEBE contener:
-  - la copia fidedigna de cada registro, idéntica byte a byte a la firmada, en el orden de la
-    cadena (Orden, art. 8.2; F-4, p. 38);
-  - un resumen legible: periodo, primer y último registro, recuentos y sumas.
+- **FR-023**: La exportación DEBE ser un fichero ZIP con (Clarifications):
+  - un fichero XML por registro, copia fidedigna e idéntica byte a byte a la firmada, sin
+    reempaquetar, nombrado por su número de secuencia para que se ordene como la cadena (Orden,
+    art. 8.2; F-4, p. 38);
+  - un índice legible en CSV con número de secuencia, tipo, factura, fecha y hora de generación y
+    huella;
+  - un manifiesto con el SHA-256 de cada fichero;
+  - un resumen con el periodo, el primer y el último registro, los recuentos y las sumas.
 
-  El formato es el del art. 8.5: la estructura y el formato de los arts. 10 y 11.
+  Cada XML mantiene la estructura y el formato de los arts. 10 y 11 (art. 8.5).
 - **FR-024**: Cada exportación DEBE generar su evento (h o i) con el contenido de
   `ExportacionRegFacturacionPeriodo` o `ExportacionRegEventoPeriodo` (F-17). La indicación de que
   los registros exportados dejan de conservarse va siempre en «N».

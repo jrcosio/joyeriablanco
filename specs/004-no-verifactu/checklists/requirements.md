@@ -35,8 +35,8 @@
   de implementación: los impone la normativa (constitución IV), y se citan con su fuente oficial.
   Lo mismo vale para el tipo de problema `emision-no-disponible`, que forma parte del contrato de
   la 002.
-- Se deja para `/speckit-clarify` el momento exacto del evento «inicio del funcionamiento» con
-  reinicios frecuentes, el alcance de la alarma y el formato del fichero de exportación. La spec
-  fija una opción razonable para cada uno.
+- Resuelto en `/speckit-clarify` (2026-10-03): eventos de inicio y fin en cada arranque y parada,
+  exportación en ZIP con un XML por registro, alarma para todos los usuarios y comprobación solo
+  bajo demanda.
 - El riesgo normativo de no tener capacidad de remisión (RRSIF, art. 8.1; Orden, art. 4) está
   documentado y asumido por el responsable (sección «Riesgo normativo asumido»).
