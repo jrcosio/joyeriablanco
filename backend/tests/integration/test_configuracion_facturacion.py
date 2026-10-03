@@ -59,11 +59,10 @@ async def test_valores_iniciales_y_faltan_los_datos_del_emisor(
     datos = respuesta.json()
     assert datos["iva_por_defecto"] == "21.00"
     assert "clave_regimen" not in datos  # la fija el sistema (R-23)
-    assert datos["modalidad"] is None
+    assert datos["modalidad"] == "no_verifactu"  # la fija la migración 0009 (004, R-14)
     assert all(v is None for k, v in datos["emisor"].items())
     assert datos["emision_posible"] is False
     assert set(datos["faltan"]) == {
-        "modalidad",
         "emisor.nombre",
         "emisor.nif",
         "emisor.direccion",
@@ -103,7 +102,7 @@ async def test_guardar_la_configuracion_completa_y_auditarla(
 
     respuesta = await client.put(
         URL,
-        json=_cuerpo(actual, iva_por_defecto="10", modalidad="verifactu", emisor=EMISOR),
+        json=_cuerpo(actual, iva_por_defecto="10", emisor=EMISOR),
         headers=cabeceras,
     )
 
@@ -116,7 +115,7 @@ async def test_guardar_la_configuracion_completa_y_auditarla(
     assert datos["version"] == actual["version"] + 1
     (evento,) = await eventos(db, TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA)
     assert evento.detalle["cambios"]["iva_por_defecto"] == ["21.00", "10.00"]
-    assert evento.detalle["cambios"]["modalidad"] == [None, "verifactu"]
+    assert "modalidad" not in evento.detalle["cambios"]  # ya era no_verifactu (004, R-14)
 
 
 @pytest.mark.parametrize(
@@ -419,7 +418,6 @@ async def test_parametros_para_cualquier_usuario(
         "iva_por_defecto": "21.00",
         "emision_posible": False,
         "faltan": [
-            "modalidad",
             "emisor.nombre",
             "emisor.nif",
             "emisor.direccion",

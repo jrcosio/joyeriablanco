@@ -39,7 +39,9 @@ parte de la huella (FR-009).
 | `huella_anterior` | `char(64)` NULL | |
 | `tipo_huella` | `char(2)` | `'01'` |
 | `huella` | `char(64)` UNIQUE | SHA-256 (F-2 §3.c) |
-| `contenido` | `jsonb` | Los datos del evento como texto: `SistemaInformatico`, `ObligadoEmision` y `DatosPropiosEvento` |
+| `tipo_anomalia` | `char(2)` NULL | Solo en 04 y 06: el `TipoAnomalia` (R-10) |
+| `secuencia_afectada` | `bigint` NULL | Solo en 04 y 06: la secuencia del registro o del evento afectado. No está en el XML. Sirve para la alarma (R-11) y para no repetir una anomalía ya registrada (R-9) |
+| `contenido` | `jsonb` | `{"IDVersion", "Evento"}` con todos los valores como texto: el `RegistroEvento` sin la firma |
 | `xml_firmado` | `bytea` | `RegistroEvento` con `Evento/Signature` |
 | `certificado_titular` | `varchar(200)` | |
 | `certificado_huella` | `char(64)` | |
@@ -77,13 +79,14 @@ Cada comprobación lanzada, con su resultado. Alimenta la alarma (R-11).
 |---|---|---|
 | `id` | `uuid` PK | |
 | `lanzada_en` | `timestamptz` DEFAULT `now()` | |
-| `origen` | `varchar(10)` | `web`, `consola` o `emision` (la comprobación previa del 7.i) |
-| `actor_id` | `uuid` NULL, FK `usuarios` | NULL en la consola |
-| `desde_secuencia` | `bigint` | El primer registro de facturación comprobado |
-| `hasta_secuencia` | `bigint` | El último. Coincide con el final de la cadena si la comprobación llega a él |
-| `llega_al_final` | `boolean` | |
+| `origen` | `varchar(10)` | `web` o `consola`. La comprobación previa de cada emisión (7.i) no se guarda aquí |
+| `actor_id` | `uuid` NULL, FK `usuarios` | Solo en `web` (CHECK) |
+| `desde_secuencia` | `bigint` NULL | El primer registro de facturación comprobado. NULL si no había ninguno |
+| `hasta_secuencia` | `bigint` NULL | El último |
+| `llega_al_final` | `boolean` | Si la comprobación llega al final de la cadena de facturación. La de eventos se comprueba siempre entera |
 | `registros` / `eventos` | `integer` | Cuántos se procesaron |
 | `anomalias` | `integer` | 0 si todo está bien |
+| `max_secuencia_anomala` / `max_evento_anomalo` | `bigint` NULL | La secuencia más alta con anomalía en cada cadena. Con ellas se apaga la alarma (R-11) |
 | `evento_lanzamiento_id` | `uuid` FK `registros_evento` | El 03 de la comprobación |
 
 ## Sin tabla

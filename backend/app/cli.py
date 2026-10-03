@@ -145,6 +145,42 @@ def verificar_cadena() -> None:
     raise typer.Exit(code=1)
 
 
+@app.command("generar-certificado-pruebas")
+def generar_certificado_pruebas(
+    destino: Annotated[Path, typer.Option(help="Fichero PKCS#12 (.p12) que se crea")],
+    contrasena: Annotated[str, typer.Option(help="Contraseña del PKCS#12")],
+    dias: Annotated[int, typer.Option(min=1, max=3650, help="Días de validez")] = 365,
+) -> None:
+    """Crea un certificado de firma de PRUEBAS para desarrollo y E2E (004, R-6). Se niega en
+    producción, donde además no sería utilizable."""
+    from app.services.certificado import generar_pkcs12
+
+    if get_settings().es_produccion:
+        typer.secho(
+            "Error: en producción se instala el certificado real de la empresa.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_bytes(generar_pkcs12(contrasena, nif=_nif_emisor(), dias=dias))
+    typer.echo(f"Certificado de pruebas creado en {destino} ({dias} días). No vale en producción.")
+
+
+def _nif_emisor() -> str:
+    """El NIF del emisor configurado o, si aún no hay BD o emisor, uno ficticio de pruebas."""
+    from app.repositories import configuracion_facturacion
+
+    async def _leer(db: AsyncSession) -> str | None:
+        return (await configuracion_facturacion.get(db)).emisor_nif
+
+    try:
+        nif = _ejecutar(_leer)
+    except Exception:  # la BD de E2E todavía no existe cuando se genera el certificado
+        nif = None
+    return nif or "B12345674"
+
+
 @app.command("reiniciar-bd-e2e")
 def reiniciar_bd_e2e() -> None:
     """Reconstruye el esquema de la BD de E2E (downgrade + upgrade). Solo con ENTORNO=e2e."""

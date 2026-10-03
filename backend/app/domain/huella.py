@@ -1,4 +1,4 @@
-"""Huella SHA-256 de los registros de facturación (research R-2).
+"""Huella SHA-256 de los registros de facturación (research R-2) y de evento (004, R-7).
 
 Fuente única (constitución IV): F-2, AEAT, «Detalle de las especificaciones técnicas para
 generación de la huella o hash de los registros de facturación», v0.1.2 (27/08/2024).
@@ -88,6 +88,40 @@ class CamposHuellaAnulacion:
                 ("FechaExpedicionFacturaAnulada", self.fecha_expedicion),
                 ("Huella", self.huella_anterior),
                 ("FechaHoraHusoGenRegistro", self.fecha_hora_huso_gen),
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CamposHuellaEvento:
+    """Campos del registro de evento en el orden de F-2, §3.c (Orden, art. 13.1.c; feature 004).
+
+    El primer `NIF` es el del sistema informático (su productor) y el segundo, el del obligado.
+    `ID` es el `IDOtro/ID` del sistema, vacío cuando se informa el NIF (F-2, p. 7).
+    """
+
+    nif_sistema: str
+    id_otro_sistema: str
+    id_sistema: str
+    version: str
+    numero_instalacion: str
+    nif_obligado: str
+    tipo_evento: str
+    huella_anterior: str
+    fecha_hora_huso_gen: str
+
+    def cadena(self) -> str:
+        return _cadena(
+            (
+                ("NIF", self.nif_sistema),
+                ("ID", self.id_otro_sistema),
+                ("IdSistemaInformatico", self.id_sistema),
+                ("Version", self.version),
+                ("NumeroInstalacion", self.numero_instalacion),
+                ("NIF", self.nif_obligado),
+                ("TipoEvento", self.tipo_evento),
+                ("HuellaEvento", self.huella_anterior),
+                ("FechaHoraHusoGenEvento", self.fecha_hora_huso_gen),
             )
         )
 

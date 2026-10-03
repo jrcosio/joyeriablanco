@@ -548,7 +548,7 @@ requires-dist = [
     { name = "pypdf", specifier = ">=6.19,<7" },
     { name = "python-json-logger", specifier = ">=4.2,<4.3" },
     { name = "segno", specifier = ">=1.6,<1.7" },
-    { name = "signxml", specifier = ">=5.1,<6" },
+    { name = "signxml", specifier = ">=5.1,<5.2" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1,<2.2" },
     { name = "typer", specifier = ">=0.27,<0.28" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54,<0.55" },

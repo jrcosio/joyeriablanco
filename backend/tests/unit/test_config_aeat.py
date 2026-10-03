@@ -14,6 +14,12 @@ def _produccion(**extra: object) -> Settings:
         "origen_permitido": "https://gestion.example.com",
         "sif_productor_nombre": "Productora, S.L.",
         "sif_productor_nif": "12345678Z",
+        # Obligatorios en producción desde 004 (research R-6 y R-13)
+        "sif_productor_direccion": "Calle Mayor 1, 28001 Madrid",
+        "sif_declaracion_fecha": "2026-10-03",
+        "sif_declaracion_lugar": "Madrid (España)",
+        "certificado_ruta": "/run/secrets/certificado.p12",
+        "certificado_contrasena": "secreta",
         **extra,
     }
     return Settings.model_validate(datos)

@@ -39,7 +39,8 @@ joyeria generar-certificado-pruebas --destino RUTA.p12 --contrasena TEXTO [--dia
 ```
 
 - **Qué hace**: crea un PKCS#12 autofirmado, RSA de 2048 bits, con el sujeto marcado
-  `O=PRUEBAS - SIN VALIDEZ` y el NIF del emisor de la configuración.
+  `O=PRUEBAS - SIN VALIDEZ` y el NIF del emisor de la configuración. Si todavía no hay BD o emisor
+  (el E2E lo genera antes de reconstruir la BD), usa un NIF ficticio.
 - **En producción**: se niega a ejecutarse (código 1). Un certificado así no es utilizable en
   producción (`de_pruebas_en_produccion`).
 

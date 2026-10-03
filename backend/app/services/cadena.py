@@ -10,17 +10,24 @@ Solo lo llama `services/emision.py`, siempre dentro de su transacción y con est
 2. `create_registro_alta` / `create_registro_anulacion`: encadenan con el último registro,
    construyen el contenido F-1 (`domain/registro.py`), calculan la huella (`domain/huella.py`) e
    insertan con la secuencia siguiente. El trigger `validar_encadenamiento` lo vuelve a exigir.
+
+En No VERI*FACTU (feature 004, research R-4), el registro se genera en XML, se firma con XAdES-EPES
+y se valida contra el XSD ANTES de insertarlo, en la misma transacción: un registro sin firma no
+existe (F-4, p. 13). Sin un certificado utilizable en la fecha de generación, la operación entera
+se rechaza con `emision-no-disponible` y no se consume número.
 """
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Final
 
+from lxml import etree
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import __version__
 from app.core.config import Settings, get_settings
-from app.core.errors import CadenaInconsistente
+from app.core.errors import CadenaInconsistente, EmisionNoDisponible
 from app.core.http import Origen
 from app.core.tiempo import ahora
 from app.domain.huella import (
@@ -42,12 +49,15 @@ from app.domain.registro import (
     build_contenido_alta,
     build_contenido_anulacion,
 )
-from app.domain.tipos import EstadoRemision, TipoEvento, TipoFactura, TipoRegistro
+from app.domain.tipos import EstadoRemision, Modalidad, TipoEvento, TipoFactura, TipoRegistro
+from app.domain.xml_registro import build_registro_alta, build_registro_anulacion
 from app.models.factura import Factura
 from app.models.registro_facturacion import RegistroFacturacion
 from app.models.usuario import Usuario
 from app.repositories import registros as repo
+from app.services import certificado, firma
 from app.services.auditoria import record_event
+from app.services.certificado import CertificadoNoUtilizable
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +148,44 @@ async def verify_tail(
     raise CadenaInconsistente
 
 
+@dataclass(frozen=True, slots=True)
+class Firma:
+    """Lo que se guarda de la firma junto al registro (data-model, `registros_facturacion`)."""
+
+    xml: bytes
+    titular: str
+    huella_certificado: str
+
+
+def signing_certificate(momento: datetime) -> certificado.CertificadoFirma:
+    """El certificado utilizable en la fecha de generación, o el 409 con su motivo (FR-004)."""
+    try:
+        return certificado.utilizable(momento)
+    except CertificadoNoUtilizable as exc:
+        logger.warning("Registro rechazado: certificado no utilizable (%s)", exc.motivo.value)
+        raise EmisionNoDisponible(
+            f"No se puede emitir: el certificado de firma no es utilizable ({exc}).",
+            extra={"faltan": ["certificado"], "motivo": exc.motivo.value},
+        ) from exc
+
+
+def _firmar(elemento: etree._Element, momento: datetime) -> Firma:
+    firmante = signing_certificate(momento)
+    xml = firma.sign_and_validate(elemento, firma.Esquema.SUMINISTRO, firmante, momento)
+    return Firma(xml=xml, titular=firmante.titular, huella_certificado=firmante.huella)
+
+
+def _columnas_firma(firma_registro: Firma | None) -> dict[str, object]:
+    if firma_registro is None:  # VERI*FACTU: sin firma y pendiente de remisión (002)
+        return {"estado_remision": EstadoRemision.PENDIENTE.value}
+    return {
+        "estado_remision": EstadoRemision.NO_APLICA.value,
+        "xml_firmado": firma_registro.xml,
+        "certificado_titular": firma_registro.titular,
+        "certificado_huella": firma_registro.huella_certificado,
+    }
+
+
 def registro_anterior(ultimo: RegistroFacturacion | None) -> RegistroAnterior | None:
     """Bloque `Encadenamiento/RegistroAnterior` a partir del registro previo (o `None`)."""
     if ultimo is None:
@@ -203,7 +251,8 @@ async def create_registro_alta(
 ) -> RegistroFacturacion:
     ultimo = await repo.get_last(session)
     anterior = registro_anterior(ultimo)
-    fecha_hora = format_timestamp(ahora())
+    momento = ahora()
+    fecha_hora = format_timestamp(momento)
     fecha_expedicion = format_date(factura.fecha_expedicion)
     huella = compute_huella(
         CamposHuellaAlta(
@@ -224,6 +273,11 @@ async def create_registro_alta(
         fecha_hora_huso_gen=fecha_hora,
         huella=huella,
     )
+    firma_registro = (
+        _firmar(build_registro_alta(contenido), momento)
+        if factura.modalidad == Modalidad.NO_VERIFACTU
+        else None
+    )
     return await repo.insert(
         session,
         RegistroFacturacion(
@@ -243,7 +297,7 @@ async def create_registro_alta(
             tipo_huella="01",
             huella=huella,
             contenido=contenido,
-            estado_remision=EstadoRemision.PENDIENTE.value,
+            **_columnas_firma(firma_registro),
         ),
     )
 
@@ -253,7 +307,8 @@ async def create_registro_anulacion(
 ) -> RegistroFacturacion:
     ultimo = await repo.get_last(session)
     anterior = registro_anterior(ultimo)
-    fecha_hora = format_timestamp(ahora())
+    momento = ahora()
+    fecha_hora = format_timestamp(momento)
     fecha_expedicion = format_date(factura.fecha_expedicion)
     huella = compute_huella(
         CamposHuellaAnulacion(
@@ -272,6 +327,11 @@ async def create_registro_anulacion(
         sistema=sistema_informatico(),
         fecha_hora_huso_gen=fecha_hora,
         huella=huella,
+    )
+    firma_registro = (
+        _firmar(build_registro_anulacion(contenido), momento)
+        if modalidad == Modalidad.NO_VERIFACTU
+        else None
     )
     return await repo.insert(
         session,
@@ -292,6 +352,6 @@ async def create_registro_anulacion(
             tipo_huella="01",
             huella=huella,
             contenido=contenido,
-            estado_remision=EstadoRemision.PENDIENTE.value,
+            **_columnas_firma(firma_registro),
         ),
     )

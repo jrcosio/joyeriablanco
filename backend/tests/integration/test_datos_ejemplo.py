@@ -211,6 +211,9 @@ async def test_se_niega_en_produccion(db: AsyncSession, monkeypatch: pytest.Monk
     monkeypatch.setenv("SIF_PRODUCTOR_NIF", "12345678Z")
     monkeypatch.setenv("ORIGEN_PERMITIDO", "https://joyeria.example.com")
     monkeypatch.setenv("AEAT_ENTORNO", "pruebas")  # obligatorio en producción (003, R-3)
+    monkeypatch.setenv("SIF_PRODUCTOR_DIRECCION", "Calle Mayor 1, 28001 Madrid")  # 004, R-13
+    monkeypatch.setenv("SIF_DECLARACION_FECHA", "2026-10-03")
+    monkeypatch.setenv("SIF_DECLARACION_LUGAR", "Madrid (España)")
     get_settings.cache_clear()
     try:
         with pytest.raises(SinPermiso):

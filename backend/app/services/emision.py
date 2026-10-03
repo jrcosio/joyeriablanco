@@ -70,7 +70,7 @@ from app.repositories import configuracion_facturacion as configuracion_repo
 from app.repositories import contadores, correcciones, facturas, registros
 from app.services import cadena
 from app.services.auditoria import record_event
-from app.services.configuracion_facturacion import missing_for_emission
+from app.services.configuracion_facturacion import emission_unavailable, missing_for_emission
 from app.services.contenido import DatosLinea as DatosLinea
 from app.services.contenido import calcular_totales, copia_destinatario, copia_emisor
 from app.services.contenido import check_lineas as check_lineas
@@ -91,7 +91,7 @@ class DatosFactura:
 
 def emissible_config(config: ConfiguracionFacturacion) -> ConfiguracionFacturacion:
     if faltan := missing_for_emission(config):
-        raise EmisionNoDisponible(extra={"faltan": faltan})
+        raise emission_unavailable(faltan)
     return config
 
 

@@ -116,8 +116,10 @@ opcionales.
   cada uno.
 - **Validación**: con `lxml`, y un resolvedor local para la `schemaLocation` remota de
   `xmldsig-core-schema.xsd`, así que no hace falta red.
-- **Cuándo**: el XML se valida **siempre antes de firmar**, en todos los entornos. El esquema
-  compilado se cachea. Un fallo es un error de programación: la operación se deshace.
+- **Cuándo**: el XML se valida **siempre antes de guardarlo, ya firmado**, en todos los entornos.
+  Es lo que se guarda y se exporta, y en `EventoType` la firma es obligatoria, así que un evento
+  sin firmar no cumple el esquema. El esquema compilado se cachea. Un fallo es un error de
+  programación: la operación se deshace.
 - **Tests**: un test comprueba que los SHA-256 de las copias son los anotados.
 
 ## R-3. Firma XAdES-EPES
@@ -131,13 +133,25 @@ opcionales.
     `SignedProperties`.
 - **QualifyingProperties** (XAdES 1.3.2):
   - `SigningTime`, en hora de Madrid;
-  - `SigningCertificate`, la forma heredada con SHA-1 e `IssuerSerial` del ejemplo, activada con la
-    opción de `signxml`, junto a `SigningCertificateV2`;
+  - `SigningCertificate`, la forma del ejemplo con SHA-1 e `IssuerSerial`, con la cadena del
+    PKCS#12. Va **sola**: el verificador de `signxml` rechaza una firma que lleve a la vez
+    `SigningCertificateV2` (comprobado en la implementación, 2026-10-03);
   - `SignaturePolicyIdentifier`: OID, `SigPolicyHash` SHA-1 `G7roucf6…` y el calificador `SPURI`
     con la URL de la política. Se añade sobrescribiendo `add_signature_policy_identifier`.
   - `DataObjectFormat`: `MimeType` `text/xml` y `Encoding` `UTF-8`. Se añade sobrescribiendo
     `add_data_object_format`.
-- **KeyInfo**: `X509Data` con la cadena de certificados del PKCS#12 y `KeyValue`.
+- **KeyInfo**: `X509Data` con la cadena de certificados del PKCS#12 y `KeyValue`. Sin referencia
+  al `KeyInfo` en `SignedInfo`: F-18 solo firma los datos y las `SignedProperties`, esta con su
+  transformación C14N explícita.
+- **Verificación**: con el certificado que lleva la firma y la vigencia comprobada en la fecha de
+  generación del registro, no en la de hoy (F-14 §3). Si no, un registro firmado con un certificado
+  que caducó después daría «firma incorrecta». Quien comprueba la integridad coteja además la
+  huella del certificado guardada.
+- **Comprobación con el ejemplo oficial**: firmando `ejemploRegistro.xml`, la referencia a los datos
+  da el mismo `DigestValue` que F-18 (`89qWVKHv…`): la canonicalización coincide byte a byte.
+  `signxml` no verifica F-18 tal cual, porque su `SigningCertificate` cita tres certificados y el
+  `KeyInfo` solo trae uno. Nuestras firmas llevan en `KeyInfo` la misma cadena que citan.
+- **Versión**: la subclase sobrescribe métodos de `signxml` 5.1, que se fija en `>=5.1,<5.2`.
 
 **Prototipo (2026-10-03)**: `signxml` 5.1.0 firmó `ejemploRegistro.xml` de F-18 con un
 certificado autofirmado, y `XAdESVerifier` lo verificó con la política esperada.
@@ -281,10 +295,17 @@ una conexión propia que mantiene abierta.
   - un 04 o un 06 por cada anomalía, con `RegistroFacturacionAnomalo` (IDFactura) o
     `RegEventoAnomalo` (tipo, fecha y huella).
 - **Registro de la comprobación**: cada una se guarda en `comprobaciones_integridad` (alcance,
-  resultado y actor), que sirve para la alarma (R-11).
+  resultado y actor), que sirve para la alarma (R-11). La comprobación previa de cada emisión
+  (7.i, R-5) no se guarda ahí: solo genera su evento 04.
 - **Desde dónde**: «Comprobar integridad» en la web (síncrono) y `verificar-cadena` en la consola.
 - **Medición**: SC-006 (20.000 registros en menos de 3 minutos) se mide en el test lento. Si la
   verificación de las firmas no llega, se paraleliza en hilos.
+
+- **Una anomalía ya registrada no se repite**: si una comprobación vuelve a encontrar la misma
+  (mismo tipo de anomalía y mismo registro o evento afectado), la cuenta en su resultado pero no
+  genera otro 04 o 06 (art. 9.1: los eventos se registran «cuando se produzcan»).
+- **Anomalías en los datos de la factura**: líneas, desglose o totales que ya no cuadran con el
+  registro (la comprobación de 002) son la anomalía 03, «Integridad - Otros».
 
 ## R-10. Tipos de anomalía (F-17, `TipoAnomaliaType`)
 
@@ -305,9 +326,16 @@ Los códigos 06, 09, 10, 12, 14, 15 y 90 no se usan: sus casos ya los cubren los
 ## R-11. Alarma
 
 **Decisión**: es un estado **derivado**, sin tabla propia.
-- **Integridad**: activa si existe un evento 04 o 06 sin una comprobación posterior **sin
-  anomalías** que empiece después del registro afectado, o al principio si no hay registro
-  afectado, y llegue hasta el final de la cadena.
+- **Integridad**: cada evento 04 o 06 guarda la secuencia del registro o del evento afectado
+  (`secuencia_afectada`). La alarma de esa anomalía se apaga con una comprobación lanzada
+  **después** del evento que:
+  - cubre todo lo posterior al afectado: empieza en él o antes y llega al final de la cadena;
+  - no encuentra ninguna anomalía **posterior** al afectado (`max_secuencia_anomala` o
+    `max_evento_anomalo`, según la cadena).
+
+  La anomalía antigua sigue ahí, porque los registros no se pueden corregir, pero ya se garantizan
+  los siguientes (Orden, art. 6.f; FR-019). Sin registro afectado, hace falta una comprobación
+  completa sin anomalías.
 - **Certificado**: activa si el certificado no es utilizable.
 - **Endpoint**: `GET /v1/alarmas`, accesible a cualquier sesión. La web lo consulta al cambiar de
   ruta y cada minuto. La banda la ven todos (Clarifications), y el detalle, solo los
@@ -391,7 +419,7 @@ cambia y la firma sigue verificándose fuera del sistema.
 
 | Id | Pregunta | Fuente | Tratamiento |
 |---|---|---|---|
-| Q-12 | La firma que espera la AEAT: ¿le basta `SigningCertificateV2` o requiere la forma heredada del ejemplo? | F-14 no lo dice; F-18 usa la heredada | Se emiten las dos (R-3). Se valida a mano con VALIDe (quickstart) |
+| Q-12 | La firma que espera la AEAT: ¿le basta `SigningCertificateV2` o requiere la forma heredada del ejemplo? | F-14 no lo dice; F-18 usa la heredada | Se emite la del ejemplo, `SigningCertificate` (R-3). Se valida a mano con VALIDe (quickstart) |
 | Q-13 | Capacidad de remisión (RRSIF 8.1, Orden 4) | F-8, F-10 | Fuera de alcance por decisión del responsable, que lo consulta con su asesoría (spec) |
 | Q-14 | Cómo nombrar la versión y el número de instalación en el `SistemaInformatico` cuando cambie la versión | F-10 art. 15.1.c | Un registro guarda la versión con la que se generó. La versión nueva lleva su declaración |
 

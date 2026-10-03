@@ -7,6 +7,9 @@ el primero de la cadena se marque como `primer_registro` (F-10, art. 7).
 Las columnas `id_emisor`, `num_serie`, `fecha_expedicion`, `tipo_factura`, `cuota_total`,
 `importe_total`, `huella_anterior` y `fecha_hora_huso_gen` son exactamente los campos de la huella
 (F-2): permiten recalcularla sin interpretar `contenido`.
+
+En No VERI*FACTU (feature 004), `xml_firmado` es el registro firmado tal cual se generó: lo que se
+exporta ante un requerimiento. La firma no forma parte de la huella (FR-009).
 """
 
 import uuid
@@ -14,7 +17,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import CHAR, BigInteger, Boolean, ForeignKey, Numeric, String, func
+from sqlalchemy import CHAR, BigInteger, Boolean, ForeignKey, LargeBinary, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -41,4 +44,8 @@ class RegistroFacturacion(UuidPkMixin, Base):
     huella: Mapped[str] = mapped_column(CHAR(64))
     contenido: Mapped[dict[str, Any]] = mapped_column(JSONB)
     estado_remision: Mapped[str] = mapped_column(String(20))
+    # Firma XAdES-EPES (004, research R-4): obligatoria en `no_verifactu` (CHECK de la 0009).
+    xml_firmado: Mapped[bytes | None] = mapped_column(LargeBinary)
+    certificado_titular: Mapped[str | None] = mapped_column(String(200))
+    certificado_huella: Mapped[str | None] = mapped_column(CHAR(64))
     generado_en: Mapped[datetime] = mapped_column(server_default=func.now())

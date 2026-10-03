@@ -25,6 +25,7 @@ from app.core.errors import (
     ConflictoVersion,
     ContadorNoAjustable,
     DatosNoValidos,
+    EmisionNoDisponible,
     ModalidadBloqueada,
     TipoIvaSinConfirmar,
 )
@@ -38,7 +39,7 @@ from app.domain.identificacion import normalize_identificacion, validate_nif
 from app.domain.importes import allowed_rates, is_rate_allowed
 from app.domain.numeracion import format_num_serie
 from app.domain.registro import FECHA_MINIMA_EXPEDICION
-from app.domain.tipos import Serie, TipoEvento
+from app.domain.tipos import Modalidad, Serie, TipoEvento
 from app.models.configuracion_facturacion import ConfiguracionFacturacion
 from app.models.usuario import Usuario
 from app.repositories import configuracion_facturacion as repo
@@ -47,7 +48,9 @@ from app.schemas.configuracion_facturacion import (
     AjusteContadorEntrada,
     ConfiguracionFacturacionEntrada,
 )
+from app.services import certificado
 from app.services.auditoria import diff, record_event
+from app.services.certificado import TEXTO_MOTIVO
 
 CAMPOS_EMISION: Final = (
     ("modalidad", "modalidad"),
@@ -79,7 +82,24 @@ CAMPOS_AUDITADOS: Final = (
 
 
 def missing_for_emission(config: ConfiguracionFacturacion) -> list[str]:
-    return [clave for clave, atributo in CAMPOS_EMISION if getattr(config, atributo) is None]
+    """Lo que falta para emitir. En No VERI*FACTU, también un certificado de firma utilizable
+    (004, FR-004, research R-4)."""
+    faltan = [clave for clave, atributo in CAMPOS_EMISION if getattr(config, atributo) is None]
+    if config.modalidad == Modalidad.NO_VERIFACTU and not certificado.estado().utilizable:
+        faltan.append("certificado")
+    return faltan
+
+
+def emission_unavailable(faltan: list[str]) -> EmisionNoDisponible:
+    """El 409 `emision-no-disponible`. Si falta el certificado, con su motivo (004, FR-004)."""
+    if "certificado" not in faltan:
+        return EmisionNoDisponible(extra={"faltan": faltan})
+    motivo = certificado.estado().motivo
+    return EmisionNoDisponible(
+        "No se puede emitir: el certificado de firma no es utilizable"
+        + (f" ({TEXTO_MOTIVO[motivo]})." if motivo else "."),
+        extra={"faltan": faltan, "motivo": motivo.value if motivo else None},
+    )
 
 
 @dataclass(frozen=True, slots=True)

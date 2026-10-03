@@ -82,7 +82,7 @@ historia empieza sin esto.
 
 ### Tests de la fase ⚠️
 
-- [ ] T005 [P] ⚖️ Test `backend/tests/unit/domain/test_xml_registro.py`:
+- [X] T005 [P] ⚖️ Test `backend/tests/unit/domain/test_xml_registro.py`:
   - el XML de un alta ordinaria, de una rectificativa (con `FacturasRectificadas` e
     `ImporteRectificacion`), de una de oro de inversión y de una anulación es **válido contra
     F-15**;
@@ -90,16 +90,16 @@ historia empieza sin esto.
     (JSONB);
   - el XML de un evento de cada tipo (01, 02, 03, 04, 05, 06, 08, 09 y 10) es válido contra F-17;
   - el primer registro y el primer evento llevan `PrimerRegistro` y `PrimerEvento` «S».
-- [ ] T006 [P] ⚖️ Test `backend/tests/unit/domain/test_huella_evento.py`: la cadena de F-2 §3.c,
+- [X] T006 [P] ⚖️ Test `backend/tests/unit/domain/test_huella_evento.py`: la cadena de F-2 §3.c,
   con el doble `NIF`, `ID=` vacío, sin `HuellaEvento` en el primero y SHA-256 en mayúsculas.
-- [ ] T007 [P] Test `backend/tests/integration/test_certificado.py`, con certificados generados por
+- [X] T007 [P] Test `backend/tests/integration/test_certificado.py`, con certificados generados por
   `backend/tests/certificados.py`:
   - estado y datos de un certificado utilizable;
   - cada motivo de no utilizable: no instalado, ilegible (contraseña errónea), caducado, aún no
     válido, sin clave privada, `KeyUsage` sin firma y de pruebas en producción (R-6);
   - `caduca_pronto` con 30 días o menos;
   - la validez se comprueba en la fecha dada, no en la actual.
-- [ ] T008 [P] ⚖️ Test `backend/tests/integration/test_firma.py`:
+- [X] T008 [P] ⚖️ Test `backend/tests/integration/test_firma.py`:
   - firmar el `ejemploRegistro.xml` de F-18 y un alta propia;
   - la firma se verifica;
   - lleva todos los elementos del ejemplo oficial (R-3): C14N inclusiva, `rsa-sha256`, referencia
@@ -108,7 +108,7 @@ historia empieza sin esto.
   - la firma va en el nodo firmado;
   - el resultado sigue siendo válido contra el XSD;
   - cambiar un carácter del XML firmado hace fallar la verificación.
-- [ ] T009 [P] Test `backend/tests/integration/test_registros_evento_inalterables.py`:
+- [X] T009 [P] Test `backend/tests/integration/test_registros_evento_inalterables.py`:
   - `jb_app` recibe 42501 al hacer UPDATE, DELETE o TRUNCATE sobre `registros_evento` y
     `comprobaciones_integridad`, y el trigger frena también a `jb_owner`;
   - el trigger de encadenamiento rechaza un hueco o una huella anterior incorrecta;
@@ -116,7 +116,7 @@ historia empieza sin esto.
 
 ### Implementación de la fase
 
-- [ ] T010 Migración `backend/alembic/versions/0009_no_verifactu.py` (data-model), en SQL a mano y con
+- [X] T010 Migración `backend/alembic/versions/0009_no_verifactu.py` (data-model), en SQL a mano y con
   *downgrade*:
   - las columnas de firma y los CHECK en `registros_facturacion`;
   - `estado_remision` admite `no_aplica`;
@@ -124,40 +124,40 @@ historia empieza sin esto.
     (`impedir_modificacion_facturacion()`, `validar_encadenamiento_eventos()`);
   - el CHECK de `eventos_auditoria` con los tipos nuevos;
   - `configuracion_facturacion.modalidad = 'no_verifactu'` donde sea NULL.
-- [ ] T011 [P] Enumeraciones en `backend/app/domain/tipos.py`:
+- [X] T011 [P] Enumeraciones en `backend/app/domain/tipos.py`:
   - `TipoEventoSif`, `TipoAnomalia` y `EstadoRemision.NO_APLICA`;
   - los `TipoEvento` de auditoría `REGISTROS_EXPORTADOS` e `INTEGRIDAD_COMPROBADA`.
-- [ ] T012 [P] Modelos:
+- [X] T012 [P] Modelos:
   - `backend/app/models/registro_evento.py`;
   - `backend/app/models/comprobacion_integridad.py`;
   - columnas nuevas en `backend/app/models/registro_facturacion.py`;
   - registro en `models/__init__.py`.
-- [ ] T013 [P] `backend/app/domain/huella.py`: `CamposHuellaEvento.cadena()` (F-2 §3.c). Hace pasar
+- [X] T013 [P] `backend/app/domain/huella.py`: `CamposHuellaEvento.cadena()` (F-2 §3.c). Hace pasar
   T006.
-- [ ] T014 `backend/app/domain/xml_registro.py` (R-1): tablas de orden de los tres tipos sacadas de
+- [X] T014 `backend/app/domain/xml_registro.py` (R-1): tablas de orden de los tres tipos sacadas de
   los XSD y conversión del `contenido` en elemento `lxml`. El contenido de cada tipo de evento va en
   `backend/app/domain/eventos.py`. Hace pasar T005.
-- [ ] T015 Ajustes en `backend/app/core/config.py`:
+- [X] T015 Ajustes en `backend/app/core/config.py`:
   - `CERTIFICADO_RUTA` y `CERTIFICADO_CONTRASENA` (`SecretStr`);
   - `SIF_PRODUCTOR_DIRECCION`, `SIF_DECLARACION_FECHA` y `SIF_DECLARACION_LUGAR`, obligatorios en
     producción, como el productor;
   - ampliar `backend/tests/unit/test_config_sif.py`.
-- [ ] T016 `backend/app/services/certificado.py` (R-6): carga del PKCS#12 con caché por proceso y
+- [X] T016 `backend/app/services/certificado.py` (R-6): carga del PKCS#12 con caché por proceso y
   recarga si cambia la fecha del fichero, `estado(en=…)` y `utilizable(en=…)`. Hace pasar T007.
-- [ ] T017 `backend/app/services/firma.py` (R-2, R-3):
+- [X] T017 `backend/app/services/firma.py` (R-2, R-3):
   - `validar(elemento, esquema)`, con los XSD locales y un resolvedor sin red;
   - `firmar(elemento, certificado)`, con la subclase de `XAdESSigner` (`SPURI`, `Encoding` y
     `SigningCertificate`), que devuelve los bytes UTF-8;
   - `verificar(xml_firmado)`, que devuelve si es válida y el certificado.
 
   Hace pasar T008.
-- [ ] T018 [P] Ayuda de pruebas `backend/tests/certificados.py` (generación de PKCS#12 de prueba) y
+- [X] T018 [P] Ayuda de pruebas `backend/tests/certificados.py` (generación de PKCS#12 de prueba) y
   `backend/tests/conftest.py`: un certificado de prueba de sesión, en una carpeta temporal, que se
   publica en `CERTIFICADO_RUTA` y `CERTIFICADO_CONTRASENA` antes de importar la aplicación. El paso
   a `no_verifactu` por defecto llega en US1, cuando ya se firma (T026).
-- [ ] T019 CLI `generar-certificado-pruebas` en `backend/app/cli.py` ([contracts/cli.md](contracts/cli.md)),
+- [X] T019 CLI `generar-certificado-pruebas` en `backend/app/cli.py` ([contracts/cli.md](contracts/cli.md)),
   con test en `backend/tests/integration/test_cli.py`. Se niega en producción.
-- [ ] T020 Entorno de desarrollo y de E2E:
+- [X] T020 Entorno de desarrollo y de E2E:
   - en `docker-compose.yml`, los servicios `api` y `api-e2e` llevan
     `CERTIFICADO_RUTA=/app/var/certificados/pruebas.p12` y `CERTIFICADO_CONTRASENA=pruebas`. El
     certificado es de prueba, no secreto. `backend/var/` está montado y fuera de git, así que el
@@ -168,7 +168,7 @@ historia empieza sin esto.
     3. **reinicia `api-e2e`** y espera a que responda, para que el evento de inicio quede en la BD
        ya reconstruida;
   - `.env.example` documenta las variables nuevas.
-- [ ] T021 Las suites de 002, 003 y 005 siguen en verde con el certificado de sesión, todavía en
+- [X] T021 Las suites de 002, 003 y 005 siguen en verde con el certificado de sesión, todavía en
   `verifactu` por defecto: `uv run pytest`.
 
 **Checkpoint**: XML válido, firma verificable, certificado cargado y migración aplicada, con todo
@@ -209,7 +209,7 @@ firma se verifica. Sin certificado, no se emite y no se consume número.
 
 ### Implementation for User Story 1
 
-- [ ] T025 [US1] `backend/app/services/cadena.py` (R-4): `create_registro_alta` y
+- [X] T025 [US1] `backend/app/services/cadena.py` (R-4): `create_registro_alta` y
   `create_registro_anulacion`, en `no_verifactu`, antes de `repo.insert`:
   1. comprueban el certificado utilizable en la fecha de generación;
   2. generan el XML, lo validan y lo firman;
@@ -389,7 +389,7 @@ sistema da su anomalía, su evento y la alarma.
 
   Lo hace con `backend/app/repositories/comprobaciones.py`. Hace pasar T041.
 - [ ] T048 [US3] `backend/app/services/cadena.verify_tail` (R-5): en `no_verifactu` genera el evento
-  04, con una comprobación de origen `emision`, y continúa. En `verifactu`, sin cambios. Hace pasar
+  04, si esa anomalía no estaba ya registrada, y continúa. En `verifactu`, sin cambios. Hace pasar
   T043.
 - [ ] T049 [US3] `backend/app/services/alarmas.py` (R-11) y `GET /v1/alarmas` en
   `backend/app/api/v1/alarmas.py`, para cualquier sesión. Sale de `PENDIENTES_004`. Hace pasar T042.
