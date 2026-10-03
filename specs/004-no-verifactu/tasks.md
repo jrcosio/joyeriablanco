@@ -126,8 +126,7 @@ historia empieza sin esto.
   - `configuracion_facturacion.modalidad = 'no_verifactu'` donde sea NULL.
 - [ ] T011 [P] Enumeraciones en `backend/app/domain/tipos.py`:
   - `TipoEventoSif`, `TipoAnomalia` y `EstadoRemision.NO_APLICA`;
-  - los `TipoEvento` de auditoría `REGISTROS_EXPORTADOS`, `INTEGRIDAD_COMPROBADA` y
-    `CERTIFICADO_NO_UTILIZABLE`.
+  - los `TipoEvento` de auditoría `REGISTROS_EXPORTADOS` e `INTEGRIDAD_COMPROBADA`.
 - [ ] T012 [P] Modelos:
   - `backend/app/models/registro_evento.py`;
   - `backend/app/models/comprobacion_integridad.py`;
@@ -153,22 +152,24 @@ historia empieza sin esto.
 
   Hace pasar T008.
 - [ ] T018 [P] Ayuda de pruebas `backend/tests/certificados.py` (generación de PKCS#12 de prueba) y
-  `backend/tests/conftest.py`:
-  - un certificado de prueba de sesión, en una carpeta temporal, que se publica en
-    `CERTIFICADO_RUTA` y `CERTIFICADO_CONTRASENA` antes de importar la aplicación;
-  - `backend/tests/integration/facturacion_datos.configurar_facturacion` pasa a
-    `modalidad="no_verifactu"` por defecto.
+  `backend/tests/conftest.py`: un certificado de prueba de sesión, en una carpeta temporal, que se
+  publica en `CERTIFICADO_RUTA` y `CERTIFICADO_CONTRASENA` antes de importar la aplicación. El paso
+  a `no_verifactu` por defecto llega en US1, cuando ya se firma (T026).
 - [ ] T019 CLI `generar-certificado-pruebas` en `backend/app/cli.py` ([contracts/cli.md](contracts/cli.md)),
   con test en `backend/tests/integration/test_cli.py`. Se niega en producción.
 - [ ] T020 Entorno de desarrollo y de E2E:
   - en `docker-compose.yml`, los servicios `api` y `api-e2e` llevan
-    `CERTIFICADO_RUTA=/tmp/certificado-pruebas.p12` y `CERTIFICADO_CONTRASENA`;
-  - `joyeriablanco_web/e2e/global-setup.ts` genera el certificado con `generar-certificado-pruebas`
-    antes de reiniciar la BD;
+    `CERTIFICADO_RUTA=/app/var/certificados/pruebas.p12` y `CERTIFICADO_CONTRASENA=pruebas`. El
+    certificado es de prueba, no secreto. `backend/var/` está montado y fuera de git, así que el
+    fichero sobrevive a la recreación del contenedor;
+  - `joyeriablanco_web/e2e/global-setup.ts` hace lo siguiente, en orden:
+    1. genera el certificado con `generar-certificado-pruebas`;
+    2. reinicia la BD y carga los datos de ejemplo;
+    3. **reinicia `api-e2e`** y espera a que responda, para que el evento de inicio quede en la BD
+       ya reconstruida;
   - `.env.example` documenta las variables nuevas.
-- [ ] T021 Las suites de 002, 003 y 005 siguen en verde en `no_verifactu`, con el certificado de
-  sesión: `uv run pytest`. Se ajustan las expectativas que dependían de `pendiente` o de
-  «remisión»: `estado_remision` pasa a `no_aplica`.
+- [ ] T021 Las suites de 002, 003 y 005 siguen en verde con el certificado de sesión, todavía en
+  `verifactu` por defecto: `uv run pytest`.
 
 **Checkpoint**: XML válido, firma verificable, certificado cargado y migración aplicada, con todo
 lo anterior en verde.
@@ -192,8 +193,9 @@ firma se verifica. Sin certificado, no se emite y no se consume número.
   - la `Huella` del XML es la de la columna;
   - una conversión de presupuesto (005) también firma;
   - sin certificado, o con el certificado caducado, aún no válido o de pruebas en producción:
-    - emitir, emitir un borrador, modificar y anular responden 409 `emision-no-disponible` con
-      `faltan: ["certificado"]` y el `motivo`;
+    - emitir, emitir un borrador, convertir un presupuesto (al emitir su borrador), rectificar,
+      modificar y anular responden 409 `emision-no-disponible` con `faltan: ["certificado"]` y el
+      `motivo`;
     - no hay factura, registro ni número consumido (contador);
   - los parámetros de facturación incluyen `certificado` en `faltan` y `certificado_caduca_el`;
   - en `verifactu` no se firma (el modelo sigue admitiendo las dos modalidades).
@@ -214,25 +216,35 @@ firma se verifica. Sin certificado, no se emite y no se consume número.
   3. guardan `xml_firmado`, `certificado_titular` y `certificado_huella`, con `no_aplica`.
 
   Si algo falla, `EmisionNoDisponible(faltan=["certificado"], motivo=…)`.
-- [ ] T026 [US1] `backend/app/services/configuracion_facturacion.py`:
+- [ ] T026 [US1] Paso a No VERI\*FACTU por defecto (R-14; FR-030 a FR-032):
+  - `backend/tests/integration/facturacion_datos.configurar_facturacion` usa
+    `modalidad="no_verifactu"` por defecto;
+  - `backend/app/services/datos_ejemplo.py` carga en `no_verifactu`, con el certificado de
+    `CERTIFICADO_RUTA` o, si no hay ninguno, con uno de prueba temporal. Test en
+    `backend/tests/integration/test_datos_ejemplo.py`: los registros quedan firmados;
+  - las suites de 002, 003 y 005 siguen en verde. Se ajustan las expectativas: `estado_remision`
+    pasa a `no_aplica`, y el QR del PDF sigue siendo el de cotejo No VERI\*FACTU, sin la frase
+    (003, FR-030);
+  - el fixture web `joyeriablanco_web/src/test/facturas.ts` pasa a `no_aplica`.
+- [ ] T027 [US1] `backend/app/services/configuracion_facturacion.py`:
   - `faltan` incluye `certificado` cuando no es utilizable;
   - `certificado_caduca_el` en los parámetros;
   - el bloque `certificado` en la salida;
   - `modalidad: verifactu` se rechaza con 422 en el campo;
   - el mensaje de `ModalidadBloqueada` se revisa (R-14).
-- [ ] T027 [US1] Esquemas y API de 002, con el contrato «ampliado en 004»:
+- [ ] T028 [US1] Esquemas y API de 002, con el contrato «ampliado en 004»:
   - `backend/app/schemas/factura.py → RegistroResumen` (`firmado`, `certificado_titular`,
     `huella_correcta` y `firma_correcta`), calculado en `backend/app/services/facturas.get_factura`
     con `firma.verificar` y la huella recalculada;
   - `schemas/configuracion_facturacion.py`: `certificado` y `certificado_caduca_el`.
-- [ ] T028 [US1] Web:
+- [ ] T029 [US1] Web:
   - regenerar los tipos (`exportar-openapi` y `gen:api`);
   - `joyeriablanco_web/src/features/facturas/HistorialFactura.tsx`: firmado y chips;
   - `lib/facturacion.ts → textoFalta('certificado')`;
   - el aviso de caducidad en `FacturaModal.tsx`.
 
   Hace pasar T024.
-- [ ] T029 [US1] E2E en `joyeriablanco_web/e2e/facturas.spec.ts`: la consulta de una factura emitida
+- [ ] T030 [US1] E2E en `joyeriablanco_web/e2e/facturas.spec.ts`: la consulta de una factura emitida
   muestra «Firmado» y «Firma correcta».
 
 **Checkpoint**: MVP. Toda factura nueva deja su registro firmado, y sin certificado no se factura.
@@ -249,7 +261,7 @@ ven en «Registro fiscal → Eventos».
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T030 [P] [US2] ⚖️ Test `backend/tests/integration/test_eventos_sif.py`:
+- [ ] T031 [P] [US2] ⚖️ Test `backend/tests/integration/test_eventos_sif.py`:
   - `record_evento` encadena, calcula la huella de F-2 §3.c, valida contra F-17 y firma;
   - el primero lleva `PrimerEvento`;
   - 20 eventos simultáneos, en sesiones que confirman, dan una cadena sin huecos;
@@ -257,44 +269,44 @@ ven en «Registro fiscal → Eventos».
   - el contenido del resumen: eventos por tipo, primer y último registro, altas, anulaciones y
     sumas `NUMERIC`;
   - sin certificado no se genera evento, se registra un aviso y la llamada no falla.
-- [ ] T031 [P] [US2] Test `backend/tests/integration/test_eventos_lider.py` (R-8), con reloj
+- [ ] T032 [P] [US2] Test `backend/tests/integration/test_eventos_lider.py` (R-8), con reloj
   simulado:
   - dos *lifespans* simultáneos generan un solo 01;
   - pasadas 6 horas, un 10, también sin eventos;
   - al cerrar, un 10 y un 02;
   - si el líder cae sin cerrar, el siguiente genera su 01 y el resumen cubre el intervalo.
-- [ ] T032 [P] [US2] Test `backend/tests/integration/test_api_eventos.py`:
+- [ ] T033 [P] [US2] Test `backend/tests/integration/test_api_eventos.py`:
   - `GET /v1/registro-fiscal/eventos` con filtros por tipo y por fechas, y paginación;
   - el detalle con saltos al anterior y al siguiente;
   - un empleado recibe 403.
-- [ ] T033 [P] [US2] Tests web, en `joyeriablanco_web/src/features/registro-fiscal/`:
+- [ ] T034 [P] [US2] Tests web, en `joyeriablanco_web/src/features/registro-fiscal/`:
   - `RegistroFiscalPage.test.tsx`: las pestañas;
   - `EventosTab.test.tsx`: lista, filtros en la URL, detalle y estados de carga, vacío y error;
   - `Sidebar.test.tsx`: «Registro fiscal» solo para administradores.
 
 ### Implementation for User Story 2
 
-- [ ] T034 [P] [US2] `backend/app/repositories/eventos.py`:
+- [ ] T035 [P] [US2] `backend/app/repositories/eventos.py`:
   - el cerrojo «JBEVEN» y el último evento;
   - insertar, listar con filtros y obtener por secuencia;
   - el rango por fecha y los recuentos por tipo desde una secuencia.
-- [ ] T035 [US2] `backend/app/services/eventos_sif.py` (R-7):
+- [ ] T036 [US2] `backend/app/services/eventos_sif.py` (R-7):
   - `record_evento(tipo, datos)`, en una sesión propia que confirma, con la comprobación previa
     del último evento por analogía con el 7.i;
   - el contenido del resumen;
   - `Lider`, con el cerrojo consultivo de sesión «JBSIFL», el inicio, la tarea periódica de 1
     minuto y el cierre.
 
-  Hace pasar T030 y T031.
-- [ ] T036 [US2] `backend/app/lifespan.py`: arrancar el líder (inicio) y pararlo al cerrar (resumen
+  Hace pasar T031 y T032.
+- [ ] T037 [US2] `backend/app/lifespan.py`: arrancar el líder (inicio) y pararlo al cerrar (resumen
   y fin). Nunca impide que la API arranque.
-- [ ] T037 [US2] API `backend/app/api/v1/registro_fiscal.py` (solo `AdminSession`) con esquemas en
+- [ ] T038 [US2] API `backend/app/api/v1/registro_fiscal.py` (solo `AdminSession`) con esquemas en
   `backend/app/schemas/registro_fiscal.py`:
   - `GET /v1/registro-fiscal/eventos`;
   - `GET /v1/registro-fiscal/eventos/{secuencia}`, con los saltos de R-9.
 
-  Salen de `PENDIENTES_004`. Hace pasar T032.
-- [ ] T038 [US2] Web:
+  Salen de `PENDIENTES_004`. Hace pasar T033.
+- [ ] T039 [US2] Web:
   - la ruta `joyeriablanco_web/src/routes/_app/registro-fiscal.tsx`, con `requireAdmin` y la
     pestaña en la URL;
   - `features/registro-fiscal/RegistroFiscalPage.tsx` y `EventosTab.tsx`, con el modal de detalle;
@@ -302,8 +314,8 @@ ven en «Registro fiscal → Eventos».
   - la entrada en `Sidebar.tsx`;
   - los textos de los tipos de evento en `lib/registro-fiscal.ts`.
 
-  Hace pasar T033.
-- [ ] T039 [US2] E2E en `joyeriablanco_web/e2e/registro-fiscal.spec.ts`: el administrador ve el
+  Hace pasar T034.
+- [ ] T040 [US2] E2E en `joyeriablanco_web/e2e/registro-fiscal.spec.ts`: el administrador ve el
   evento de inicio del arranque de `api-e2e` y su detalle. Un empleado no ve la entrada.
 
 **Checkpoint**: registro de eventos completo y consultable.
@@ -323,7 +335,7 @@ sistema da su anomalía, su evento y la alarma.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T040 [P] [US3] ⚖️ Test `backend/tests/integration/test_integridad_anomalias.py`. Las
+- [ ] T041 [P] [US3] ⚖️ Test `backend/tests/integration/test_integridad_anomalias.py`. Las
   alteraciones se hacen con `jb_owner`, desactivando los triggers, como en
   `test_verificar_cadena.py`.
   - Cadena íntegra: resultado íntegro, eventos 03 y 05 con los recuentos de las cuatro
@@ -338,27 +350,30 @@ sistema da su anomalía, su evento y la alarma.
     - fecha futura: 13;
     - evento alterado: 06.
   - Comprobación de un rango parcial.
-- [ ] T041 [P] [US3] Test `backend/tests/integration/test_alarmas.py` (R-11):
+- [ ] T042 [P] [US3] Test `backend/tests/integration/test_alarmas.py` (R-11):
   - sin anomalías no hay alarma;
   - con una anomalía, la alarma está activa para cualquier sesión;
   - una comprobación posterior, desde después del registro afectado hasta el final, la apaga;
   - con el certificado no utilizable, la alarma de certificado;
   - un empleado ve la alarma.
-- [ ] T042 [P] [US3] ⚖️ Test de la emisión ante una anomalía (FR-010), en
+- [ ] T043 [P] [US3] ⚖️ Test de la emisión ante una anomalía (FR-010), en
   `backend/tests/integration/test_cadena_registros.py` (002, ampliado):
   - en `no_verifactu`, con el último registro alterado, la factura **se emite**, se genera el
     evento 04 y la alarma, y el nuevo registro encadena con la huella guardada;
+  - lo mismo si la fecha de generación del último registro supera en más de 1 minuto la hora
+    actual (anomalía 13);
   - en `verifactu` se conserva el bloqueo de la 002.
-- [ ] T043 [P] [US3] Test `backend/tests/integration/test_api_cadena.py`:
+- [ ] T044 [P] [US3] Test `backend/tests/integration/test_api_cadena.py`:
   - `GET /v1/registro-fiscal/registros/{secuencia}` con los saltos, el encadenamiento y las
     fechas;
   - el primero sin anterior y el último sin siguiente;
-  - `POST /v1/registro-fiscal/comprobaciones` con y sin rango, con CSRF;
+  - `POST /v1/registro-fiscal/comprobaciones` con y sin rango, con CSRF. Sin certificado
+    utilizable, 409 `emision-no-disponible` sin evento;
   - un empleado recibe 403.
-- [ ] T044 [P] [US3] Test de la CLI en `backend/tests/integration/test_cli.py`: `verificar-cadena`
+- [ ] T045 [P] [US3] Test de la CLI en `backend/tests/integration/test_cli.py`: `verificar-cadena`
   devuelve el código 0 si está íntegra y 1 con una anomalía, y admite `--desde` y `--hasta`
   ([contracts/cli.md](contracts/cli.md)).
-- [ ] T045 [P] [US3] Tests web:
+- [ ] T046 [P] [US3] Tests web:
   - `components/layout/BandaAlarma.test.tsx`: dos alarmas, enlace solo para administradores y
     `role="alert"`;
   - `features/registro-fiscal/CadenaTab.test.tsx` y `ComprobarTab.test.tsx`;
@@ -366,34 +381,34 @@ sistema da su anomalía, su evento y la alarma.
 
 ### Implementation for User Story 3
 
-- [ ] T046 [US3] `backend/app/services/integridad.py` (R-9, R-10):
+- [ ] T047 [US3] `backend/app/services/integridad.py` (R-9, R-10):
   - amplía `verify_chain` con el rango, la firma y la comprobación de las columnas frente al XML;
   - comprueba también la cadena de eventos;
   - genera los eventos 03, 04, 05 y 06 con `eventos_sif.record_evento` y la fila de
     `comprobaciones_integridad`.
 
-  Lo hace con `backend/app/repositories/comprobaciones.py`. Hace pasar T040.
-- [ ] T047 [US3] `backend/app/services/cadena.verify_tail` (R-5): en `no_verifactu` genera el evento
+  Lo hace con `backend/app/repositories/comprobaciones.py`. Hace pasar T041.
+- [ ] T048 [US3] `backend/app/services/cadena.verify_tail` (R-5): en `no_verifactu` genera el evento
   04, con una comprobación de origen `emision`, y continúa. En `verifactu`, sin cambios. Hace pasar
-  T042.
-- [ ] T048 [US3] `backend/app/services/alarmas.py` (R-11) y `GET /v1/alarmas` en
-  `backend/app/api/v1/alarmas.py`, para cualquier sesión. Sale de `PENDIENTES_004`. Hace pasar T041.
-- [ ] T049 [US3] API en `backend/app/api/v1/registro_fiscal.py`:
+  T043.
+- [ ] T049 [US3] `backend/app/services/alarmas.py` (R-11) y `GET /v1/alarmas` en
+  `backend/app/api/v1/alarmas.py`, para cualquier sesión. Sale de `PENDIENTES_004`. Hace pasar T042.
+- [ ] T050 [US3] API en `backend/app/api/v1/registro_fiscal.py`:
   - `GET /v1/registro-fiscal/registros/{secuencia}`;
   - `POST /v1/registro-fiscal/comprobaciones` (201), con el evento de auditoría
     `INTEGRIDAD_COMPROBADA`.
 
-  Salen de `PENDIENTES_004`. Hace pasar T043.
-- [ ] T050 [US3] CLI `verificar-cadena`, ampliada según [contracts/cli.md](contracts/cli.md). Hace
-  pasar T044.
-- [ ] T051 [US3] Web:
+  Salen de `PENDIENTES_004`. Hace pasar T044.
+- [ ] T051 [US3] CLI `verificar-cadena`, ampliada según [contracts/cli.md](contracts/cli.md). Hace
+  pasar T045.
+- [ ] T052 [US3] Web:
   - `components/layout/BandaAlarma.tsx` en el *layout*, con la query de alarmas al cambiar de ruta
     y cada 60 s;
   - `features/registro-fiscal/CadenaTab.tsx` y `ComprobarTab.tsx`;
   - «Ver en la cadena» en `HistorialFactura.tsx`.
 
-  Hace pasar T045.
-- [ ] T052 [US3] E2E en `joyeriablanco_web/e2e/registro-fiscal.spec.ts`:
+  Hace pasar T046.
+- [ ] T053 [US3] E2E en `joyeriablanco_web/e2e/registro-fiscal.spec.ts`:
   - «Comprobar integridad» da «Íntegra», con los eventos 03 y 05 en la lista;
   - la navegación por la cadena desde una factura;
   - ninguna banda de alarma.
@@ -411,28 +426,29 @@ sistema da su anomalía, su evento y la alarma.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T053 [P] [US4] Test `backend/tests/integration/test_exportacion.py`:
+- [ ] T054 [P] [US4] Test `backend/tests/integration/test_exportacion.py`:
   - estructura del ZIP (nombres, orden, `indice.csv`, `manifiesto.sha256` y `resumen.txt`);
   - cada XML idéntico byte a byte a `xml_firmado` y verificable fuera de la BD;
   - el periodo en días completos, hora de Madrid y extremos incluidos;
   - el evento 08 con sus sumas `NUMERIC` y «N», y el 09 para los eventos;
   - un periodo vacío da 422 `sin-registros` sin evento, y «desde» posterior a «hasta», 422;
+  - sin certificado utilizable, 409 `emision-no-disponible`, sin fichero y sin evento;
   - un empleado recibe 403;
   - el evento de auditoría `REGISTROS_EXPORTADOS`;
   - la CLI `exportar-registros`, con sus códigos.
-- [ ] T054 [P] [US4] Test web `features/registro-fiscal/ExportarTab.test.tsx`: valores por defecto
+- [ ] T055 [P] [US4] Test web `features/registro-fiscal/ExportarTab.test.tsx`: valores por defecto
   (el mes en curso), validación, `href` de la descarga y aviso de periodo vacío.
 
 ### Implementation for User Story 4
 
-- [ ] T055 [US4] `backend/app/services/exportacion.py` (R-12), con las consultas por rango en
+- [ ] T056 [US4] `backend/app/services/exportacion.py` (R-12), con las consultas por rango en
   `repositories/registros.py` y `eventos.py`: ZIP en un fichero temporal y evento 08 o 09 al
   terminar.
-- [ ] T056 [US4] `GET /v1/registro-fiscal/exportacion` en `backend/app/api/v1/registro_fiscal.py`
+- [ ] T057 [US4] `GET /v1/registro-fiscal/exportacion` en `backend/app/api/v1/registro_fiscal.py`
   (`FileResponse`, `attachment`) y la CLI `exportar-registros`. Sale de `PENDIENTES_004`. Hace pasar
-  T053.
-- [ ] T057 [US4] Web: `features/registro-fiscal/ExportarTab.tsx`. Hace pasar T054.
-- [ ] T058 [US4] E2E en `registro-fiscal.spec.ts`: exportar el día de hoy descarga un ZIP que empieza
+  T054.
+- [ ] T058 [US4] Web: `features/registro-fiscal/ExportarTab.tsx`. Hace pasar T055.
+- [ ] T059 [US4] E2E en `registro-fiscal.spec.ts`: exportar el día de hoy descarga un ZIP que empieza
   por `PK`, y el evento de exportación aparece en la lista.
 
 **Checkpoint**: conservación y requerimientos cubiertos con la exportación.
@@ -449,16 +465,14 @@ se abre «Acerca del sistema» y se descarga la declaración.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T059 [P] [US5] Test `backend/tests/integration/test_sistema.py`:
+- [ ] T060 [P] [US5] Test `backend/tests/integration/test_sistema.py`:
   - `GET /v1/sistema` para cualquier sesión, con los datos del sistema y la declaración (título
     literal, letras a a l en orden y con los textos del art. 15.1, e) y f) «No», g) XAdES
     Enveloped, productor de los ajustes);
   - el PDF, con su `Content-Disposition`;
   - la producción exige los ajustes nuevos (en el test de configuración);
-  - la configuración devuelve el bloque `certificado`;
-  - `datos_ejemplo`, en `backend/tests/integration/test_datos_ejemplo.py`, carga en `no_verifactu`
-    con los registros firmados.
-- [ ] T060 [P] [US5] Tests web:
+  - la configuración devuelve el bloque `certificado`.
+- [ ] T061 [P] [US5] Tests web:
   - `features/sistema/AcercaPage.test.tsx`;
   - el enlace en el menú de usuario y en el pie del menú lateral;
   - `features/configuracion/FacturacionPage.test.tsx`: modalidad fija, VERI\*FACTU desactivada y
@@ -466,21 +480,20 @@ se abre «Acerca del sistema» y se descarga la declaración.
 
 ### Implementation for User Story 5
 
-- [ ] T061 [US5] `backend/app/services/sistema.py` (R-13), la plantilla
+- [ ] T062 [US5] `backend/app/services/sistema.py` (R-13), la plantilla
   `backend/app/resources/pdf/declaracion.html` («Paper») y la API `backend/app/api/v1/sistema.py`:
   - `GET /v1/sistema`;
   - `GET /v1/sistema/declaracion-responsable/pdf`, con la CSP de los PDF y la excepción del
     `Caddyfile` ampliada a `/api/v1/sistema/declaracion-responsable/pdf`.
 
-  Salen de `PENDIENTES_004`. Hace pasar T059.
-- [ ] T062 [US5] `backend/app/services/datos_ejemplo.py`: carga en `no_verifactu` con el certificado
-  de `CERTIFICADO_RUTA`. Si no hay ninguno, genera uno de prueba temporal (R-14).
+  Salen de `PENDIENTES_004`. Hace pasar T060.
 - [ ] T063 [US5] Web:
   - `features/sistema/AcercaPage.tsx` y la ruta `routes/_app/acerca.tsx`;
   - los enlaces en `UserMenu` y en el pie de `Sidebar`;
-  - en `FacturacionPage.tsx`, la modalidad fija y la tarjeta «Certificado de firma».
+  - en `FacturacionPage.tsx`, la modalidad fija y la tarjeta «Certificado de firma». Desaparece el
+    texto que anuncia el cambio de modalidad «con la remisión a la AEAT» (FR-031).
 
-  Hace pasar T060.
+  Hace pasar T061.
 - [ ] T064 [US5] Producción:
   - `docker-compose.prod.yml`, con el *secret* del certificado en solo lectura y la ruta;
   - la CLI `estado-certificado` ([contracts/cli.md](contracts/cli.md)) y su comprobación en
@@ -541,12 +554,13 @@ se abre «Acerca del sistema» y se descarga la declaración.
   - T017 depende de T014 y T016;
   - T018–T020 dependen de T016 y T017;
   - T021 depende de todo lo anterior.
-- **US1 (T022–T029)**: depende de la fundacional. Es el MVP.
-- **US2 (T030–T039)**: depende de la fundacional (firma y XML de eventos). Es independiente de US1
+- **US1 (T022–T030)**: depende de la fundacional. Es el MVP. T026 (paso a No VERI\*FACTU por
+  defecto) va después de T025, porque antes no se firma.
+- **US2 (T031–T040)**: depende de la fundacional (firma y XML de eventos). Es independiente de US1
   salvo el resumen, que cuenta registros.
-- **US3 (T040–T052)**: depende de US1 (registros firmados) y de US2 (eventos).
-- **US4 (T053–T058)**: depende de US1 y de US2 (evento de exportación).
-- **US5 (T059–T065)**: depende de US1 (certificado en la configuración). Va en paralelo con US2–US4.
+- **US3 (T041–T053)**: depende de US1 (registros firmados) y de US2 (eventos).
+- **US4 (T054–T059)**: depende de US1 y de US2 (evento de exportación).
+- **US5 (T060–T065)**: depende de US1 (certificado en la configuración). Va en paralelo con US2–US4.
 - **Polish (T066–T073)**: al final.
 
 ### Parallel Opportunities
@@ -558,8 +572,8 @@ se abre «Acerca del sistema» y se descarga la declaración.
 ### Parallel Example: User Story 3
 
 ```text
-Tests a la vez: T040 (integridad), T041 (alarmas), T042 (emisión ante anomalía), T043 (API de la cadena), T044 (CLI), T045 (web)
-Después: T046 → T047 → T048 / T049 / T050 → T051 → T052
+Tests a la vez: T041 (integridad), T042 (alarmas), T043 (emisión ante anomalía), T044 (API de la cadena), T045 (CLI), T046 (web)
+Después: T047 → T048 → T049 / T050 / T051 → T052 → T053
 ```
 
 ## Implementation Strategy
@@ -568,7 +582,7 @@ Después: T046 → T047 → T048 / T049 / T050 → T051 → T052
 
 1. Setup y fundacional: XML, firma, certificado y migración.
 2. US1: toda factura firmada y bloqueo sin certificado.
-3. **Parar y validar**: emitir y verificar una firma. Después, T029.
+3. **Parar y validar**: emitir y verificar una firma. Después, T030.
 
 ### Incremental Delivery
 

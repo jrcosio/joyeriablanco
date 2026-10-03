@@ -6,13 +6,24 @@ Guía de validación. La puesta en marcha general está en `specs/001-cimientos-
 
 - La pila de desarrollo en marcha (`docker compose up -d --build`) y las migraciones aplicadas
   (`alembic upgrade head`, hasta la 0009).
-- Un certificado de prueba:
+- Un certificado de prueba. `docker-compose.yml` ya apunta `CERTIFICADO_RUTA` y
+  `CERTIFICADO_CONTRASENA` a `/app/var/certificados/pruebas.p12`, que está en `backend/var/`, fuera
+  de git y montado en el contenedor:
 
   ```bash
   docker compose exec api joyeria generar-certificado-pruebas \
-      --destino /tmp/certificado-pruebas.p12 --contrasena 'pruebas'
-  # .env: CERTIFICADO_RUTA=/tmp/certificado-pruebas.p12 y CERTIFICADO_CONTRASENA=pruebas
-  docker compose up -d api
+      --destino /app/var/certificados/pruebas.p12 --contrasena pruebas
+  docker compose restart api        # el evento de inicio ya sale firmado
+  ```
+
+- Datos de desarrollo regenerados. Los de antes de la 004 están en VERI\*FACTU y, con registros, la
+  modalidad queda bloqueada:
+
+  ```bash
+  docker compose down -v && docker compose up -d --build
+  docker compose exec api alembic upgrade head
+  docker compose exec api joyeria crear-admin --usuario admin --nombre "Administrador"
+  docker compose exec api joyeria cargar-datos-ejemplo
   ```
 
 ## 1. Pruebas automáticas

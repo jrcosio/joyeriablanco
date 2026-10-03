@@ -144,7 +144,7 @@ backend/
 │   ├── resources/aeat/xsd/                     # F-15, F-16, F-17, F-20 + README con SHA-256
 │   ├── resources/pdf/declaracion.html          # declaración en «Paper»
 │   ├── lifespan.py                             # + inicio, resumen periódico y fin (líder)
-│   └── cli.py                                  # verificar-cadena ampliado, exportar-registros, generar-certificado-pruebas
+│   └── cli.py                                  # verificar-cadena ampliado, exportar-registros, generar-certificado-pruebas, estado-certificado
 └── tests/
     ├── unit/domain/test_xml_registro.py, test_huella_evento.py
     └── integration/test_firma_registros.py, test_eventos_sif.py, test_integridad_anomalias.py,

@@ -322,7 +322,7 @@ factura.
   - **Datos**: el titular, su identificación fiscal, el emisor y la validez (desde y hasta), con
     los días que quedan.
   - **Estado**: utilizable, o no utilizable con el motivo (no instalado, ilegible, caducado,
-    aún no válido o no apto para firmar).
+    aún no válido, sin clave privada, no apto para firmar o de pruebas en producción).
   - **Aviso**: desde 30 días antes de la caducidad, en la configuración y en el modal de emisión.
 - **FR-004**: Si el certificado no es utilizable en la fecha y hora de generación, toda operación
   que genere registros de facturación DEBE rechazarse (emitir, emitir un borrador, convertir un

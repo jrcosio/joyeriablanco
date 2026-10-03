@@ -102,8 +102,9 @@ Cada comprobación lanzada, con su resultado. Alimenta la alarma (R-11).
   `ANOMALIA_FACTURACION "04"`, `LANZAMIENTO_ANOMALIAS_EVENTOS "05"`, `ANOMALIA_EVENTOS "06"`,
   `EXPORTACION_FACTURACION "08"`, `EXPORTACION_EVENTOS "09"` y `RESUMEN "10"`.
 - `TipoAnomalia`: `01`, `02`, `03`, `04`, `05`, `07`, `08`, `11` y `13` (R-10).
-- `TipoEvento` de auditoría: + `REGISTROS_EXPORTADOS`, `INTEGRIDAD_COMPROBADA` y
-  `CERTIFICADO_NO_UTILIZABLE`. Hay que rehacer el CHECK de `eventos_auditoria`, como en 0005 y 0008.
+- `TipoEvento` de auditoría: + `REGISTROS_EXPORTADOS` e `INTEGRIDAD_COMPROBADA`. Hay que rehacer
+  el CHECK de `eventos_auditoria`, como en 0005 y 0008. Un certificado no utilizable no se audita:
+  lo señala la alarma (R-11).
 
 ## Configuración (002), ampliada
 
