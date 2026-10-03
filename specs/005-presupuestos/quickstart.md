@@ -120,7 +120,7 @@ deploy/verificar-produccion.sh <dominio>
 | 15 | `test_clientes_ciclo_vida.py` (409 con presupuestos o borradores de presupuesto) |
 | 16 | `test_pdf_listado_presupuestos.py` (105 filas en los cuatro órdenes, filtros, marcas, totales cuadrados al céntimo con el detalle de cada uno, «No se suman», límite y nombre del fichero) y E2E `presupuestos-listado.spec.ts` |
 | 17 | E2E `responsive.spec.ts` (360, 768 y 1440 px) y `acciones-visibles.spec.ts` (360 a 1536 px, 25 acciones visibles por página), y `teclado.spec.ts` (modal y diálogos con Escape y el foco devuelto) |
-| 18 | **Pendiente del responsable**: el cronometraje de SC-001 |
+| 18 | **Validado por el responsable** (2026-10-03): el cronometraje de SC-001 |
 
 **Conformidad con DESIGN.md 1.3** (T074), revisada con capturas a 1440 y 360 px del listado, el
 modal nuevo, la consulta de un pendiente y de un convertido, y los diálogos de convertir y anular:
@@ -138,7 +138,7 @@ encima de «Sustituye a».
   `caddy validate`.
 - `deploy/verificar-produccion.sh` comprueba el PDF de presupuestos (401 y la CSP de la API).
 
-**Pendiente del responsable** (T077):
+**Validado por el responsable** (2026-10-03, T077):
 - la revisión del PDF del presupuesto en papel;
 - el visor de PDF en Chrome, Firefox y Safari;
 - la vista a 360 px en un móvil real;

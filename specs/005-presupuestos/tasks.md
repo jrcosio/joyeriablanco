@@ -608,9 +608,9 @@ orden y los totales cuadran al céntimo. Los datos de ejemplo cubren todos los e
 - [X] T076 Puertas de calidad completas antes de cerrar:
   - **Backend**: `uv run pytest`, `uv run pytest -m lento`, `uv run ruff check . && uv run ruff format --check . && uv run mypy .` y `uv run joyeria verificar-cadena` sobre los datos de ejemplo.
   - **Web**: `npm run lint && npm run typecheck && npm run test && npm run build && npm run check:tokens` y `npx playwright test`.
-- [ ] T077 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 18), con el paso cronometrado de SC-001. La revisión visual del papel, el visor de PDF de cada navegador y la vista a 360 px quedan **pendientes del responsable** si no se pueden hacer en el entorno.
+- [X] T077 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 18), con el paso cronometrado de SC-001. La revisión visual del papel, el visor de PDF de cada navegador y la vista a 360 px quedan **pendientes del responsable** si no se pueden hacer en el entorno.
   - *Hecho*: los pasos 1 a 17, cubiertos por pruebas automáticas y por la revisión de capturas (quickstart, «Resultado de la validación»).
-  - *Pendiente del responsable*: el papel, el visor de PDF de cada navegador, 360 px en un móvil real, la simulación de producción y el cronometraje del paso 18.
+  - *Validado por el responsable* (2026-10-03): el papel, el visor de PDF de cada navegador, 360 px en un móvil real, la simulación de producción y el cronometraje del paso 18.
 - [X] T078 Contrato completo: eliminar `PENDIENTES_005` de `backend/tests/integration/test_contrato_openapi.py` y dejar el test en verde. Debe quedar vacía tras T067.
 
 ---
