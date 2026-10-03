@@ -139,10 +139,13 @@ paths:
     get:
       tags: [registro-fiscal]
       summary: Exportar en ZIP los registros de un periodo, tal como se firmaron (Orden, art. 8.2). Genera el evento 08 o 09
+      description: |
+        Es un GET sin CSRF, como los PDF de 003: la descarga es una navegación. Su único efecto es
+        generar el evento de exportación, que solo puede provocar un administrador con sesión.
       parameters:
         - { name: tipo, in: query, required: true, schema: { type: string, enum: [facturacion, eventos] } }
-        - { name: desde, in: query, required: true, schema: { type: string, format: date-time }, description: "Fecha y hora de generación, en hora de Madrid si no lleva huso" }
-        - { name: hasta, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: desde, in: query, required: true, schema: { type: string, format: date }, description: "Primer día, desde las 00:00:00 en hora de Madrid, incluido (FR-022)" }
+        - { name: hasta, in: query, required: true, schema: { type: string, format: date }, description: "Último día, hasta las 23:59:59 en hora de Madrid, incluido. No puede ser anterior a `desde` (422 `validacion`)" }
       responses:
         "200":
           description: "ZIP (contracts/exportacion.md). `filename`: `registros-facturacion-AAAAMMDD-AAAAMMDD.zip` o `registros-eventos-…`"
@@ -286,7 +289,7 @@ components:
         huella: { type: string }
         certificado_titular: { type: [string, "null"] }
         huella_correcta: { type: boolean }
-        firma_correcta: { type: boolean }
+        firma_correcta: { type: [boolean, "null"], description: "Nulo si el registro no lleva firma (VERI*FACTU)" }
         anterior: { oneOf: [{ $ref: "#/components/schemas/Salto" }, { type: "null" }] }
         siguiente: { oneOf: [{ $ref: "#/components/schemas/Salto" }, { type: "null" }] }
 

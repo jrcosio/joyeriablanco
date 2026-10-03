@@ -634,8 +634,8 @@ components:
         estado_remision: { type: string, enum: [pendiente, no_aplica], description: "Ampliado en 004: `no_aplica` en No VERI*FACTU" }
         firmado: { type: boolean, description: "Ampliado en 004 (FR-011): el registro lleva su firma XAdES" }
         certificado_titular: { type: [string, "null"], description: "Ampliado en 004 (FR-011)" }
-        huella_correcta: { type: [boolean, "null"], description: "Ampliado en 004 (Orden, art. 6.b)" }
-        firma_correcta: { type: [boolean, "null"], description: "Ampliado en 004 (Orden, art. 6.d)" }
+        huella_correcta: { type: [boolean, "null"], description: "Ampliado en 004 (Orden, art. 6.b). Se calcula al consultar la factura" }
+        firma_correcta: { type: [boolean, "null"], description: "Ampliado en 004 (Orden, art. 6.d). Nulo si el registro no lleva firma (VERI*FACTU)" }
 
     FacturaSalida:
       type: object

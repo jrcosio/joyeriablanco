@@ -363,7 +363,9 @@ factura.
 - **FR-011**: La consulta de una factura DEBE mostrar, en cada uno de sus registros:
   - «Firmado», con la fecha y hora y el titular del certificado, en lugar de «Remisión:
     pendiente»;
-  - una comprobación inmediata de su huella y de su firma (Orden, arts. 6.b y 6.d).
+  - una comprobación inmediata de su huella y de su firma (Orden, arts. 6.b y 6.d). Un registro sin
+    firma, generado en VERI\*FACTU, muestra «Sin firma (VERI\*FACTU)» en lugar del resultado de
+    la firma.
 
 #### Registro de eventos
 
@@ -430,12 +432,16 @@ factura.
   - si el encadenamiento de la huella es correcto;
   - si las fechas y horas de generación respetan el orden entre sí y con la hora actual.
 - **FR-021**: `verificar-cadena` DEBE terminar con código de error y señalar la primera anomalía si
-  alguna comprobación falla. Amplía el comportamiento de la 002.
+  alguna comprobación falla. Amplía el comportamiento de la 002 y admite un rango de secuencias.
+  Sus argumentos y su salida están en [contracts/cli.md](contracts/cli.md).
 
 #### Exportación
 
-- **FR-022**: Un administrador DEBE poder exportar, por periodo de fecha y hora de generación,
-  desde la web y desde la consola (`exportar-registros`):
+- **FR-022**: Un administrador DEBE poder exportar, por periodo, desde la web y desde la consola
+  (`exportar-registros`). El periodo son días completos de la fecha y hora de generación, en hora
+  de Madrid, con los dos extremos incluidos: «desde» empieza a las 00:00:00 y «hasta» acaba a las
+  23:59:59. «Desde» no puede ser posterior a «hasta», y por defecto se propone el mes en curso.
+  Se exportan:
   - los registros de facturación generados en él;
   - los registros de evento.
 

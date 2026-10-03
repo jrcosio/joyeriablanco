@@ -23,6 +23,9 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
   (motivo)».
 - **Detalle**: los administradores ven el enlace «Ver detalle», que lleva a «Registro fiscal».
 - **Actualización**: se consulta `GET /v1/alarmas` al cambiar de ruta y cada 60 s.
+- **Dos alarmas a la vez**: se apilan, primero la de integridad y después la de certificado. La
+  banda no tiene botón de cerrar: desaparece cuando la API deja de devolver la alarma.
+- **A 360 px**: el texto pasa a varias líneas, sin desplazamiento horizontal.
 
 ### Menú
 
@@ -48,7 +51,9 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
   - mientras dura, «Comprobando…», anunciado a los lectores de pantalla;
   - el resultado: «Íntegra», con los recuentos, o la lista de anomalías con su tipo y su registro.
 - **Exportar**:
-  - qué se exporta (registros de facturación o de evento) y el periodo, «desde» y «hasta»;
+  - qué se exporta (registros de facturación o de evento) y el periodo, «desde» y «hasta», días
+    completos con los dos extremos incluidos. Por defecto, el mes en curso hasta hoy. Si «desde» es
+    posterior a «hasta», error en el campo;
   - «Exportar» descarga el ZIP;
   - con un periodo vacío aparece el aviso «No hay registros en ese periodo».
 
@@ -83,6 +88,21 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
   - cada letra con su texto descriptivo del art. 15.1 seguido del valor, en una lista de
     definiciones;
   - «Descargar PDF», que abre el PDF en una pestaña nueva, como los de 003.
+
+### Estados comunes
+
+- **Carga**: *skeleton* de la tabla.
+- **Vacío**: «Todavía no hay eventos», o «No hay eventos con este filtro».
+- **Error**: alerta con el mensaje.
+
+Es el patrón de los listados de 002.
+
+### Teclado y móvil
+
+- **Pestañas** de «Registro fiscal»: React Aria, con las flechas y el foco visible.
+- **Modales de detalle**: Escape y foco devuelto, como en 002.
+- **A 360 px**: la lista de eventos pasa a tarjetas, como los listados de 002, y no hay
+  desplazamiento horizontal.
 
 ## Conformidad con `docs/DESIGN.md`
 
