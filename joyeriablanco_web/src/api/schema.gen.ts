@@ -493,6 +493,211 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/presupuestos/parametros": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Parametros */
+        get: operations["obtener_parametros_api_v1_presupuestos_parametros_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presupuestos/listado/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Imprimir Listado
+         * @description Listado completo del filtro en PDF, con los totales de los que se suman (005, US5).
+         */
+        get: operations["imprimir_listado_api_v1_presupuestos_listado_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presupuestos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Presupuestos */
+        get: operations["listar_presupuestos_api_v1_presupuestos_get"];
+        put?: never;
+        /** Emitir Presupuesto */
+        post: operations["emitir_presupuesto_api_v1_presupuestos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presupuestos/{presupuesto_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Presupuesto */
+        get: operations["obtener_presupuesto_api_v1_presupuestos__presupuesto_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presupuestos/{presupuesto_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Imprimir Presupuesto
+         * @description Presupuesto en PDF, sin QR tributario (005, US2). Cualquier sesión, como la consulta.
+         */
+        get: operations["imprimir_presupuesto_api_v1_presupuestos__presupuesto_id__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presupuestos/{presupuesto_id}/conversion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convertir Presupuesto
+         * @description Crea el borrador de factura vinculado y precargado (FR-018; research R-5). Sin cuerpo.
+         */
+        post: operations["convertir_presupuesto_api_v1_presupuestos__presupuesto_id__conversion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presupuestos/{presupuesto_id}/modificacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Modificar Presupuesto
+         * @description Sustitución trazable (FR-015): devuelve el presupuesto NUEVO. Solo administradores.
+         */
+        post: operations["modificar_presupuesto_api_v1_presupuestos__presupuesto_id__modificacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/presupuestos/{presupuesto_id}/anulacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Anular Presupuesto
+         * @description Anulación con motivo (FR-016). Una repetición devuelve lo mismo (200 en ambos casos).
+         */
+        post: operations["anular_presupuesto_api_v1_presupuestos__presupuesto_id__anulacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/borradores-presupuesto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crear Borrador */
+        post: operations["crear_borrador_api_v1_borradores_presupuesto_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/borradores-presupuesto/{borrador_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Borrador */
+        get: operations["obtener_borrador_api_v1_borradores_presupuesto__borrador_id__get"];
+        /** Guardar Borrador */
+        put: operations["guardar_borrador_api_v1_borradores_presupuesto__borrador_id__put"];
+        post?: never;
+        /** Borrar Borrador */
+        delete: operations["borrar_borrador_api_v1_borradores_presupuesto__borrador_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/borradores-presupuesto/{borrador_id}/emision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Emitir Borrador */
+        post: operations["emitir_borrador_api_v1_borradores_presupuesto__borrador_id__emision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -531,6 +736,11 @@ export interface components {
              * @constant
              */
             declaracion_no_debio_emitirse: true;
+            /** Motivo Texto */
+            motivo_texto: string;
+        };
+        /** AnulacionPresupuestoEntrada */
+        AnulacionPresupuestoEntrada: {
             /** Motivo Texto */
             motivo_texto: string;
         };
@@ -578,6 +788,112 @@ export interface components {
              */
             oro_inversion: boolean;
         };
+        /**
+         * BorradorPresupuestoEdicionEntrada
+         * @description Editar y emitir: la casilla es obligatoria, como en el borrador de factura (002, R-21).
+         */
+        BorradorPresupuestoEdicionEntrada: {
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /**
+             * Valido Hasta
+             * Format: date
+             */
+            valido_hasta: string;
+            /** Cliente Id */
+            cliente_id?: string | null;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             */
+            oro_inversion: boolean;
+            /** Version */
+            version: number;
+        };
+        /**
+         * BorradorPresupuestoEntrada
+         * @description Un borrador puede guardarse incompleto: sin cliente o sin líneas (FR-012).
+         */
+        BorradorPresupuestoEntrada: {
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /**
+             * Valido Hasta
+             * Format: date
+             */
+            valido_hasta: string;
+            /** Cliente Id */
+            cliente_id?: string | null;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             * @default false
+             */
+            oro_inversion: boolean;
+        };
+        /** BorradorPresupuestoSalida */
+        BorradorPresupuestoSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /**
+             * Valido Hasta
+             * Format: date
+             */
+            valido_hasta: string;
+            cliente: components["schemas"]["ClienteFacturaSalida"] | null;
+            /** Lineas */
+            lineas: components["schemas"]["LineaBorradorSalida"][];
+            /** Oro Inversion */
+            oro_inversion: boolean;
+            /** Mencion Exencion */
+            mencion_exencion: string | null;
+            totales_previstos: components["schemas"]["TotalesSalida"];
+            /**
+             * Tipo Iva Previsto
+             * @example 21.00
+             */
+            tipo_iva_previsto: string;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
+            creado_por: components["schemas"]["UsuarioReferencia"];
+            /**
+             * Actualizado En
+             * Format: date-time
+             */
+            actualizado_en: string;
+            actualizado_por: components["schemas"]["UsuarioReferencia"];
+        };
+        /** BorradorReferencia */
+        BorradorReferencia: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
         /** BorradorSalida */
         BorradorSalida: {
             /**
@@ -621,6 +937,8 @@ export interface components {
              */
             actualizado_en: string;
             actualizado_por: components["schemas"]["UsuarioReferencia"];
+            /** @description Ampliado en 005 (FR-018, FR-022): presupuesto del que procede el borrador creado por «Convertir en factura» */
+            presupuesto_origen?: components["schemas"]["PresupuestoReferencia"] | null;
         };
         /** CambioContrasenaEntrada */
         CambioContrasenaEntrada: {
@@ -646,6 +964,21 @@ export interface components {
          * @enum {string}
          */
         CausaRectificacion: "devolucion_o_precio" | "error_datos";
+        /** CierrePresupuestoSalida */
+        CierrePresupuestoSalida: {
+            tipo: components["schemas"]["TipoCierrePresupuesto"];
+            /** Motivo Texto */
+            motivo_texto: string | null;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
+            creado_por: components["schemas"]["UsuarioReferencia"];
+            presupuesto_nuevo: components["schemas"]["PresupuestoReferencia"] | null;
+            factura: components["schemas"]["FacturaReferencia"] | null;
+            factura_vigente: components["schemas"]["FacturaReferencia"] | null;
+        };
         /** ClienteEdicionEntrada */
         ClienteEdicionEntrada: {
             tipo: components["schemas"]["TipoCliente"];
@@ -828,7 +1161,8 @@ export interface components {
          * ConfiguracionFacturacionEntrada
          * @description Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23).
          *
-         *     `contacto` y `pie_factura` (003) son opcionales: si no vienen, se conservan los actuales.
+         *     `contacto` y `pie_factura` (003), y `validez_presupuesto_dias` y `pie_presupuesto` (005), son
+         *     opcionales: si no vienen, se conservan los actuales.
          */
         ConfiguracionFacturacionEntrada: {
             /** Version */
@@ -848,6 +1182,10 @@ export interface components {
             contacto?: components["schemas"]["ContactoEntrada"] | null;
             /** Pie Factura */
             pie_factura?: string | null;
+            /** Validez Presupuesto Dias */
+            validez_presupuesto_dias?: number | null;
+            /** Pie Presupuesto */
+            pie_presupuesto?: string | null;
         };
         /** ConfiguracionFacturacionSalida */
         ConfiguracionFacturacionSalida: {
@@ -882,6 +1220,10 @@ export interface components {
             contacto: components["schemas"]["ContactoSalida"];
             /** Pie Factura */
             pie_factura: string | null;
+            /** Validez Presupuesto Dias */
+            validez_presupuesto_dias: number;
+            /** Pie Presupuesto */
+            pie_presupuesto: string | null;
         };
         /**
          * ContactoEntrada
@@ -980,6 +1322,15 @@ export interface components {
          * @enum {string}
          */
         EstadoFactura: "borrador" | "vigente" | "anulada" | "rectificada";
+        /**
+         * EstadoPresupuesto
+         * @description Estado visible de un presupuesto (FR-001; research R-3).
+         *
+         *     El guardado lo calcula `estado_presupuesto()` en la BD. `caducado` se deriva además de la
+         *     validez y de la fecha de hoy (`domain/presupuestos.estado_visible`).
+         * @enum {string}
+         */
+        EstadoPresupuesto: "borrador" | "pendiente" | "caducado" | "en_facturacion" | "convertido" | "sustituido" | "anulado";
         /** EventoSalida */
         EventoSalida: {
             /**
@@ -1131,6 +1482,8 @@ export interface components {
             emitida_por: components["schemas"]["UsuarioReferencia"];
             /** Registros */
             registros: components["schemas"]["RegistroResumen"][];
+            /** @description Ampliado en 005 (FR-022): presupuesto convertido en esta factura */
+            presupuesto_origen?: components["schemas"]["PresupuestoReferencia"] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1233,6 +1586,33 @@ export interface components {
             /** Fecha Expedicion */
             fecha_expedicion?: string | null;
         };
+        /** ModificacionPresupuestoEntrada */
+        ModificacionPresupuestoEntrada: {
+            /** Motivo Texto */
+            motivo_texto: string;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /**
+             * Valido Hasta
+             * Format: date
+             */
+            valido_hasta: string;
+            /**
+             * Cliente Id
+             * Format: uuid
+             */
+            cliente_id: string;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             */
+            oro_inversion: boolean;
+        };
         /**
          * MotivoModificacion
          * @description Motivo declarado al modificar o anular una factura emitida (FR-024, FR-025).
@@ -1272,6 +1652,17 @@ export interface components {
             /** Tamano */
             tamano: number;
         };
+        /** Pagina[PresupuestoResumenSalida] */
+        Pagina_PresupuestoResumenSalida_: {
+            /** Elementos */
+            elementos: components["schemas"]["PresupuestoResumenSalida"][];
+            /** Total */
+            total: number;
+            /** Pagina */
+            pagina: number;
+            /** Tamano */
+            tamano: number;
+        };
         /** ParametrosFacturacionSalida */
         ParametrosFacturacionSalida: {
             /**
@@ -1294,6 +1685,169 @@ export interface components {
             fecha_minima: string | null;
             /** Mencion Exencion Oro Inversion */
             mencion_exencion_oro_inversion: string;
+        };
+        /** ParametrosPresupuestoSalida */
+        ParametrosPresupuestoSalida: {
+            /**
+             * Iva Por Defecto
+             * @example 21.00
+             */
+            iva_por_defecto: string;
+            /** Emision Posible */
+            emision_posible: boolean;
+            /** Faltan */
+            faltan: string[];
+            /** Proximo Numero */
+            proximo_numero: string;
+            /**
+             * Hoy
+             * Format: date
+             */
+            hoy: string;
+            /**
+             * Fecha Minima
+             * Format: date
+             */
+            fecha_minima: string;
+            /** Validez Dias */
+            validez_dias: number;
+            /** Mencion Exencion Oro Inversion */
+            mencion_exencion_oro_inversion: string;
+        };
+        /** PresupuestoEntrada */
+        PresupuestoEntrada: {
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /**
+             * Valido Hasta
+             * Format: date
+             */
+            valido_hasta: string;
+            /**
+             * Cliente Id
+             * Format: uuid
+             */
+            cliente_id: string;
+            /** Lineas */
+            lineas: components["schemas"]["LineaEntrada"][];
+            /**
+             * Oro Inversion
+             * @description «Sin IVA (oro de inversión)»: toda la factura exenta por el art. 140 bis LIVA, con ClaveRegimen 04 y OperacionExenta E6 en el registro (FR-052, research R-21)
+             * @default false
+             */
+            oro_inversion: boolean;
+        };
+        /**
+         * PresupuestoReferencia
+         * @description De 005, aquí para que la factura y el borrador la usen sin importar `schemas/presupuesto`.
+         */
+        PresupuestoReferencia: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Num Serie */
+            num_serie: string;
+            /**
+             * Fecha
+             * Format: date
+             * @description Fecha mínima de expedición del borrador de factura vinculado (FR-019)
+             */
+            fecha: string;
+        };
+        /**
+         * PresupuestoResumenSalida
+         * @description Fila del listado (FR-024): un borrador no tiene número y sus totales son los previstos.
+         */
+        PresupuestoResumenSalida: {
+            /**
+             * Tipo Documento
+             * @enum {string}
+             */
+            tipo_documento: "borrador" | "presupuesto";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Num Serie */
+            num_serie: string | null;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /**
+             * Valido Hasta
+             * Format: date
+             */
+            valido_hasta: string;
+            /** Cliente Nombre */
+            cliente_nombre: string | null;
+            /** Identificacion */
+            identificacion: string | null;
+            /**
+             * Base
+             * @example 1290.00
+             */
+            base: string;
+            /**
+             * Cuota
+             * @example 1290.00
+             */
+            cuota: string;
+            /**
+             * Total
+             * @example 1290.00
+             */
+            total: string;
+            estado: components["schemas"]["EstadoPresupuesto"];
+            /** Oro Inversion */
+            oro_inversion: boolean;
+        };
+        /** PresupuestoSalida */
+        PresupuestoSalida: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Num Serie */
+            num_serie: string;
+            estado: components["schemas"]["EstadoPresupuesto"];
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /**
+             * Valido Hasta
+             * Format: date
+             */
+            valido_hasta: string;
+            emisor: components["schemas"]["DatosEmisorSalida"];
+            cliente: components["schemas"]["ClienteFacturaSalida"];
+            /** Lineas */
+            lineas: components["schemas"]["LineaSalida"][];
+            totales: components["schemas"]["TotalesSalida"];
+            /** Oro Inversion */
+            oro_inversion: boolean;
+            /** Mencion Exencion */
+            mencion_exencion: string | null;
+            sustituye_a: components["schemas"]["PresupuestoReferencia"] | null;
+            vigente_actual: components["schemas"]["PresupuestoReferencia"] | null;
+            cierre: components["schemas"]["CierrePresupuestoSalida"] | null;
+            borrador_factura: components["schemas"]["BorradorReferencia"] | null;
+            /**
+             * Emitido En
+             * Format: date-time
+             */
+            emitido_en: string;
+            emitido_por: components["schemas"]["UsuarioReferencia"];
         };
         /** ProvinciaSalida */
         ProvinciaSalida: {
@@ -1359,6 +1913,12 @@ export interface components {
             inactividad_segundos: number;
         };
         /**
+         * TipoCierrePresupuesto
+         * @description Desenlace de un presupuesto emitido: como mucho uno (data-model «cierres_presupuesto»).
+         * @enum {string}
+         */
+        TipoCierrePresupuesto: "anulacion" | "sustitucion" | "conversion";
+        /**
          * TipoCliente
          * @enum {string}
          */
@@ -1372,7 +1932,7 @@ export interface components {
          * TipoEvento
          * @enum {string}
          */
-        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente";
+        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente" | "borrador_presupuesto_creado" | "borrador_presupuesto_editado" | "borrador_presupuesto_eliminado" | "presupuesto_emitido" | "presupuesto_modificado" | "presupuesto_anulado" | "presupuesto_convertido";
         /**
          * TipoFactura
          * @description Lista L2 de DsRegistroVeriFactu.xlsx v1.0 (research R-3, R-4). Solo las de esta feature.
@@ -2713,6 +3273,508 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FacturaSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_parametros_api_v1_presupuestos_parametros_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParametrosPresupuestoSalida"];
+                };
+            };
+        };
+    };
+    imprimir_listado_api_v1_presupuestos_listado_pdf_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                /** @description Por defecto, el año en curso */
+                anio?: number | "todos" | null;
+                mes?: number | null;
+                orden?: "recientes" | "antiguas" | "total_desc" | "total_asc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF listo para imprimir o guardar (003, research R-8) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_presupuestos_api_v1_presupuestos_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                /** @description Por defecto, el año en curso */
+                anio?: number | "todos" | null;
+                mes?: number | null;
+                orden?: "recientes" | "antiguas" | "total_desc" | "total_asc";
+                pagina?: number;
+                tamano?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pagina_PresupuestoResumenSalida_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    emitir_presupuesto_api_v1_presupuestos_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresupuestoEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_presupuesto_api_v1_presupuestos__presupuesto_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                presupuesto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    imprimir_presupuesto_api_v1_presupuestos__presupuesto_id__pdf_get: {
+        parameters: {
+            query?: {
+                /** @description Incluir el IBAN copiado al emitir */
+                iban?: boolean;
+            };
+            header?: never;
+            path: {
+                presupuesto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF listo para imprimir o guardar (003, research R-8) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convertir_presupuesto_api_v1_presupuestos__presupuesto_id__conversion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                presupuesto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El presupuesto ya estaba en facturación: su borrador vinculado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    modificar_presupuesto_api_v1_presupuestos__presupuesto_id__modificacion_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                presupuesto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModificacionPresupuestoEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anular_presupuesto_api_v1_presupuestos__presupuesto_id__anulacion_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                presupuesto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnulacionPresupuestoEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_borrador_api_v1_borradores_presupuesto_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BorradorPresupuestoEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorPresupuestoSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_borrador_api_v1_borradores_presupuesto__borrador_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorPresupuestoSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    guardar_borrador_api_v1_borradores_presupuesto__borrador_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BorradorPresupuestoEdicionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BorradorPresupuestoSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_borrador_api_v1_borradores_presupuesto__borrador_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    emitir_borrador_api_v1_borradores_presupuesto__borrador_id__emision_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave de la operación; se reutiliza en los reintentos (FR-047, R-18) */
+                "Idempotency-Key": string;
+            };
+            path: {
+                borrador_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BorradorPresupuestoEdicionEntrada"];
+            };
+        };
+        responses: {
+            /** @description Repetición con una Idempotency-Key ya usada: el mismo resultado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresupuestoSalida"];
                 };
             };
             /** @description Validation Error */

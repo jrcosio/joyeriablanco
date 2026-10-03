@@ -5,13 +5,15 @@ incluyen detalles internos (FR-049).
 """
 
 import logging
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Final
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.pdf.respuestas import CSP_PDF, es_navegacion_pdf, es_ruta_pdf, pagina_error
@@ -221,6 +223,55 @@ class ListadoDemasiadoGrande(ProblemaError):
     status, tipo, titulo = 422, "listado-demasiado-grande", "Listado demasiado grande"
 
 
+# ------------------------------------------------------------------ presupuestos (005, R-6)
+
+
+class PresupuestoNoModificable(ProblemaError):
+    """Ya tiene un cierre (convertido, sustituido o anulado) o está en facturación (FR-017, FR-021).
+
+    Lleva el `estado` visible y, si está en facturación, `borrador_factura_id` para abrirlo.
+    """
+
+    status, tipo, titulo = 409, "presupuesto-no-modificable", "El presupuesto no se puede cambiar"
+
+    _DETALLES: ClassVar[Mapping[str, str]] = {
+        "en_facturacion": (
+            "El presupuesto está en facturación: emite o elimina antes su borrador de factura."
+        ),
+        "convertido": "El presupuesto ya está convertido en factura.",
+        "sustituido": "El presupuesto ya está sustituido por otro.",
+        "anulado": "El presupuesto ya está anulado.",
+    }
+
+    def __init__(self, estado: str, borrador_factura_id: uuid.UUID | None = None) -> None:
+        extra: dict[str, Any] = {"estado": estado}
+        if borrador_factura_id is not None:
+            extra["borrador_factura_id"] = str(borrador_factura_id)
+        super().__init__(
+            self._DETALLES.get(estado, "El presupuesto ha cambiado: vuelve a abrirlo."),
+            extra=extra,
+        )
+
+
+# Barreras de la BD que solo salta quien pierde una carrera (R-6): las unicidades de cierre y de
+# borrador vinculado, y los dos triggers, que lanzan `check_violation` con estos nombres.
+RESTRICCIONES_PRESUPUESTO: Final = frozenset(
+    {
+        "uq_cierres_presupuesto_presupuesto_id",
+        "uq_borradores_factura_presupuesto_id",
+        "tg_cierres_presupuesto_en_facturacion",
+        "tg_borradores_factura_presupuesto_cerrado",
+    }
+)
+
+
+def restriccion(exc: IntegrityError) -> str | None:
+    """Nombre de la restricción que ha fallado, sin mirar el texto del mensaje (R-6)."""
+    diag = getattr(exc.orig, "diag", None)
+    nombre = getattr(diag, "constraint_name", None)
+    return str(nombre) if nombre else None
+
+
 class LimiteOrigen(ProblemaError):
     status, tipo, titulo = 429, "limite-origen", "Demasiados intentos"
     detalle_por_defecto = (
@@ -282,7 +333,7 @@ def errores_de_validacion(errores: Sequence[Mapping[str, Any]]) -> list[CampoErr
 def _respuesta(request: Request, cuerpo: Mapping[str, Any], status: int) -> Response:
     # La pestaña nueva de «Imprimir» recibe una página en español, nunca JSON (003, FR-028, R-8).
     if es_navegacion_pdf(request):
-        return pagina_error(cuerpo, status)
+        return pagina_error(cuerpo, status, request.url.path)
     respuesta = JSONResponse(dict(cuerpo), status_code=status, media_type=MEDIA_TYPE)
     if es_ruta_pdf(request):  # Caddy no les pone la CSP de la SPA: la trae la API (R-8)
         respuesta.headers["Content-Security-Policy"] = CSP_PDF

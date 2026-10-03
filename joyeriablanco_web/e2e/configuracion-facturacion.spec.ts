@@ -110,3 +110,27 @@ test('contacto y pie de factura: se guardan y se imprimen en las facturas (003, 
   expect(pdf.status()).toBe(200)
   expect(pdf.headers()['content-type']).toBe('application/pdf')
 })
+
+test('validez y pie de presupuesto: se guardan y se conservan (005, FR-031)', async ({ page }) => {
+  await iniciarSesion(page, 'admin.demo')
+  await page.goto('/configuracion/facturacion')
+
+  const validez = page.getByRole('textbox', { name: 'Validez de los presupuestos (días)' })
+  await expect(validez).toHaveValue(/^\d+$/)
+
+  await validez.fill('0')
+  await page.getByRole('button', { name: 'Guardar configuración' }).click()
+  await expect(page.getByText('Escribe un número de días entre 1 y 365.')).toBeVisible()
+
+  await validez.fill('20')
+  await page
+    .getByRole('textbox', { name: 'Pie de presupuesto' })
+    .fill('El precio del oro puede variar.')
+  await page.getByRole('button', { name: 'Guardar configuración' }).click()
+  await expect(page.getByText('Configuración de facturación guardada').last()).toBeVisible()
+  await page.reload()
+  await expect(validez).toHaveValue('20')
+  await expect(page.getByRole('textbox', { name: 'Pie de presupuesto' })).toHaveValue(
+    'El precio del oro puede variar.',
+  )
+})

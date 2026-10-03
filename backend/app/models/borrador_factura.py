@@ -24,6 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UuidPkMixin
 from app.models.cliente import Cliente
+from app.models.presupuesto import Presupuesto
 from app.models.usuario import Usuario
 
 
@@ -54,8 +55,12 @@ class BorradorFactura(UuidPkMixin, Base):
     creado_por_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
     actualizado_en: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
     actualizado_por_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
+    # Presupuesto del que procede, si lo creó «Convertir en factura» (005, FR-018, research R-5).
+    # Como mucho un borrador por presupuesto; la aplicación nunca lo cambia después de crearlo.
+    presupuesto_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("presupuestos.id"))
 
     cliente: Mapped[Cliente | None] = relationship(lazy="joined")
+    presupuesto: Mapped[Presupuesto | None] = relationship(lazy="joined", viewonly=True)
     lineas: Mapped[list[LineaBorrador]] = relationship(
         order_by=LineaBorrador.orden, cascade="all, delete-orphan", lazy="selectin"
     )

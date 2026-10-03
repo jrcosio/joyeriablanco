@@ -2,6 +2,20 @@ import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query
 import { api, unwrap } from '../client'
 import type { BorradorEdicionEntrada, BorradorEntrada } from '../tipos'
 import { FACTURAS_KEY, useInvalidarFacturas } from './facturas'
+import { PRESUPUESTOS_KEY } from './presupuestos'
+
+/**
+ * Emitir o eliminar un borrador vinculado cambia el estado de su presupuesto (005, FR-020): se
+ * invalida también `['presupuestos']`.
+ */
+function useInvalidarTrasCerrarBorrador() {
+  const queryClient = useQueryClient()
+  const invalidar = useInvalidarFacturas()
+  return async (id: string) => {
+    queryClient.removeQueries({ queryKey: borradorQuery(id).queryKey })
+    await Promise.all([invalidar(), queryClient.invalidateQueries({ queryKey: PRESUPUESTOS_KEY })])
+  }
+}
 
 /** Los borradores cuelgan de `['facturas']`: el listado los muestra junto a las emitidas. */
 export const borradorQuery = (id: string) =>
@@ -43,8 +57,7 @@ export function useGuardarBorrador() {
 }
 
 export function useEliminarBorrador() {
-  const queryClient = useQueryClient()
-  const invalidar = useInvalidarFacturas()
+  const invalidar = useInvalidarTrasCerrarBorrador()
   return useMutation({
     mutationFn: (id: string) =>
       unwrap(
@@ -52,17 +65,13 @@ export function useEliminarBorrador() {
           params: { path: { borrador_id: id } },
         }),
       ),
-    onSuccess: async (_, id) => {
-      queryClient.removeQueries({ queryKey: borradorQuery(id).queryKey })
-      await invalidar()
-    },
+    onSuccess: (_, id) => invalidar(id),
   })
 }
 
 /** Emite el borrador con el contenido del modal; la clave hace idempotente el reintento (R-18). */
 export function useEmitirBorrador() {
-  const queryClient = useQueryClient()
-  const invalidar = useInvalidarFacturas()
+  const invalidar = useInvalidarTrasCerrarBorrador()
   return useMutation({
     mutationFn: ({
       id,
@@ -79,9 +88,6 @@ export function useEmitirBorrador() {
           body,
         }),
       ),
-    onSuccess: async (_, { id }) => {
-      queryClient.removeQueries({ queryKey: borradorQuery(id).queryKey })
-      await invalidar()
-    },
+    onSuccess: (_, { id }) => invalidar(id),
   })
 }

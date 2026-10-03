@@ -1,7 +1,8 @@
-"""Los logs de la facturación no contienen datos personales ni importes (FR-051).
+"""Los logs de la facturación no contienen datos personales ni importes (FR-051; 005, FR-035).
 
 Tras emitir, guardar un borrador, rectificar, anular y buscar, en los logs solo aparecen
-identificadores internos, números de factura y el tipo de operación.
+identificadores internos, números de factura y el tipo de operación. Lo mismo con el ciclo entero
+del presupuesto: emitir, modificar, anular, convertir e imprimir.
 """
 
 import io
@@ -20,10 +21,13 @@ from tests.integration.facturacion_datos import (
     IBAN_DEMO,
     LINGOTE,
     NIF_MARIA,
+    URL_PRESUPUESTOS,
     cabeceras,
     configurar_facturacion,
+    crear_borrador_presupuesto,
     crear_cliente,
     cuerpo_factura,
+    emitir_presupuesto,
 )
 
 URL = "/api/v1/facturas"
@@ -125,3 +129,80 @@ async def test_emitir_corregir_y_buscar_no_deja_datos_personales_ni_importes(
     # Lo que sí queda: los números y la operación.
     assert f"Factura {emitida['num_serie']} expedida (emitir)" in salida
     assert f"Factura {rec.json()['num_serie']} anulada" in salida
+
+
+async def test_el_ciclo_del_presupuesto_no_deja_datos_personales_ni_importes(
+    client: AsyncClient,
+    db: AsyncSession,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    salida_logs: io.StringIO,
+) -> None:
+    admin = await crear_usuario("admin.logs.pre", rol=Rol.ADMINISTRADOR)
+    csrf = await iniciar_sesion(client, "admin.logs.pre")
+    await configurar_facturacion(db, iban=IBAN_DEMO)
+    maria = await crear_cliente(db, admin.id)
+    await emitir_presupuesto(client, csrf, maria.id, lineas=LINGOTE, oro_inversion=True)
+    await crear_borrador_presupuesto(client, csrf, maria.id)
+    original = await emitir_presupuesto(client, csrf, maria.id)
+    nuevo = await client.post(
+        f"{URL_PRESUPUESTOS}/{original['id']}/modificacion",
+        json={
+            "motivo_texto": "María López pidió otra talla",
+            "fecha": original["fecha"],
+            "valido_hasta": original["valido_hasta"],
+            "cliente_id": str(maria.id),
+            "lineas": [{"unidades": "1", "descripcion": "Anillo", "precio_unitario": "1100"}],
+            "oro_inversion": False,
+        },
+        headers=cabeceras(csrf),
+    )
+    assert nuevo.status_code == 201, nuevo.text
+    anulado = await client.post(
+        f"{URL_PRESUPUESTOS}/{nuevo.json()['id']}/anulacion",
+        json={"motivo_texto": "Rechazado por María López"},
+        headers=cabeceras(csrf),
+    )
+    assert anulado.status_code == 200, anulado.text
+    convertido = await emitir_presupuesto(client, csrf, maria.id)
+    borrador = (
+        await client.post(
+            f"{URL_PRESUPUESTOS}/{convertido['id']}/conversion", headers={"X-CSRF-Token": csrf}
+        )
+    ).json()
+    factura = await client.post(
+        f"/api/v1/borradores-factura/{borrador['id']}/emision",
+        json={
+            "fecha_expedicion": borrador["fecha_expedicion"],
+            "cliente_id": str(maria.id),
+            "lineas": [
+                {k: linea[k] for k in ("unidades", "descripcion", "precio_unitario")}
+                for linea in borrador["lineas"]
+            ],
+            "oro_inversion": False,
+            "version": borrador["version"],
+        },
+        headers=cabeceras(csrf),
+    )
+    assert factura.status_code == 201, factura.text
+    pdf = await client.get(f"{URL_PRESUPUESTOS}/{convertido['id']}/pdf", params={"iban": "true"})
+    assert pdf.status_code == 200
+    listado = await client.get(f"{URL_PRESUPUESTOS}/listado/pdf", params={"q": "maria lopez"})
+    assert listado.status_code == 200
+    await client.get(URL_PRESUPUESTOS, params={"q": NIF_MARIA})
+
+    salida = salida_logs.getvalue()
+    for prohibido in PROHIBIDOS:
+        assert prohibido not in salida, prohibido
+    # Lo que sí queda: los números y la operación.
+    assert f"Presupuesto {original['num_serie']} emitido (emitir)" in salida
+    assert (
+        f"Presupuesto {original['num_serie']} sustituido por {nuevo.json()['num_serie']}" in salida
+    )
+    assert f"Presupuesto {nuevo.json()['num_serie']} anulado" in salida
+    # El JSON escapa la «ó»: \u00f3
+    assert f"Presupuesto {convertido['num_serie']} en facturaci" in salida
+    numero_factura = factura.json()["num_serie"]
+    assert f"Presupuesto {convertido['num_serie']} convertido en {numero_factura}" in salida
+    assert f"PDF del presupuesto {convertido['num_serie']} generado" in salida
+    assert "PDF del listado de presupuestos generado" in salida

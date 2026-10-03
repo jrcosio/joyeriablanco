@@ -18,12 +18,10 @@ from sqlalchemy import (
     Numeric,
     Select,
     Text,
-    UnaryExpression,
     Uuid,
     and_,
     column,
     exists,
-    extract,
     func,
     or_,
     select,
@@ -32,11 +30,10 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.domain.identificacion import normalize_identificacion
 from app.domain.tipos import EstadoFactura
 from app.models.borrador_factura import BorradorFactura
 from app.models.factura import DesgloseFactura, Factura, LineaFactura
-from app.repositories.clientes import escape_like
+from app.repositories import listado
 
 
 async def insert_emitida(
@@ -119,59 +116,29 @@ class FilaListado:
     oro_inversion: bool
 
 
-def _filtros(*, q: str | None, anio: int | None, mes: int | None) -> list[ColumnElement[bool]]:
-    """FR-034 y FR-035. `anio=None` es «todos los años». La fecha de un borrador es la propuesta."""
-    v = v_listado.c
-    condiciones: list[ColumnElement[bool]] = []
-    if anio is not None:
-        if mes is not None:
-            inicio = date(anio, mes, 1)
-            fin = date(anio + 1, 1, 1) if mes == 12 else date(anio, mes + 1, 1)
-        else:
-            inicio, fin = date(anio, 1, 1), date(anio + 1, 1, 1)
-        condiciones += [v.fecha >= inicio, v.fecha < fin]
-    elif mes is not None:
-        condiciones.append(extract("month", v.fecha) == mes)
-    termino = (q or "").strip()
-    if termino:
-        patron = func.concat("%", func.inmutable_unaccent(func.lower(escape_like(termino))), "%")
-        opciones: list[ColumnElement[bool]] = [v.texto_busqueda.ilike(patron, escape="\\")]
-        sin_separadores = normalize_identificacion(termino)
-        if sin_separadores:
-            opciones.append(v.identificacion.like(f"%{escape_like(sin_separadores)}%", escape="\\"))
-        condiciones.append(or_(*opciones))
-    return condiciones
-
-
 _v = v_listado.c
-# Desempate estable por `id` en todos (FR-035). En `recientes`, el número nulo de un borrador va
-# primero entre los documentos de su fecha; en `antiguas`, al final.
-_ORDENES: dict[str, tuple[UnaryExpression[Any], ...]] = {
-    "recientes": (_v.fecha.desc(), _v.numero.desc().nulls_first(), _v.id.desc()),
-    "antiguas": (_v.fecha.asc(), _v.numero.asc().nulls_last(), _v.id.asc()),
-    "total_desc": (_v.total.desc(), _v.id.desc()),
-    "total_asc": (_v.total.asc(), _v.id.asc()),
-}
+_COLUMNAS = (
+    "tipo_documento",
+    "id",
+    "num_serie",
+    "fecha",
+    "cliente_nombre",
+    "identificacion",
+    "base",
+    "cuota",
+    "total",
+    "estado",
+    "oro_inversion",
+)
+
+
+def _filtros(*, q: str | None, anio: int | None, mes: int | None) -> list[ColumnElement[bool]]:
+    """FR-034 y FR-035, con los filtros comunes de `repositories/listado.py` (005, R-8)."""
+    return listado.filtros(v_listado, q=q, anio=anio, mes=mes)
 
 
 def _consulta_filas(condiciones: list[ColumnElement[bool]], orden: str) -> Select[Any]:
-    return (
-        select(
-            _v.tipo_documento,
-            _v.id,
-            _v.num_serie,
-            _v.fecha,
-            _v.cliente_nombre,
-            _v.identificacion,
-            _v.base,
-            _v.cuota,
-            _v.total,
-            _v.estado,
-            _v.oro_inversion,
-        )
-        .where(*condiciones)
-        .order_by(*_ORDENES[orden])
-    )
+    return listado.consulta_filas(v_listado, _COLUMNAS, condiciones, orden)
 
 
 async def _filas(session: AsyncSession, stmt: Select[Any]) -> list[FilaListado]:
@@ -197,7 +164,7 @@ async def count_listado(
     session: AsyncSession, *, q: str | None, anio: int | None, mes: int | None
 ) -> int:
     condiciones = _filtros(q=q, anio=anio, mes=mes)
-    total = await session.scalar(select(func.count()).select_from(v_listado).where(*condiciones))
+    total = await session.scalar(listado.contar(v_listado, condiciones))
     return int(total or 0)
 
 

@@ -147,3 +147,33 @@ async def test_ciclo_de_vida_de_un_cliente_inexistente(
 
     assert (await client.post(f"{URL}/{inexistente}/{accion}")).status_code == 404
     assert (await client.delete(f"{URL}/{inexistente}")).status_code == 404
+
+
+@pytest.mark.parametrize("documento", ["borrador_presupuesto", "presupuesto"])
+async def test_no_se_borra_un_cliente_con_presupuestos(
+    client: AsyncClient,
+    db: AsyncSession,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    documento: str,
+) -> None:
+    """005, FR-033: cuentan también los presupuestos y sus borradores, con el checker real."""
+    from tests.integration.facturacion_datos import (
+        configurar_facturacion,
+        crear_borrador_presupuesto,
+        emitir_presupuesto,
+    )
+
+    await configurar_facturacion(db)
+    await _entrar(client, crear_usuario, iniciar_sesion, Rol.ADMINISTRADOR)
+    cliente = await _crear(client)
+    csrf = client.headers["X-CSRF-Token"]
+    if documento == "presupuesto":
+        await emitir_presupuesto(client, csrf, uuid.UUID(cliente["id"]))
+    else:
+        await crear_borrador_presupuesto(client, csrf, uuid.UUID(cliente["id"]))
+
+    respuesta = await client.delete(f"{URL}/{cliente['id']}")
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["type"] == "/problemas/cliente-con-documentos"

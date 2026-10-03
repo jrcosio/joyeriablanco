@@ -13,9 +13,12 @@ from app.core.errors import SinPermiso
 from app.core.security import verify_password
 from app.core.tiempo import hoy
 from app.domain.identificacion import validate_identificacion
+from app.domain.presupuestos import estado_visible
 from app.domain.tipos import Rol, TipoIdentificacion
-from app.models import Cliente, Factura, Usuario
+from app.models import Cliente, Factura, Presupuesto, Usuario
 from app.models.borrador_factura import BorradorFactura
+from app.models.borrador_presupuesto import BorradorPresupuesto
+from app.models.cierre_presupuesto import CierrePresupuesto
 from app.repositories import registros
 from app.services import cadena, datos_ejemplo, integridad
 from app.services.configuracion_facturacion import get_config
@@ -52,7 +55,8 @@ async def test_carga_clientes_y_usuarios_validos(db: AsyncSession) -> None:
 async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSession) -> None:
     """R-16: las facturas y sus correcciones pasan por los servicios, así que la cadena queda
     íntegra y cada estado sale de las correcciones."""
-    resumen = await datos_ejemplo.cargar(db, clientes=40, facturas=50)
+    # Sin presupuestos: sus conversiones añadirían facturas de hoy a estos recuentos exactos.
+    resumen = await datos_ejemplo.cargar(db, clientes=40, facturas=50, presupuestos=0)
 
     assert resumen.facturas_emitidas == 50
     estado = await get_config(db)
@@ -118,9 +122,56 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
     assert exento.cuota_prevista == 0
 
 
+async def test_siembra_presupuestos_en_todos_los_estados(db: AsyncSession) -> None:
+    """005, FR-036: con los servicios reales, así que las conversiones encadenan sus facturas."""
+    resumen = await datos_ejemplo.cargar(db, clientes=40, facturas=10)
+
+    assert resumen.presupuestos == 32  # los 30 y los 2 que sustituyen
+    assert resumen.borradores_presupuesto == 3
+    emitidos = list((await db.execute(select(Presupuesto))).scalars())
+    assert len(emitidos) == 32
+    estados = Counter(
+        [
+            estado_visible(
+                str(await db.scalar(select(func.estado_presupuesto(p.id)))), p.valido_hasta, hoy()
+            ).value
+            for p in emitidos
+        ]
+    )
+    assert estados["convertido"] == 3
+    assert estados["en_facturacion"] == 2
+    assert estados["sustituido"] == 2
+    assert estados["anulado"] == 2
+    assert estados["caducado"] >= 5
+    assert estados["pendiente"] >= 5
+    assert any(p.oro_inversion and p.cuota_total == 0 for p in emitidos)
+    cierres = Counter([c.tipo for c in (await db.execute(select(CierrePresupuesto))).scalars()])
+    assert cierres == {"conversion": 3, "sustitucion": 2, "anulacion": 2}
+    vinculados = list(
+        (
+            await db.execute(
+                select(BorradorFactura).where(BorradorFactura.presupuesto_id.isnot(None))
+            )
+        )
+        .unique()
+        .scalars()
+    )
+    assert len(vinculados) == 2
+    borradores = list((await db.execute(select(BorradorPresupuesto))).unique().scalars())
+    assert len(borradores) == 3
+    assert sum(b.cliente_id is None for b in borradores) == 1
+    # Las tres conversiones son facturas de hoy, encadenadas con las demás
+    facturas = list((await db.execute(select(Factura))).scalars())
+    assert (
+        len([f for f in facturas if f.serie == "FAC"]) == 10 + 1 + 3
+    )  # + reemisión + conversiones
+    comprobacion = await integridad.verify_chain(db)
+    assert comprobacion.integra, comprobacion.discrepancia
+
+
 async def test_sobre_datos_de_001_anade_solo_la_facturacion(db: AsyncSession) -> None:
     """Una BD de desarrollo con los datos de 001 recibe la facturación de ejemplo una vez."""
-    primera = await datos_ejemplo.cargar(db, clientes=40, facturas=0, borradores=0)
+    primera = await datos_ejemplo.cargar(db, clientes=40, facturas=0, borradores=0, presupuestos=0)
     assert primera.facturas_emitidas == 0
 
     segunda = await datos_ejemplo.cargar(db, clientes=40, facturas=20, borradores=2)
@@ -129,6 +180,7 @@ async def test_sobre_datos_de_001_anade_solo_la_facturacion(db: AsyncSession) ->
     assert segunda.clientes_creados == 0
     assert segunda.facturas_emitidas == 20
     assert segunda.borradores_creados == 2
+    assert segunda.presupuestos > 0
     assert (await integridad.verify_chain(db)).integra
     tercera = await datos_ejemplo.cargar(db, clientes=40, facturas=20)
     assert tercera.ya_cargados is True

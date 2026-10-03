@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw'
-import type { FacturaSalida, ParametrosFacturacionSalida } from '../api/tipos'
+import type { BorradorSalida, FacturaSalida, ParametrosFacturacionSalida } from '../api/tipos'
 import { server } from './msw'
 
 export const MENCION_ORO = 'Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)'
@@ -129,4 +129,49 @@ export function crearFacturaExenta(parcial: Partial<FacturaSalida> = {}): Factur
     descripcion_operacion: 'Lingote de oro 100 g',
     ...parcial,
   })
+}
+
+/** Borrador de factura de María, con una línea (002); `presupuesto_origen` si procede de uno (005). */
+export function crearBorradorFactura(parcial: Partial<BorradorSalida> = {}): BorradorSalida {
+  return {
+    id: '0192f0c0-0000-7000-8000-0000000b0001',
+    version: 3,
+    fecha_expedicion: '2026-09-28',
+    cliente: {
+      id: '0192f0c0-0000-7000-8000-00000000c001',
+      nombre: 'María López García',
+      identificacion_pais: 'ES',
+      identificacion_tipo: 'NIF',
+      identificacion_numero: '12345678Z',
+      direccion: 'Calle Serrano, 45',
+      codigo_postal: '29005',
+      localidad: 'Málaga',
+      provincia: 'Málaga',
+      pais: 'ES',
+      activo: true,
+    },
+    lineas: [
+      {
+        orden: 1,
+        unidades: '1.00',
+        descripcion: 'Anillo',
+        precio_unitario: '1200.00',
+        importe: '1200.00',
+      },
+    ],
+    totales_previstos: {
+      desglose: [{ tipo_iva: '21.00', base: '1200.00', cuota: '252.00' }],
+      base_total: '1200.00',
+      cuota_total: '252.00',
+      importe_total: '1452.00',
+    },
+    tipo_iva_previsto: '21.00',
+    oro_inversion: false,
+    mencion_exencion: null,
+    creado_en: '2026-09-28T08:00:00Z',
+    creado_por: { id: 'u1', nombre: 'Ana García', eliminado: false },
+    actualizado_en: '2026-09-28T08:00:00Z',
+    actualizado_por: { id: 'u1', nombre: 'Ana García', eliminado: false },
+    ...parcial,
+  }
 }

@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { ApiError } from '../../api/client'
@@ -21,12 +20,14 @@ import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Dialog } from '../../components/ui/Dialog'
 import { ModalDocumento } from '../../components/ui/ModalDocumento'
-import { Skeleton } from '../../components/ui/Skeleton'
 import { toast } from '../../components/ui/toast-store'
-import { textoFalta, textoTipoIva } from '../../lib/facturacion'
+import { textoFalta } from '../../lib/facturacion'
 import { useClaveOperacion } from '../../lib/idempotencia'
+import { AvisoCambioIva } from '../documentos/AvisoCambioIva'
+import { CargandoModal } from '../documentos/CargandoModal'
 import { CamposFactura } from './CamposFactura'
 import { ConfirmarEmisionDialog } from './ConfirmarEmisionDialog'
+import { EnlacePresupuesto } from './EnlacePresupuesto'
 import {
   aCuerpo,
   aCuerpoBorrador,
@@ -55,23 +56,6 @@ function AvisoNoEmitible({ faltan }: { faltan: readonly string[] }) {
         'Un administrador debe completarlo en Configuración.'
       )}
     </p>
-  )
-}
-
-/** Aviso de que el IVA por defecto cambió después de guardar el borrador (spec, casos límite). */
-function AvisoCambioIva({ previsto, vigente }: { previsto: string; vigente: string }) {
-  return (
-    <div
-      role="status"
-      className="flex items-start gap-3 border border-warning/40 bg-warning/8 px-4 py-3"
-    >
-      <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-      <p className="body-md text-on-surface">
-        El IVA por defecto ha cambiado desde que se guardó este borrador (del{' '}
-        {textoTipoIva(previsto)} al {textoTipoIva(vigente)}). Al emitirlo se aplicará el{' '}
-        {textoTipoIva(vigente)}.
-      </p>
-    </div>
   )
 }
 
@@ -193,7 +177,12 @@ function FormularioFactura({
         : await emitirNueva.mutateAsync({ body: aCuerpo(valores), clave })
       renovar()
       setConfirmando(false)
-      toast(`Factura ${factura.num_serie} emitida`)
+      const origen = borrador?.presupuesto_origen
+      toast(
+        origen
+          ? `Factura ${factura.num_serie} emitida. ${origen.num_serie} queda convertido`
+          : `Factura ${factura.num_serie} emitida`,
+      )
       onEmitida(factura)
     } catch (e) {
       setConfirmando(false)
@@ -286,10 +275,14 @@ function FormularioFactura({
         nombreCliente={nombreCliente}
         onNombreCliente={setNombreCliente}
         onSubmit={() => void pedirEmision()}
+        presupuestoOrigen={borrador?.presupuesto_origen}
         antes={
-          !oroInversion && tipoIvaPrevisto && tipoIvaPrevisto !== parametros.iva_por_defecto ? (
-            <AvisoCambioIva previsto={tipoIvaPrevisto} vigente={parametros.iva_por_defecto} />
-          ) : null
+          <>
+            <EnlacePresupuesto presupuesto={borrador?.presupuesto_origen} />
+            {!oroInversion && tipoIvaPrevisto && tipoIvaPrevisto !== parametros.iva_por_defecto ? (
+              <AvisoCambioIva previsto={tipoIvaPrevisto} vigente={parametros.iva_por_defecto} />
+            ) : null}
+          </>
         }
         despues={<Alerta mensaje={error} />}
       />
@@ -363,43 +356,6 @@ function FormularioFactura({
           </Button>
         </div>
       </Dialog>
-    </ModalDocumento>
-  )
-}
-
-/** Modal de factura mientras cargan sus datos, o con el error si no se pudieron cargar. */
-export function CargandoModal({
-  titulo,
-  error,
-  onCerrar,
-}: {
-  titulo: string
-  error: string | null
-  onCerrar: () => void
-}) {
-  return (
-    <ModalDocumento
-      title={titulo}
-      isOpen
-      onOpenChange={(abierto) => {
-        if (!abierto) onCerrar()
-      }}
-      footer={
-        error ? (
-          <Button variant="ghost" onPress={onCerrar}>
-            Cerrar
-          </Button>
-        ) : undefined
-      }
-    >
-      {error ? (
-        <Alerta mensaje={error} />
-      ) : (
-        <div className="flex flex-col gap-5" aria-busy="true" aria-label="Cargando">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-40 w-full" />
-        </div>
-      )}
     </ModalDocumento>
   )
 }

@@ -46,6 +46,13 @@ comprobar "PDF con la CSP de la API (object-src 'self')" \
   'grep -qi "^content-security-policy:.*object-src '"'"'self'"'"'" <<<"$pdf"'
 comprobar "PDF sin la CSP global de la SPA" \
   '! grep -qi "^content-security-policy:.*script-src '"'"'self'"'"'" <<<"$pdf"'
+# Presupuestos (005): sus PDF tienen la misma excepción en el Caddyfile.
+pdf_pre=$("${CURL[@]}" -D - -o /dev/null "$BASE/api/v1/presupuestos/listado/pdf")
+comprobar "PDF de presupuestos sin sesión responde 401" 'grep -q "^HTTP/[0-9.]* 401" <<<"$pdf_pre"'
+comprobar "PDF de presupuestos con la CSP de la API (object-src 'self')" \
+  'grep -qi "^content-security-policy:.*object-src '"'"'self'"'"'" <<<"$pdf_pre"'
+comprobar "PDF de presupuestos sin la CSP global de la SPA" \
+  '! grep -qi "^content-security-policy:.*script-src '"'"'self'"'"'" <<<"$pdf_pre"'
 comprobar "La SPA mantiene object-src 'none'" \
   'grep -qi "^content-security-policy:.*object-src '"'"'none'"'"'" <<<"$cabeceras"'
 spa=$("${CURL[@]}" -o /dev/null -w "%{http_code}" "$BASE/clientes")

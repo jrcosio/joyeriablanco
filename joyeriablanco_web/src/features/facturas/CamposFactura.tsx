@@ -2,74 +2,17 @@ import { UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form'
 import { Form } from 'react-aria-components'
-import type { ParametrosFacturacionSalida } from '../../api/tipos'
+import type { ParametrosFacturacionSalida, PresupuestoReferencia } from '../../api/tipos'
 import { Button } from '../../components/ui/Button'
 import { CampoFecha } from '../../components/ui/CampoFecha'
 import { Casilla } from '../../components/ui/Casilla'
-import { calcularTotales, desdeApi } from '../../lib/dinero'
 import { fechaCorta } from '../../lib/fechas'
 import { ClienteAltaPanel } from '../clientes/ClienteAltaPanel'
-import { etiquetaCliente, lineasCalculo, type ValoresFactura } from './factura-valores'
-import { LineasFactura } from './LineasFactura'
-import { ResumenCliente } from './ResumenCliente'
-import { SelectorCliente } from './SelectorCliente'
-import { TotalesFactura } from './TotalesFactura'
-
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-4">
-      <h3 className="title-lg text-on-surface">{titulo}</h3>
-      {children}
-    </section>
-  )
-}
-
-function SoloLectura({
-  etiqueta,
-  valor,
-  ayuda,
-}: {
-  etiqueta: string
-  valor: string
-  ayuda?: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="label-md text-on-surface-variant">{etiqueta}</span>
-      <span className="flex h-11 items-center border border-on-surface/12 bg-surface-container px-3 body-md text-on-surface-variant tabular-nums">
-        {valor}
-      </span>
-      {ayuda ? <span className="body-sm text-on-surface-variant">{ayuda}</span> : null}
-    </div>
-  )
-}
-
-/**
- * Totales previstos en el navegador (R-11). Tras guardar mandan los del servidor. Con «Sin IVA
- * (oro de inversión)», sin tipo ni cuota y con la mención de la exención (FR-052).
- */
-function Previsualizacion({
-  form,
-  parametros,
-}: {
-  form: UseFormReturn<ValoresFactura>
-  parametros: ParametrosFacturacionSalida
-}) {
-  const lineas = useWatch({ control: form.control, name: 'lineas' })
-  const exenta = useWatch({ control: form.control, name: 'oro_inversion' })
-  const tipoIva = exenta ? null : parametros.iva_por_defecto
-  const totales = calcularTotales(
-    lineasCalculo(lineas),
-    tipoIva === null ? null : desdeApi(tipoIva),
-  )
-  return (
-    <TotalesFactura
-      {...totales}
-      tipoIva={tipoIva}
-      mencion={exenta ? parametros.mencion_exencion_oro_inversion : null}
-    />
-  )
-}
+import { PrevisualizacionTotales, Seccion, SoloLectura } from '../documentos/CamposDocumento'
+import { LineasDocumento } from '../documentos/LineasDocumento'
+import { ResumenCliente } from '../documentos/ResumenCliente'
+import { SelectorCliente } from '../documentos/SelectorCliente'
+import { etiquetaCliente, type ValoresFactura } from './factura-valores'
 
 /**
  * El formulario del modal de factura con sus tres secciones (FR-037): datos de emisión, detalle y
@@ -81,6 +24,7 @@ export function CamposFactura({
   form,
   parametros,
   fechaOperacion,
+  presupuestoOrigen,
   numeroAyuda,
   nombreCliente,
   onNombreCliente,
@@ -95,6 +39,11 @@ export function CamposFactura({
    * ser anterior (F-3 §3.1.3.1, error 1146; FR-018).
    */
   fechaOperacion?: string | undefined
+  /**
+   * En un borrador creado por «Convertir en factura», su presupuesto: la fecha no puede ser anterior
+   * a la de este (005, FR-019).
+   */
+  presupuestoOrigen?: PresupuestoReferencia | null | undefined
   /** Ayuda bajo «Se asigna al emitir» (p. ej. el próximo número previsto). */
   numeroAyuda: React.ReactNode
   /** Texto del cliente ya elegido; el selector se vuelve a montar cuando cambia. */
@@ -111,7 +60,7 @@ export function CamposFactura({
   const [altaCliente, setAltaCliente] = useState(false)
   // FR-018: la fecha es libre dentro de los límites de la AEAT (fechas AAAA-MM-DD: se comparan como
   // texto).
-  const minima = [parametros.fecha_minima, fechaOperacion]
+  const minima = [parametros.fecha_minima, fechaOperacion, presupuestoOrigen?.fecha]
     .filter((f): f is string => Boolean(f))
     .sort()
     .at(-1)
@@ -148,7 +97,11 @@ export function CamposFactura({
                     ? {
                         description: `Fecha de la operación: ${fechaCorta(fechaOperacion)} (la de la original).`,
                       }
-                    : {})}
+                    : presupuestoOrigen
+                      ? {
+                          description: `No anterior a la del presupuesto ${presupuestoOrigen.num_serie} (${fechaCorta(presupuestoOrigen.fecha)}).`,
+                        }
+                      : {})}
                   error={fieldState.error?.message}
                 />
               )}
@@ -187,7 +140,7 @@ export function CamposFactura({
         </Seccion>
 
         <Seccion titulo="Detalle de la factura">
-          <LineasFactura
+          <LineasDocumento
             control={control}
             error={formState.errors.lineas?.root?.message ?? formState.errors.lineas?.message}
           />
@@ -207,7 +160,11 @@ export function CamposFactura({
               </Casilla>
             )}
           />
-          <Previsualizacion form={form} parametros={parametros} />
+          <PrevisualizacionTotales
+            control={control}
+            ivaPorDefecto={parametros.iva_por_defecto}
+            mencionExencion={parametros.mencion_exencion_oro_inversion}
+          />
         </div>
         {despues}
       </Form>

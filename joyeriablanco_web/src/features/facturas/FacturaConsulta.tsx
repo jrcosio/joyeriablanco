@@ -18,10 +18,11 @@ import { fechaCorta } from '../../lib/fechas'
 import { useClaveOperacion } from '../../lib/idempotencia'
 import { nombreConEstado } from '../../lib/usuarios'
 import { AnularFacturaDialog } from './AnularFacturaDialog'
+import { EnlacePresupuesto } from './EnlacePresupuesto'
 import { EnlacesFactura, HistorialFactura } from './HistorialFactura'
 import { ImprimirFactura } from './ImprimirFactura'
-import { FichaDestinatario } from './ResumenCliente'
-import { TotalesFactura } from './TotalesFactura'
+import { FichaDestinatario } from '../documentos/ResumenCliente'
+import { TotalesDocumento } from '../documentos/TotalesDocumento'
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
@@ -107,6 +108,7 @@ export function FacturaDetalle({ factura }: { factura: FacturaSalida }) {
       <div className="flex flex-col gap-3">
         <Marcas factura={factura} />
         <EnlacesFactura factura={factura} />
+        <EnlacePresupuesto presupuesto={factura.presupuesto_origen} />
       </div>
       <Seccion titulo="Datos de emisión">
         <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -162,7 +164,7 @@ export function FacturaDetalle({ factura }: { factura: FacturaSalida }) {
       <Seccion titulo="Detalle de la factura">
         <Lineas factura={factura} />
       </Seccion>
-      <TotalesFactura
+      <TotalesDocumento
         base={desdeApi(factura.totales.base_total)}
         cuota={desdeApi(factura.totales.cuota_total)}
         total={desdeApi(factura.totales.importe_total)}

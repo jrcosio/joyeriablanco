@@ -1,0 +1,103 @@
+{#
+  Bloques comunes de la factura y del presupuesto impresos (005, research R-8). Solo pintan los
+  modelos de vista de services/impresion_comun.py: ningún cálculo ni consulta.
+#}
+
+{% macro emisor(e, contacto) -%}
+<div class="emisor">
+  <img class="logo" src="marca/logo.png" alt="">
+  <p class="emisor-nombre">{{ e.nombre }}</p>
+  <p>{{ e.identificacion }}</p>
+  {% for linea in e.domicilio %}
+  <p>{{ linea }}</p>
+  {% endfor %}
+  {% if not contacto.vacio %}
+  <ul class="contacto pequeno">
+    {% if contacto.telefono %}<li>{{ contacto.telefono }}</li>{% endif %}
+    {% if contacto.correo %}<li>{{ contacto.correo }}</li>{% endif %}
+    {% if contacto.web %}<li>{{ contacto.web }}</li>{% endif %}
+  </ul>
+  {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro marcas(lista) -%}
+{% if lista %}
+<p class="marcas">{% for marca in lista %}<span class="marca">{{ marca }}</span>{% endfor %}</p>
+{% endif %}
+{%- endmacro %}
+
+{% macro cliente(d) -%}
+<section class="cliente">
+  <h2 class="etiqueta-seccion">Cliente</h2>
+  <p class="fuerte">{{ d.nombre }}</p>
+  <p>{{ d.identificacion }}</p>
+  {% for linea in d.domicilio %}
+  <p>{{ linea }}</p>
+  {% endfor %}
+</section>
+{%- endmacro %}
+
+{% macro lineas(filas) -%}
+<table class="datos lineas">
+  <colgroup>
+    <col class="col-unidades"><col class="col-descripcion"><col class="col-precio"><col class="col-importe">
+  </colgroup>
+  <thead>
+    <tr>
+      <th class="derecha">Unidades</th>
+      <th>Descripción</th>
+      <th class="derecha">Precio unitario</th>
+      <th class="derecha">Importe</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for linea in filas %}
+    <tr>
+      <td class="derecha cifra">{{ linea.unidades }}</td>
+      <td>{{ linea.descripcion }}</td>
+      <td class="derecha cifra">{{ linea.precio_unitario }}</td>
+      <td class="derecha cifra">{{ linea.importe }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+{% macro tabla_totales(doc) -%}
+<table class="totales">
+  {% for d in doc.desglose %}
+  <tr><td>{{ d.etiqueta_base }}</td><td class="derecha cifra">{{ d.base }}</td></tr>
+  <tr><td>{{ d.etiqueta_cuota }}</td><td class="derecha cifra">{{ d.cuota }}</td></tr>
+  {% endfor %}
+  {% if doc.desglose | length > 1 %}
+  <tr><td>Base imponible total</td><td class="derecha cifra">{{ doc.base_total }}</td></tr>
+  <tr><td>IVA total</td><td class="derecha cifra">{{ doc.cuota_total }}</td></tr>
+  {% endif %}
+  <tr class="total">
+    <td class="etiqueta">Total</td>
+    <td class="derecha cifra importe-total">{{ doc.importe_total }}</td>
+  </tr>
+</table>
+{%- endmacro %}
+
+{% macro mencion(texto) -%}
+{% if texto %}
+<p class="mencion">{{ texto }}</p>
+{% endif %}
+{%- endmacro %}
+
+{% macro pago(iban) -%}
+{% if iban %}
+<section class="pago">
+  <h2 class="etiqueta-seccion">Pago por transferencia</h2>
+  <p><span class="etiqueta">IBAN</span> <span class="iban">{{ iban }}</span></p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+{% macro pie(texto) -%}
+{% if texto %}
+<section class="pie-factura pequeno">{{ texto }}</section>
+{% endif %}
+{%- endmacro %}

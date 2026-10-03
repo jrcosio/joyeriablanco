@@ -47,10 +47,11 @@ def _contratos() -> dict[tuple[str, str], set[str]]:
 
 
 def test_hay_un_contrato_por_feature() -> None:
-    assert [f.parents[1].name for f in CONTRATOS][:3] == [
+    assert [f.parents[1].name for f in CONTRATOS][:4] == [
         "001-cimientos-clientes",
         "002-facturas",
         "003-pdf-impresion",
+        "005-presupuestos",
     ]
 
 

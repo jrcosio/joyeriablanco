@@ -12,6 +12,7 @@ from app.core.pdf.respuestas import respuesta_pdf
 from app.domain.exenciones import is_oro_inversion, mencion_exencion
 from app.domain.tipos import CausaRectificacion, MotivoModificacion, TipoCorreccion, TipoFactura
 from app.models.factura import Factura
+from app.models.presupuesto import Presupuesto
 from app.schemas.comunes import Pagina
 from app.schemas.configuracion_facturacion import DatosEmisorSalida, ParametrosFacturacionSalida
 from app.schemas.factura import (
@@ -26,6 +27,7 @@ from app.schemas.factura import (
     LineaEntrada,
     LineaSalida,
     ModificacionEntrada,
+    PresupuestoReferencia,
     RectificaA,
     RegistroResumen,
     TotalesSalida,
@@ -101,6 +103,15 @@ def _rectifica_a(detalle: DetalleFactura) -> RectificaA | None:
     )
 
 
+def presupuesto_referencia(presupuesto: Presupuesto | None) -> PresupuestoReferencia | None:
+    """Ampliado en 005: el presupuesto de origen de una factura o de un borrador (FR-022)."""
+    if presupuesto is None:
+        return None
+    return PresupuestoReferencia(
+        id=presupuesto.id, num_serie=presupuesto.num_serie, fecha=presupuesto.fecha
+    )
+
+
 def factura_salida(detalle: DetalleFactura) -> FacturaSalida:
     f = detalle.factura
     return FacturaSalida(
@@ -170,6 +181,7 @@ def factura_salida(detalle: DetalleFactura) -> FacturaSalida:
             )
             for r in detalle.registros
         ],
+        presupuesto_origen=presupuesto_referencia(detalle.presupuesto_origen),
     )
 
 

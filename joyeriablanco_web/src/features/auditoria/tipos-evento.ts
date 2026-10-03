@@ -29,4 +29,11 @@ export const TIPOS_EVENTO: Record<TipoEvento, string> = {
   contador_ajustado: 'Numeración ajustada',
   cadena_verificada: 'Registro de facturación comprobado',
   cadena_inconsistente: 'Registro de facturación inconsistente',
+  borrador_presupuesto_creado: 'Borrador de presupuesto creado',
+  borrador_presupuesto_editado: 'Borrador de presupuesto editado',
+  borrador_presupuesto_eliminado: 'Borrador de presupuesto eliminado',
+  presupuesto_emitido: 'Presupuesto emitido',
+  presupuesto_modificado: 'Presupuesto modificado',
+  presupuesto_anulado: 'Presupuesto anulado',
+  presupuesto_convertido: 'Presupuesto convertido en factura',
 }

@@ -79,10 +79,10 @@ def test_factura_de_20_lineas_en_menos_de_3_segundos_p95() -> None:
 _MEDICION = """
 import json, resource, sys, time
 from tests.integration.test_pdf_rendimiento import listado_sintetico
-from app.services import impresion
+from app.services.impresion_comun import pdf_listado
 modelo = listado_sintetico(int(sys.argv[1]))
 inicio = time.perf_counter()
-pdf = impresion._pdf_listado(modelo)
+pdf = pdf_listado(modelo)
 segundos = time.perf_counter() - inicio
 maximo = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 mb = maximo / 1024 / 1024 if sys.platform == "darwin" else maximo / 1024
@@ -119,6 +119,7 @@ def listado_sintetico(filas: int) -> impresion.ListadoImpreso:
         totales=impresion.ImportesImpresos(f"Total ({filas} facturas)", euros, euros, euros),
         excluidas=None,
         nombre_fichero="facturas-todos.pdf",
+        textos=impresion.TEXTOS_LISTADO,
     )
 
 

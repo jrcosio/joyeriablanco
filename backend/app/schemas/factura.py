@@ -114,6 +114,17 @@ class FacturaReferencia(SalidaBase):
     num_serie: str
 
 
+class PresupuestoReferencia(SalidaBase):
+    """De 005, aquí para que la factura y el borrador la usen sin importar `schemas/presupuesto`."""
+
+    id: uuid.UUID
+    num_serie: str
+    fecha: Annotated[
+        date,
+        Field(description="Fecha mínima de expedición del borrador de factura vinculado (FR-019)"),
+    ]
+
+
 class RegistroResumen(SalidaBase):
     tipo: str
     secuencia: int
@@ -163,6 +174,10 @@ class FacturaSalida(SalidaBase):
     emitida_en: datetime
     emitida_por: UsuarioReferencia
     registros: list[RegistroResumen]
+    presupuesto_origen: Annotated[
+        PresupuestoReferencia | None,
+        Field(description="Ampliado en 005 (FR-022): presupuesto convertido en esta factura"),
+    ] = None
 
 
 class FacturaResumenSalida(SalidaBase):

@@ -40,12 +40,6 @@ from app.core.http import Origen
 from app.core.tiempo import hoy
 from app.domain.exenciones import CLAVE_REGIMEN_ORO_INVERSION, is_oro_inversion
 from app.domain.importes import (
-    MAX_LINEAS,
-    MAX_PRECIO,
-    MAX_UNIDADES,
-    ImporteFueraDeRango,
-    LineaCalculo,
-    compute_totals,
     line_amount,
 )
 from app.domain.numeracion import format_num_serie
@@ -77,15 +71,11 @@ from app.repositories import contadores, correcciones, facturas, registros
 from app.services import cadena
 from app.services.auditoria import record_event
 from app.services.configuracion_facturacion import missing_for_emission
+from app.services.contenido import DatosLinea as DatosLinea
+from app.services.contenido import calcular_totales, copia_destinatario, copia_emisor
+from app.services.contenido import check_lineas as check_lineas
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True, slots=True)
-class DatosLinea:
-    unidades: Decimal
-    descripcion: str
-    precio_unitario: Decimal
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,23 +135,6 @@ def check_fecha_expedicion(fecha: date, *, fecha_operacion: date | None = None) 
         )
 
 
-def check_lineas(lineas: tuple[DatosLinea, ...], *, permitir_vacio: bool = False) -> None:
-    errores: list[CampoError] = []
-    if not lineas and not permitir_vacio:
-        errores.append(CampoError("lineas", "La factura debe tener al menos una línea."))
-    if len(lineas) > MAX_LINEAS:
-        errores.append(CampoError("lineas", f"Como máximo {MAX_LINEAS} líneas."))
-    for i, linea in enumerate(lineas):
-        if not linea.descripcion.strip():
-            errores.append(CampoError(f"lineas.{i}.descripcion", "Campo obligatorio."))
-        if linea.unidades > MAX_UNIDADES:
-            errores.append(CampoError(f"lineas.{i}.unidades", "Demasiadas unidades."))
-        if linea.precio_unitario > MAX_PRECIO:
-            errores.append(CampoError(f"lineas.{i}.precio_unitario", "Precio demasiado alto."))
-    if errores:
-        raise DatosNoValidos(errores=errores)
-
-
 # ------------------------------------------------------------------------ idempotencia
 
 
@@ -190,25 +163,6 @@ async def find_previous(
 
 
 # --------------------------------------------------------------------------- creación
-
-
-def _destinatario(cliente: Cliente) -> dict[str, str | None]:
-    provincia = (
-        cliente.provincia.nombre_visible
-        if cliente.provincia is not None
-        else cliente.provincia_texto
-    )
-    return {
-        "dest_nombre": cliente.nombre,
-        "dest_identificacion_pais": cliente.identificacion_pais,
-        "dest_identificacion_tipo": cliente.identificacion_tipo,
-        "dest_identificacion_numero": cliente.identificacion_numero,
-        "dest_direccion": cliente.direccion,
-        "dest_codigo_postal": cliente.codigo_postal,
-        "dest_localidad": cliente.localidad,
-        "dest_provincia": provincia,
-        "dest_pais": cliente.pais_residencia,
-    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,13 +198,7 @@ async def create_factura(
     check_lineas(lineas, permitir_vacio=rectificacion is not None)
     tipo_iva = None if oro_inversion else config.iva_por_defecto
     clave_regimen = CLAVE_REGIMEN_ORO_INVERSION if oro_inversion else CLAVE_REGIMEN_GENERAL
-    try:
-        totales = compute_totals(
-            [LineaCalculo(linea.unidades, linea.precio_unitario, tipo_iva) for linea in lineas],
-            tipo_iva_por_defecto=tipo_iva,
-        )
-    except ImporteFueraDeRango as exc:
-        raise DatosNoValidos(errores=[CampoError("lineas", str(exc))]) from exc
+    totales = calcular_totales(lineas, tipo_iva)
     if rectificacion is None and totales.importe_total <= 0:
         raise DatosNoValidos(
             errores=[CampoError("lineas", "El total de la factura debe ser mayor que cero.")]
@@ -277,17 +225,9 @@ async def create_factura(
             [linea.descripcion for linea in lineas],
             num_rectificada=rectificada.num_serie if rectificada else None,
         ),
-        emisor_nif=config.emisor_nif,
-        emisor_nombre=config.emisor_nombre,
-        emisor_direccion=config.emisor_direccion,
-        emisor_codigo_postal=config.emisor_codigo_postal,
-        emisor_localidad=config.emisor_localidad,
-        emisor_provincia=config.emisor_provincia.nombre_visible
-        if config.emisor_provincia
-        else None,
-        emisor_iban=config.emisor_iban,
+        **copia_emisor(config),
         cliente_id=cliente.id,
-        **_destinatario(cliente),
+        **copia_destinatario(cliente),
         clave_regimen=clave_regimen,
         modalidad=config.modalidad,
         base_total=totales.base_total,
@@ -457,7 +397,7 @@ def _sin_cambios(
     """¿Sería la rectificativa idéntica a la vigente? Se comparan el destinatario tal como se
     copiaría, las líneas normalizadas y el tratamiento del IVA que se aplicaría: el tipo, o
     `None` si va sin IVA por oro de inversión (R-9, R-21)."""
-    destinatario = _destinatario(cliente)
+    destinatario = copia_destinatario(cliente)
     mismo_destinatario = original.cliente_id == cliente.id and all(
         getattr(original, campo) == valor for campo, valor in destinatario.items()
     )

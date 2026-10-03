@@ -35,3 +35,13 @@ async def save(session: AsyncSession, borrador: BorradorFactura) -> BorradorFact
 async def delete(session: AsyncSession, borrador: BorradorFactura) -> None:
     await session.delete(borrador)
     await session.flush()
+
+
+async def get_by_presupuesto(
+    session: AsyncSession, presupuesto_id: uuid.UUID
+) -> BorradorFactura | None:
+    """El borrador de factura vinculado a un presupuesto, si lo hay (005, FR-018)."""
+    resultado = await session.execute(
+        select(BorradorFactura).where(BorradorFactura.presupuesto_id == presupuesto_id)
+    )
+    return resultado.unique().scalar_one_or_none()

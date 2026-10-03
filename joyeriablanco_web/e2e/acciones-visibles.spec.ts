@@ -16,6 +16,9 @@ const ANCHOS_FACTURAS = [360, 768, 1024, 1280, 1440, 1536] as const
 /** Acciones de fila del listado de facturas: borradores y emitidas (002, FR-049). */
 const ACCION_FACTURA = /^(Ver factura|Abrir borrador de) /
 
+/** Acciones de fila del listado de presupuestos (005, FR-024), con las mismas columnas. */
+const ACCION_PRESUPUESTO = /^(Ver presupuesto|Abrir borrador de) /
+
 /** Columnas de la tabla de facturas según el ancho, medidas como en 001 R-22 (002, T056). */
 function columnasFacturas(ancho: number) {
   return {
@@ -268,4 +271,40 @@ test.describe('Acciones siempre visibles (SC-014, FR-031, FR-059)', () => {
       await sinDesplazamientoHorizontal(page)
     }
   })
+
+  for (const ancho of ANCHOS_FACTURAS) {
+    test(`presupuestos a ${ancho}px: la acción de cada fila de una página completa (005, SC-009)`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: ancho, height: 900 })
+      await iniciarSesion(page, 'admin.demo')
+      // Todos los años: los datos de ejemplo de 005 llenan más de una página.
+      await page.goto('/presupuestos?anio=todos')
+
+      if (ancho < 768) {
+        const lista = page.getByRole('list', { name: 'Listado de presupuestos' })
+        const ver = lista.getByRole('link', { name: ACCION_PRESUPUESTO })
+        await expect(ver).toHaveCount(25)
+        await esperarVisibles(page, ver, 25, false)
+        await sinDesplazamientoHorizontal(page)
+        return
+      }
+
+      const tabla = page.getByRole('table', { name: 'Listado de presupuestos' })
+      const ver = tabla.getByRole('link', { name: ACCION_PRESUPUESTO })
+      await expect(ver).toHaveCount(25)
+      await esperarVisibles(page, ver, 25, true)
+      await sinDesplazamientoHorizontal(page)
+      for (const [columna, visible] of Object.entries(columnasFacturas(ancho))) {
+        const cabecera = tabla.getByRole('columnheader', { name: columna, exact: true })
+        if (visible) await expect(cabecera, `${columna} a ${ancho}px`).toBeVisible()
+        else await expect(cabecera, `${columna} a ${ancho}px`).toBeHidden()
+      }
+      // Con las marcas junto al número, la tabla sigue cabiendo en su tarjeta.
+      const cabe = await tabla.evaluate(
+        (t) => t.scrollWidth <= (t.parentElement?.clientWidth ?? 0) + 0.5,
+      )
+      expect(cabe, `la tabla de presupuestos cabe a ${ancho}px`).toBe(true)
+    })
+  }
 })

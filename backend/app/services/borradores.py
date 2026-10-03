@@ -7,6 +7,10 @@ y para avisar si el IVA cambia; al emitir, `emision` lo recalcula todo con el IV
 
 Un borrador de oro de inversión (`oro_inversion`, research R-21) prevé los totales sin cuota. El
 IVA previsto sigue siendo el vigente al guardarlo, por si se desmarca la casilla.
+
+Un borrador creado por «Convertir en factura» (005, R-5) lleva `presupuesto_id`. Al emitirlo, la
+fecha no puede ser anterior a la del presupuesto, y en la misma transacción se cierra el
+presupuesto como convertido.
 """
 
 import uuid
@@ -20,12 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import CampoError, ConflictoVersion, DatosNoValidos, NoEncontrado
 from app.core.http import Origen
-from app.domain.importes import (
-    ImporteFueraDeRango,
-    LineaCalculo,
-    Totales,
-    compute_totals,
-)
 from app.domain.tipos import OperacionIdempotente, TipoEvento
 from app.models.borrador_factura import BorradorFactura, LineaBorrador
 from app.models.factura import Factura
@@ -34,10 +32,10 @@ from app.repositories import borradores as repo
 from app.repositories import clientes as clientes_repo
 from app.repositories import configuracion_facturacion as configuracion_repo
 from app.repositories import registros
-from app.services import emision
+from app.services import emision, presupuestos
 from app.services.auditoria import diff, record_event
+from app.services.contenido import DatosLinea, lineas_json, normalize_lineas, previstos
 
-CENTIMO: Final = Decimal("0.01")
 NO_EXISTE: Final = "Este borrador ya no existe: puede que se haya emitido o eliminado."
 
 
@@ -45,7 +43,7 @@ NO_EXISTE: Final = "Este borrador ya no existe: puede que se haya emitido o elim
 class DatosBorrador:
     fecha_expedicion: date
     cliente_id: uuid.UUID | None
-    lineas: tuple[emision.DatosLinea, ...]
+    lineas: tuple[DatosLinea, ...]
     oro_inversion: bool = False
 
 
@@ -68,58 +66,24 @@ async def _check_cliente(
         )
 
 
-def _normalizar(lineas: tuple[emision.DatosLinea, ...]) -> tuple[emision.DatosLinea, ...]:
-    return tuple(
-        emision.DatosLinea(
-            unidades=linea.unidades.quantize(CENTIMO),
-            descripcion=linea.descripcion.strip(),
-            precio_unitario=linea.precio_unitario.quantize(CENTIMO),
-        )
-        for linea in lineas
-    )
-
-
-def _previstos(lineas: tuple[emision.DatosLinea, ...], tipo_iva: Decimal | None) -> Totales:
-    """`tipo_iva=None`: borrador de oro de inversión, sin IVA (R-21)."""
-    emision.check_lineas(lineas, permitir_vacio=True)
-    try:
-        return compute_totals(
-            [LineaCalculo(linea.unidades, linea.precio_unitario, tipo_iva) for linea in lineas],
-            tipo_iva_por_defecto=tipo_iva,
-        )
-    except ImporteFueraDeRango as exc:
-        raise DatosNoValidos(errores=[CampoError("lineas", str(exc))]) from exc
-
-
-def _lineas_json(lineas: list[LineaBorrador] | tuple[emision.DatosLinea, ...]) -> list[object]:
-    return [
-        {
-            "unidades": linea.unidades,
-            "descripcion": linea.descripcion,
-            "precio_unitario": linea.precio_unitario,
-        }
-        for linea in lineas
-    ]
-
-
 def _contenido(borrador: BorradorFactura) -> dict[str, object]:
     """Lo que el usuario edita, más el IVA previsto, para el *diff* de auditoría."""
     return {
         "fecha_expedicion": borrador.fecha_expedicion,
         "cliente_id": borrador.cliente_id,
-        "lineas": _lineas_json(borrador.lineas),
+        "lineas": lineas_json(borrador.lineas),
         "oro_inversion": borrador.oro_inversion,
         "tipo_iva_previsto": borrador.tipo_iva_previsto,
     }
 
 
 def _contenido_nuevo(
-    datos: DatosBorrador, lineas: tuple[emision.DatosLinea, ...], tipo_iva: Decimal
+    datos: DatosBorrador, lineas: tuple[DatosLinea, ...], tipo_iva: Decimal
 ) -> dict[str, object]:
     return {
         "fecha_expedicion": datos.fecha_expedicion,
         "cliente_id": datos.cliente_id,
-        "lineas": _lineas_json(lineas),
+        "lineas": lineas_json(lineas),
         "oro_inversion": datos.oro_inversion,
         "tipo_iva_previsto": tipo_iva,
     }
@@ -128,10 +92,10 @@ def _contenido_nuevo(
 def _aplicar(
     borrador: BorradorFactura,
     datos: DatosBorrador,
-    lineas: tuple[emision.DatosLinea, ...],
+    lineas: tuple[DatosLinea, ...],
     tipo_iva: Decimal,
 ) -> None:
-    totales = _previstos(lineas, None if datos.oro_inversion else tipo_iva)
+    totales = previstos(lineas, None if datos.oro_inversion else tipo_iva)
     borrador.fecha_expedicion = datos.fecha_expedicion
     borrador.oro_inversion = datos.oro_inversion
     borrador.cliente_id = datos.cliente_id
@@ -160,13 +124,27 @@ async def get_borrador(db: AsyncSession, borrador_id: uuid.UUID) -> BorradorFact
     return borrador
 
 
+def build_borrador(
+    datos: DatosBorrador,
+    *,
+    actor: Usuario,
+    tipo_iva: Decimal,
+    presupuesto_id: uuid.UUID | None = None,
+) -> BorradorFactura:
+    """Borrador nuevo, sin guardar, con los totales previstos al IVA vigente."""
+    borrador = BorradorFactura(
+        creado_por_id=actor.id, actualizado_por_id=actor.id, presupuesto_id=presupuesto_id
+    )
+    _aplicar(borrador, datos, normalize_lineas(datos.lineas), tipo_iva)
+    return borrador
+
+
 async def create_borrador(
     db: AsyncSession, datos: DatosBorrador, *, actor: Usuario, origen: Origen
 ) -> BorradorFactura:
     await _check_cliente(db, datos.cliente_id, actual=None)
     config = await configuracion_repo.get(db)
-    borrador = BorradorFactura(creado_por_id=actor.id, actualizado_por_id=actor.id)
-    _aplicar(borrador, datos, _normalizar(datos.lineas), config.iva_por_defecto)
+    borrador = build_borrador(datos, actor=actor, tipo_iva=config.iva_por_defecto)
     await repo.save(db, borrador)
     await record_event(
         db,
@@ -192,9 +170,9 @@ async def update_borrador(
     if borrador.version != version:
         raise ConflictoVersion(repo.MENSAJE_CONFLICTO)
     await _check_cliente(db, datos.cliente_id, actual=borrador.cliente_id)
-    lineas = _normalizar(datos.lineas)
+    lineas = normalize_lineas(datos.lineas)
     tipo_iva = (await configuracion_repo.get(db)).iva_por_defecto
-    _previstos(lineas, None if datos.oro_inversion else tipo_iva)  # valida antes de comparar
+    previstos(lineas, None if datos.oro_inversion else tipo_iva)  # valida antes de comparar
     # Si el IVA vigente ha cambiado, volver a guardar actualiza el previsto (y su aviso).
     cambios = diff(_contenido(borrador), _contenido_nuevo(datos, lineas, tipo_iva))
     if not cambios:
@@ -227,6 +205,8 @@ async def delete_borrador(
     borrador = await get_borrador(db, borrador_id)
     detalle = {"borrador_id": borrador.id, **_contenido(borrador)}
     detalle.pop("tipo_iva_previsto")
+    if borrador.presupuesto_id is not None:  # el presupuesto vuelve a pendiente (005, FR-020)
+        detalle["presupuesto_id"] = borrador.presupuesto_id
     cliente_id = borrador.cliente_id
     await repo.delete(db, borrador)
     await record_event(
@@ -254,6 +234,9 @@ async def emit_borrador(
     Mismo orden de cerrojos que cualquier emisión: primero la cadena y la clave de idempotencia
     (una repetición devuelve la misma factura aunque el borrador ya no exista) y después el
     borrador con `FOR UPDATE`, que es mutable.
+
+    Si procede de un presupuesto (005, R-5), se comprueba antes la fecha y, tras emitir y antes de
+    borrar el borrador, se cierra el presupuesto como convertido en esta misma transacción.
     """
     await registros.lock_chain(db)
     operacion = OperacionIdempotente.EMITIR_BORRADOR
@@ -266,12 +249,14 @@ async def emit_borrador(
         raise ConflictoVersion(repo.MENSAJE_CONFLICTO)
     if datos.cliente_id is None:
         raise DatosNoValidos(errores=[CampoError("cliente_id", "Elige el cliente.")])
+    if borrador.presupuesto_id is not None:
+        presupuestos.check_fecha_conversion(borrador, datos.fecha_expedicion)
     factura, _ = await emision.emit_factura(
         db,
         emision.DatosFactura(
             fecha_expedicion=datos.fecha_expedicion,
             cliente_id=datos.cliente_id,
-            lineas=_normalizar(datos.lineas),
+            lineas=normalize_lineas(datos.lineas),
             oro_inversion=datos.oro_inversion,
         ),
         actor=actor,
@@ -281,5 +266,7 @@ async def emit_borrador(
         origen_id=borrador_id,
         cadena_bloqueada=True,
     )
+    if borrador.presupuesto_id is not None:
+        await presupuestos.close_conversion(db, borrador, factura, actor=actor, origen=origen)
     await repo.delete(db, borrador)
     return factura, True

@@ -295,8 +295,8 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/FacturaSalida" }
         "404": { description: "El borrador no existe o ya se emitió con otra clave", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/NoEncontrado" }
-        "409": { description: "`conflicto-version`, `emision-no-disponible` o `cadena-inconsistente`", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
-        "422": { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
+        "409": { description: "`conflicto-version`, `emision-no-disponible` o `cadena-inconsistente`. Ampliado en 005: `presupuesto-no-modificable` si el borrador está vinculado a un presupuesto ya cerrado", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Problema" }
+        "422": { description: "`validacion`, `cliente-no-facturable` o `fecha-expedicion`. Ampliado en 005: `fecha-expedicion` también si la fecha es anterior a la del presupuesto vinculado (FR-019)", $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/responses/Validacion" }
 
 components:
   parameters:
@@ -403,6 +403,12 @@ components:
         pie_factura:
           $ref: "../../003-pdf-impresion/contracts/openapi.yaml#/components/schemas/PieFactura"
           description: "Ampliado en 003 (FR-024, research R-9). Opcional: si falta, se conserva el valor actual"
+        validez_presupuesto_dias:
+          $ref: "../../005-presupuestos/contracts/openapi.yaml#/components/schemas/ValidezPresupuestoDias"
+          description: "Ampliado en 005 (FR-031, research R-12). Opcional: si falta, se conserva el valor actual"
+        pie_presupuesto:
+          $ref: "../../005-presupuestos/contracts/openapi.yaml#/components/schemas/PiePresupuesto"
+          description: "Ampliado en 005 (FR-031). Opcional: si falta, se conserva el valor actual"
     ConfiguracionFacturacionSalida:
       type: object
       required: [version, iva_por_defecto, modalidad, emisor, emision_posible, faltan, proximo_numero, modalidad_bloqueada, tipos_iva_oficiales, actualizado_en]
@@ -424,6 +430,12 @@ components:
         pie_factura:
           $ref: "../../003-pdf-impresion/contracts/openapi.yaml#/components/schemas/PieFactura"
           description: "Ampliado en 003 (FR-024)"
+        validez_presupuesto_dias:
+          $ref: "../../005-presupuestos/contracts/openapi.yaml#/components/schemas/ValidezPresupuestoDias"
+          description: "Ampliado en 005 (FR-031)"
+        pie_presupuesto:
+          $ref: "../../005-presupuestos/contracts/openapi.yaml#/components/schemas/PiePresupuesto"
+          description: "Ampliado en 005 (FR-031)"
 
     AjusteContadorEntrada:
       type: object
@@ -560,6 +572,9 @@ components:
         creado_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
         actualizado_en: { type: string, format: date-time }
         actualizado_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
+        presupuesto_origen:
+          oneOf: [{ $ref: "../../005-presupuestos/contracts/openapi.yaml#/components/schemas/PresupuestoReferencia" }, { type: "null" }]
+          description: "Ampliado en 005 (FR-018, FR-022): presupuesto del que procede el borrador creado por «Convertir en factura»"
 
     AnulacionEntrada:
       type: object
@@ -653,6 +668,9 @@ components:
         emitida_en: { type: string, format: date-time }
         emitida_por: { $ref: "../../001-cimientos-clientes/contracts/openapi.yaml#/components/schemas/UsuarioReferencia" }
         registros: { type: array, items: { $ref: "#/components/schemas/RegistroResumen" } }
+        presupuesto_origen:
+          oneOf: [{ $ref: "../../005-presupuestos/contracts/openapi.yaml#/components/schemas/PresupuestoReferencia" }, { type: "null" }]
+          description: "Ampliado en 005 (FR-022): presupuesto convertido en esta factura"
 
     FacturaResumenSalida:
       type: object

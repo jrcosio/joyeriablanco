@@ -1,7 +1,7 @@
 import { Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button as AriaButton, Input, Label, SearchField } from 'react-aria-components'
-import type { FiltrosFacturas as Filtros, OrdenFacturas } from '../../api/queries/facturas'
+import type { FiltrosDocumentos as Filtros, OrdenDocumentos } from '../../lib/filtros-documentos'
 import { campoCaja } from '../../components/ui/field'
 import { Select } from '../../components/ui/Select'
 import { anioEnCurso } from '../../lib/fechas'
@@ -25,7 +25,7 @@ const MESES = [
   'Diciembre',
 ]
 
-const ORDENES: { id: OrdenFacturas; label: string }[] = [
+const ORDENES: { id: OrdenDocumentos; label: string }[] = [
   { id: 'recientes', label: 'Más recientes' },
   { id: 'antiguas', label: 'Más antiguas' },
   { id: 'total_desc', label: 'Total mayor' },
@@ -34,17 +34,22 @@ const ORDENES: { id: OrdenFacturas; label: string }[] = [
 
 export const PLACEHOLDER_BUSQUEDA = 'Buscar número, cliente o NIF'
 
-function esOrden(valor: string | null): valor is OrdenFacturas {
+function esOrden(valor: string | null): valor is OrdenDocumentos {
   return ORDENES.some((o) => o.id === valor)
 }
 
-/** Búsqueda (con espera de 300 ms), año, mes y orden, ligados a la URL (FR-034, FR-035). */
-export function FiltrosFacturas({
+/**
+ * Búsqueda (con espera de 300 ms), año, mes y orden, ligados a la URL (002, FR-034 y FR-035; 005,
+ * FR-025). `etiqueta` nombra la región de búsqueda, p. ej. «Filtrar facturas».
+ */
+export function FiltrosDocumentos({
   filtros,
   onChange,
+  etiqueta,
 }: {
   filtros: Filtros
   onChange: (cambios: Partial<Filtros>) => void
+  etiqueta: string
 }) {
   const [texto, setTexto] = useState(filtros.q ?? '')
   const [qPrevia, setQPrevia] = useState(filtros.q)
@@ -80,7 +85,7 @@ export function FiltrosFacturas({
   return (
     <div
       role="search"
-      aria-label="Filtrar facturas"
+      aria-label={etiqueta}
       className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]"
     >
       <SearchField

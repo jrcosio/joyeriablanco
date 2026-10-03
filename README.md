@@ -38,8 +38,9 @@ actual:
 | **Usuarios y roles** | ✅ | Administrador y empleado; alta con contraseña temporal; desactivación y eliminación |
 | **Auditoría** | ✅ | Registro inalterable de accesos y cambios, que se puede consultar desde la aplicación |
 | **Facturas y registro Verifactu** | ✅ | Borradores y emisión en un modal, numeración correlativa sin huecos, registro de alta con huella SHA-256 encadenada e inalterable, anulación y rectificativas trazables, y comprobación de la cadena. IVA por defecto configurable a cualquier tipo, venta de oro de inversión sin IVA e IBAN del emisor en la factura |
-| **PDF con QR y remisión a la AEAT** | 🔜 | PDF de la factura con el QR de cotejo (003) y envío o firma de los registros (004) |
-| **Presupuestos** | 🔜 | Presupuestos con conversión a factura |
+| **PDF e impresión** | ✅ | PDF de la factura con el QR de cotejo de la AEAT, duplicado, IBAN opcional y listado filtrado impreso con totales por tipo de IVA (003) |
+| **Presupuestos** | ✅ | Borradores y emisión con numeración `PRE-AAAA-NNNN` sin huecos, validez y caducidad, PDF «PRESUPUESTO» sin validez fiscal (sin QR ni registro), conversión en factura mediante un borrador vinculado, modificación y anulación trazables, y listado impreso (005) |
+| **Remisión a la AEAT** | 🔜 | Envío de los registros en VERI\*FACTU o firma en no VERI\*FACTU (004) |
 
 > [!NOTE]
 > La aplicación está en español de España, usa un único tema oscuro y aplica el sistema de diseño
@@ -353,7 +354,7 @@ cp .env.example .env
 docker compose up -d --build                           # db + api con recarga automática
 docker compose exec api alembic upgrade head
 docker compose exec api joyeria crear-admin --usuario admin --nombre "Administrador"
-docker compose exec api joyeria cargar-datos-ejemplo   # usuarios *.demo, 40 clientes y unas 50 facturas ficticias
+docker compose exec api joyeria cargar-datos-ejemplo   # usuarios *.demo, 40 clientes, unas 50 facturas y 30 presupuestos ficticios
 
 cd joyeriablanco_web
 npm ci
@@ -451,9 +452,10 @@ uv --directory ../backend run joyeria exportar-openapi && npm run gen:api
 |---|---|
 | [`specs/001-cimientos-clientes/quickstart.md`](specs/001-cimientos-clientes/quickstart.md) | Guía de puesta en marcha y validaciones manuales, con mediciones de rendimiento |
 | [`specs/002-facturas/quickstart.md`](specs/002-facturas/quickstart.md) | Validación de la facturación, con la medición de rendimiento sobre 20.000 facturas |
+| [`specs/005-presupuestos/quickstart.md`](specs/005-presupuestos/quickstart.md) | Validación de los presupuestos y de su conversión en factura, con la medición sobre 20.000 presupuestos |
 | [`specs/001-cimientos-clientes/spec.md`](specs/001-cimientos-clientes/spec.md) · [`specs/002-facturas/spec.md`](specs/002-facturas/spec.md) | Requisitos funcionales y criterios de éxito de cada feature |
 | [`specs/002-facturas/research.md`](specs/002-facturas/research.md) | Decisiones de Verifactu con sus fuentes oficiales de la AEAT (versión y SHA-256) y las preguntas abiertas para la asesoría |
-| [`specs/001-cimientos-clientes/contracts/openapi.yaml`](specs/001-cimientos-clientes/contracts/openapi.yaml) · [`specs/002-facturas/contracts/openapi.yaml`](specs/002-facturas/contracts/openapi.yaml) | Contrato de la API (la API implementa exactamente su unión) |
+| [`specs/001-cimientos-clientes/contracts/openapi.yaml`](specs/001-cimientos-clientes/contracts/openapi.yaml) · [`specs/002-facturas/contracts/openapi.yaml`](specs/002-facturas/contracts/openapi.yaml) · [`specs/005-presupuestos/contracts/openapi.yaml`](specs/005-presupuestos/contracts/openapi.yaml) | Contrato de la API (la API implementa exactamente la unión de los de cada feature) |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Sistema de diseño: colores, tipografías y componentes |
 | [`.specify/memory/constitution.md`](.specify/memory/constitution.md) | Principios del proyecto, que mandan sobre cualquier otra guía |
 | [`CLAUDE.md`](CLAUDE.md) | Guía operativa de desarrollo y reglas innegociables de Verifactu |

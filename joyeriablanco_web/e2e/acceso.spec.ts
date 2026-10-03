@@ -16,8 +16,9 @@ test.describe('Acceso seguro (US1)', () => {
     await expect(page).toHaveURL(/\/clientes\?.*estado=todos/)
     await expect(page.getByRole('heading', { name: 'Clientes' })).toBeVisible()
     const menu = page.getByRole('navigation', { name: 'Navegación principal' })
-    await expect(menu.getByText('Próximamente')).toHaveCount(1) // Presupuestos (Facturas, desde 002)
+    await expect(menu.getByText('Próximamente')).toHaveCount(0) // Presupuestos, desde 005
     await expect(menu.getByRole('link', { name: 'Facturas' })).toBeVisible()
+    await expect(menu.getByRole('link', { name: 'Presupuestos' })).toBeVisible()
     await expect(menu.getByRole('link', { name: 'Configuración' })).toBeVisible()
   })
 

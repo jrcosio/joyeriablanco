@@ -70,3 +70,10 @@ export function fechaCorta(fecha: string): string {
 export function anioEnCurso(ahora: Date = new Date()): number {
   return Number(claveDia(ahora).slice(0, 4))
 }
+
+/** Fecha de negocio AAAA-MM-DD más `dias` días (p. ej. la validez de un presupuesto, 005 FR-009). */
+export function sumarDias(fecha: string, dias: number): string {
+  const [anio = 0, mes = 1, dia = 1] = fecha.split('-').map(Number)
+  const resultado = new Date(Date.UTC(anio, mes - 1, dia + dias))
+  return resultado.toISOString().slice(0, 10)
+}

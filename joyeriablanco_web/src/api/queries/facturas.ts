@@ -1,20 +1,14 @@
 import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '../client'
 import type { AnulacionEntrada, FacturaEntrada, ModificacionEntrada } from '../tipos'
+import type { FiltrosDocumentos, OrdenDocumentos } from '../../lib/filtros-documentos'
 import { CLIENTES_KEY } from './clientes'
 
 export const FACTURAS_KEY = ['facturas'] as const
 
-export type OrdenFacturas = 'recientes' | 'antiguas' | 'total_desc' | 'total_asc'
-
-/** Filtros del listado en la URL (contracts/ui-rutas.md). Sin `anio`, el año en curso. */
-export interface FiltrosFacturas {
-  q?: string | undefined
-  anio?: number | 'todos' | undefined
-  mes?: number | undefined
-  orden: OrdenFacturas
-  pagina: number
-}
+/** Filtros del listado en la URL (contracts/ui-rutas.md), comunes con presupuestos (005). */
+export type OrdenFacturas = OrdenDocumentos
+export type FiltrosFacturas = FiltrosDocumentos
 
 export const TAMANO_PAGINA_FACTURAS = 25
 

@@ -6,7 +6,13 @@ import uuid
 from fastapi import APIRouter, Depends, Response, status
 
 from app.api.deps import CurrentSession, DbDep, OrigenDep, get_current_session
-from app.api.v1.facturas import REPETICION, ClaveIdempotencia, datos_lineas, factura_salida
+from app.api.v1.facturas import (
+    REPETICION,
+    ClaveIdempotencia,
+    datos_lineas,
+    factura_salida,
+    presupuesto_referencia,
+)
 from app.domain.exenciones import MENCION_EXENCION_ORO_INVERSION
 from app.domain.importes import line_amount
 from app.models.borrador_factura import BorradorFactura
@@ -37,7 +43,7 @@ def _datos(entrada: BorradorEntrada) -> servicio.DatosBorrador:
     )
 
 
-def _salida(borrador: BorradorFactura) -> BorradorSalida:
+def borrador_salida(borrador: BorradorFactura) -> BorradorSalida:
     cliente = borrador.cliente
     return BorradorSalida(
         id=borrador.id,
@@ -90,6 +96,7 @@ def _salida(borrador: BorradorFactura) -> BorradorSalida:
         creado_por=UsuarioReferencia.from_model(borrador.creado_por),
         actualizado_en=borrador.actualizado_en,
         actualizado_por=UsuarioReferencia.from_model(borrador.actualizado_por),
+        presupuesto_origen=presupuesto_referencia(borrador.presupuesto),
     )
 
 
@@ -100,12 +107,12 @@ async def crear_borrador(
     borrador = await servicio.create_borrador(
         db, _datos(entrada), actor=sesion.usuario, origen=origen
     )
-    return _salida(borrador)
+    return borrador_salida(borrador)
 
 
 @router.get("/{borrador_id}")
 async def obtener_borrador(borrador_id: uuid.UUID, db: DbDep) -> BorradorSalida:
-    return _salida(await servicio.get_borrador(db, borrador_id))
+    return borrador_salida(await servicio.get_borrador(db, borrador_id))
 
 
 @router.put("/{borrador_id}")
@@ -124,7 +131,7 @@ async def guardar_borrador(
         actor=sesion.usuario,
         origen=origen,
     )
-    return _salida(borrador)
+    return borrador_salida(borrador)
 
 
 @router.delete("/{borrador_id}", status_code=status.HTTP_204_NO_CONTENT)

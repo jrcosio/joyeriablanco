@@ -24,7 +24,7 @@ import {
   campoError,
   campoEtiqueta,
 } from '../../components/ui/field'
-import { etiquetaCliente } from './factura-valores'
+import { etiquetaCliente } from './documento-valores'
 
 /**
  * Selector de cliente con búsqueda en el servidor (nombre o identificación, sin tildes). Solo

@@ -14,8 +14,9 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { Pagination } from '../../components/ui/Pagination'
 import { anioEnCurso } from '../../lib/fechas'
-import { FiltrosFacturas } from './FiltrosFacturas'
-import { ImprimirListado } from './ImprimirListado'
+import { urlPdfListado } from '../../lib/impresion'
+import { FiltrosDocumentos } from '../documentos/FiltrosDocumentos'
+import { ImprimirListado } from '../documentos/ImprimirListado'
 import { TablaFacturas } from './TablaFacturas'
 
 const claseBotonPrimario =
@@ -142,14 +143,15 @@ export function FacturasPage({
           <>
             <NuevaFactura />
             <ImprimirListado
-              filtros={filtros}
+              href={urlPdfListado('facturas', filtros)}
+              documentos="facturas"
               total={lista.data?.total}
               cargando={lista.isPending || lista.isPlaceholderData}
             />
           </>
         }
       />
-      <FiltrosFacturas filtros={filtros} onChange={onFiltros} />
+      <FiltrosDocumentos filtros={filtros} onChange={onFiltros} etiqueta="Filtrar facturas" />
       <Card className="overflow-hidden bg-surface-container-low" aria-live="polite">
         {contenido}
       </Card>

@@ -41,3 +41,17 @@ export type ModificacionEntrada = Esquemas['ModificacionEntrada']
 export type MotivoModificacion = ModificacionEntrada['motivo']
 export type CausaRectificacion = NonNullable<ModificacionEntrada['causa']>
 export type CorreccionSalida = Esquemas['CorreccionSalida']
+
+// Presupuestos (005)
+export type ParametrosPresupuestoSalida = Esquemas['ParametrosPresupuestoSalida']
+export type PresupuestoEntrada = Esquemas['PresupuestoEntrada']
+export type PresupuestoSalida = Esquemas['PresupuestoSalida']
+export type PresupuestoResumenSalida = Esquemas['PresupuestoResumenSalida']
+export type EstadoPresupuesto = Esquemas['EstadoPresupuesto']
+export type BorradorPresupuestoEntrada = Esquemas['BorradorPresupuestoEntrada']
+export type BorradorPresupuestoEdicionEntrada = Esquemas['BorradorPresupuestoEdicionEntrada']
+export type BorradorPresupuestoSalida = Esquemas['BorradorPresupuestoSalida']
+export type CierrePresupuestoSalida = Esquemas['CierrePresupuestoSalida']
+export type PresupuestoReferencia = Esquemas['PresupuestoReferencia']
+export type ModificacionPresupuestoEntrada = Esquemas['ModificacionPresupuestoEntrada']
+export type AnulacionPresupuestoEntrada = Esquemas['AnulacionPresupuestoEntrada']

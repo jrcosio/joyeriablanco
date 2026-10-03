@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { iniciarSesion } from './helpers/acceso'
+import { emitirPresupuestoPorLaApi } from './helpers/presupuestos'
 import { CONTRASENA, dni, unico } from './helpers/entorno'
 
 async function focoVisible(page: Page): Promise<boolean> {
@@ -118,4 +119,48 @@ test('modal de factura solo con teclado: dos capas, Escape y foco devuelto (FR-0
   await page.keyboard.press('Enter')
   await expect(modal).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Nueva factura' })).toBeFocused()
+})
+
+test('modal y diálogos de presupuesto solo con teclado: Escape y foco devuelto (005, SC-009)', async ({
+  page,
+}) => {
+  await iniciarSesion(page, 'admin.demo')
+  await page.goto('/presupuestos')
+  await expect(page.getByRole('heading', { name: 'Presupuestos' })).toBeVisible()
+
+  // Modal nuevo: una línea con el teclado, y Escape con cambios pide descartarlos.
+  await tabularHastaNombre(page, /^Nuevo presupuesto$/)
+  expect(await focoVisible(page)).toBe(true)
+  await page.keyboard.press('Enter')
+  const modal = page.getByRole('dialog', { name: 'Nuevo presupuesto' })
+  await expect(modal.getByText('Se asigna al emitir')).toBeVisible()
+  await tabularHastaNombre(page, /^Descripción de la línea 1/)
+  await page.keyboard.type('Anillo a medida')
+  await page.keyboard.press('Escape')
+  const descartar = page.getByRole('alertdialog', { name: '¿Descartar los cambios?' })
+  await expect(descartar).toBeVisible()
+  await tabularHastaNombre(page, /^Descartar$/, 5)
+  await page.keyboard.press('Enter')
+  await expect(modal).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Nuevo presupuesto' })).toBeFocused()
+
+  // Consulta: los diálogos de convertir y anular se cierran con Escape sin cerrar la consulta, y
+  // el foco vuelve al botón que los abrió.
+  const presupuesto = await emitirPresupuestoPorLaApi(page)
+  await page.goto(`/presupuestos/${presupuesto.id}`)
+  const consulta = page.getByRole('dialog', { name: `Presupuesto ${presupuesto.num_serie}` })
+  await expect(consulta.getByRole('link', { name: /^Imprimir presupuesto / })).toBeVisible()
+  for (const [boton, dialogo] of [
+    ['Convertir en factura', '¿Convertir en factura?'],
+    ['Anular', `¿Anular el presupuesto ${presupuesto.num_serie}?`],
+  ] as const) {
+    await tabularHastaNombre(page, new RegExp(`^${boton}$`), 30)
+    await page.keyboard.press('Enter')
+    const abierto = page.getByRole('alertdialog', { name: dialogo })
+    await expect(abierto).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(abierto).toHaveCount(0)
+    await expect(consulta).toBeVisible()
+    await expect.poll(() => nombreDelFoco(page)).toBe(boton)
+  }
 })
