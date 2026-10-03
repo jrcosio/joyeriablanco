@@ -42,3 +42,18 @@ joyeria generar-certificado-pruebas --destino RUTA.p12 --contrasena TEXTO [--dia
   `O=PRUEBAS - SIN VALIDEZ` y el NIF del emisor de la configuración.
 - **En producción**: se niega a ejecutarse (código 1). Un certificado así no es utilizable en
   producción (`de_pruebas_en_produccion`).
+
+## `estado-certificado`
+
+```text
+joyeria estado-certificado
+```
+
+- **Salida**: el estado del certificado (FR-003): titular, emisor, validez, días restantes y, si no
+  es utilizable, el motivo. Nunca la contraseña.
+- **Código**:
+  - 0 si es utilizable;
+  - 1 si no lo es;
+  - 3 si es utilizable pero caduca en 30 días o menos.
+- **Para qué sirve**: lo usa `deploy/verificar-produccion.sh` para comprobar el certificado
+  instalado.
