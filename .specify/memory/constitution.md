@@ -1,38 +1,34 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Cambio de version: 2.2.0 -> 2.3.0
-Motivo del bump: MINOR. Se amplia materialmente la guia sobre presupuestos (principio III), se
-anade una serie a la restriccion "Numeracion" y se concreta el test obligatorio de conversion
-(principio VII). No se redefine ni elimina ningun principio.
-Decision explicita del responsable del proyecto (2026-10-02), al abrir 005-presupuestos:
-  - Ciclo de vida "como las facturas": borrador editable, emision con numero e inalterable,
-    "Modificar" por sustitucion trazable, anulacion y conversion en factura.
-  - Serie PRE-AAAA-NNNN correlativa y sin huecos, con el mismo contador bloqueado que FAC.
-  - Impreso titulado "PRESUPUESTO" con la leyenda de documento sin validez fiscal.
+Cambio de version: 2.3.0 -> 2.4.0
+Motivo del bump: MINOR. Se cierran los dos TODO pendientes y se amplia materialmente la guia del
+principio IV (requisitos de la modalidad no VERI*FACTU) y del principio VII (tests obligatorios de
+firma, registro de eventos y XML). No se redefine ni elimina ningun principio.
+Decision explicita del responsable del proyecto (2026-10-03), al abrir 004-no-verifactu:
+  - Modalidad: no VERI*FACTU. Sin remision automatica a la AEAT; un requerimiento se atiende
+    exportando los registros firmados en el formato oficial.
+  - Productor: Joyeria Blanco, desarrollo para uso propio; suscribe la declaracion responsable.
 
 Principios modificados:
-  - III. Inalterabilidad de los documentos emitidos: el parrafo "Los presupuestos SI son
-    editables mientras esten en estado borrador" pasa a regular el ciclo completo del
-    presupuesto (borrador, emision inalterable en la BD, sustitucion, anulacion, sin QR ni
-    registro, conversion vinculada), con la FAQ de la AEAT como fuente citada.
-  - VII. Cobertura de test obligatoria: la conversion presupuesto -> factura cubre concurrencia,
-    idempotencia y la integridad del encadenamiento de huellas.
-
-Secciones modificadas:
-  - Restricciones tecnicas > Numeracion:
-      + serie de presupuestos PRE-AAAA-NNNN, con las mismas garantias;
-      + la asignacion automatica alcanza tambien a los presupuestos;
-      + la serie PRE no admite el ajuste al alza (la excepcion sigue siendo solo la ordinaria).
+  - IV. Cumplimiento Verifactu por diseno: se anade el apartado "Modalidad de Joyeria Blanco"
+    (no VERI*FACTU, firma XAdES-EPES antes de insertar, registro de eventos EventosSIF,
+    exportacion ante requerimiento y declaracion responsable consultable en el sistema), con la
+    especificacion oficial de firma v0.1.5 como fuente citada.
+  - VII. Cobertura de test obligatoria: + encadenamiento y firma de los registros de evento,
+    verificacion de la firma de los registros de facturacion y validacion del XML contra los XSD
+    oficiales.
 
 Secciones anadidas: ninguna. Secciones eliminadas: ninguna.
 
 Artefactos dependientes:
-  - CLAUDE.md                          actualizado: "Numeracion" y "Reglas innegociables"
-  - specs/005-presupuestos/            pendiente: se crea en el specify de la feature
+  - CLAUDE.md                          actualizado: "Reglas innegociables" (modalidad elegida) y
+                                       "Documentacion tecnica oficial" (firma y XSD)
+  - specs/004-no-verifactu/            pendiente: se crea en el specify de la feature
   - .specify/templates/*.md            sin cambios
 
 Historico:
+  - 2.3.0 (2026-10-02) presupuestos: serie PRE, ciclo inalterable y conversion vinculada.
   - 2.2.0 (2026-09-28) numeracion automatica, serie REC y ajuste al alza de la ordinaria.
   - 2.1.0 (2026-09-28) principio III: borradores editables y "Modificar" como correccion
     trazable; numeracion FAC-AAAA-NNNN sin reutilizacion.
@@ -40,13 +36,11 @@ Historico:
   - 1.1.0 (2026-09-27) restriccion "Sistema de diseno" (docs/DESIGN.md normativo).
   - 1.0.0 (2026-09-12) adopcion inicial con los principios I-IX.
 
-TODO pendientes (no bloquean la ratificacion, se resuelven en el clarify de su feature):
-  - TODO(MODALIDAD_VERIFACTU): elegir entre VERI*FACTU y no VERI*FACTU. El principio IV
-    exige que el diseno soporte ambas, por lo que la eleccion no altera esta constitucion.
-    Estado (2026-09-28, specify de 002): pendiente de la asesoria; es una opcion de
-    Configuracion sin valor inicial y DEBE fijarse antes de la feature 004.
-  - TODO(DECLARACION_RESPONSABLE): determinar quien la suscribe (art. 13 RRSIF). Pendiente
-    de confirmacion por la asesoria.
+TODO resueltos en esta version:
+  - TODO(MODALIDAD_VERIFACTU): no VERI*FACTU (decision del responsable, 2026-10-03).
+  - TODO(DECLARACION_RESPONSABLE): la suscribe Joyeria Blanco como productora (uso propio).
+
+TODO pendientes: ninguno.
 -->
 
 # Constitución de Joyería Blanco
@@ -190,6 +184,30 @@ HAC/1177/2024 exime de los arts. 6 y 8 y del registro de eventos del art. 9 de d
 modalidad no VERI\*FACTU esos requisitos SÍ aplican, incluida la firma XAdES Enveloped conforme a
 ETSI EN 319 132 (art. 14 de la Orden).
 
+**Modalidad de Joyería Blanco: no VERI\*FACTU** (decisión del responsable, 2026-10-03). En ella:
+
+- **Sin remisión automática.** Los registros no se envían a la AEAT. Un requerimiento se atiende
+  exportando los registros de facturación y de evento firmados, en el formato oficial, y
+  entregándolos por el cauce que indique el propio requerimiento.
+- **Firma de cada registro.** Cada registro de facturación (alta y anulación) y cada registro de
+  evento DEBE firmarse:
+  - con XAdES Enveloped, clase EPES, con la política de firma de la AGE
+    (`urn:oid:2.16.724.1.3.1.1.2.1.9`) y RSA con SHA-256;
+  - con un certificado cualificado en vigor de la empresa o de su representante;
+  - sobre el nodo `RegistroAlta`, `RegistroAnulacion` o `RegistroEvento`, con la firma en su
+    `Signature`;
+  - ANTES de insertar el registro y en la misma transacción. Las tablas son de solo inserción: si
+    la firma falla, la operación se deshace entera y no consume número.
+
+  Fuente: «VERI\*FACTU - Especificaciones técnicas para generación de la firma electrónica de los
+  registros de facturación», versión 0.1.5 (06/03/2025), §2 a §6.
+- **Registro de eventos.** Sigue el esquema oficial `EventosSIF.xsd`. Está encadenado con su
+  propia huella, firmado e inalterable en la base de datos, con las mismas garantías que los
+  registros de facturación.
+- **Declaración responsable.** Joyería Blanco es productora y usuaria del sistema (desarrollo
+  para uso propio). Suscribe la declaración responsable del art. 13 del RRSIF, que DEBE poder
+  consultarse en el propio sistema.
+
 **Razón**: el cumplimiento no se añade al final. Condiciona el esquema desde la primera migración,
 sobre tablas que por definición no admiten reescritura.
 
@@ -221,10 +239,14 @@ Son de cobertura obligatoria, y ninguna feature que los afecte se cierra sin ell
 - Conversión presupuesto → factura, incluidas la concurrencia (convertir a la vez el mismo
   presupuesto da una sola factura) y la idempotencia, y la comprobación de que no altera el
   encadenamiento de huellas.
+- En no VERI\*FACTU:
+  - la verificación de la firma de los registros de facturación;
+  - el encadenamiento y la firma de los registros de evento;
+  - la validación del XML de los registros contra los XSD oficiales.
 
 Una fase del plan no se da por cerrada sin sus tests en verde.
 
-**Razón**: son exactamente los cuatro puntos donde un fallo es silencioso en desarrollo y grave en
+**Razón**: son exactamente los puntos donde un fallo es silencioso en desarrollo y grave en
 producción.
 
 ### VIII. Español en el dominio
@@ -343,4 +365,4 @@ subordinado a esta constitución.
 `docs/DESIGN.md` es la especificación normativa del sistema de diseño y está subordinado a esta
 constitución. Sus cambios materiales requieren aprobación explícita del responsable del proyecto.
 
-**Version**: 2.3.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-02
+**Version**: 2.4.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-03
