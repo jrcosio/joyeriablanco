@@ -58,6 +58,20 @@ comprobar "La SPA mantiene object-src 'none'" \
 spa=$("${CURL[@]}" -o /dev/null -w "%{http_code}" "$BASE/clientes")
 comprobar "Las rutas de la SPA se sirven (fallback a index.html)" '[[ "$spa" == 200 ]]'
 
+# Declaración responsable (004, US5): su PDF tiene la misma excepción de CSP en el Caddyfile.
+pdf_decl=$("${CURL[@]}" -D - -o /dev/null "$BASE/api/v1/sistema/declaracion-responsable/pdf")
+comprobar "PDF de la declaración sin sesión responde 401" 'grep -q "^HTTP/[0-9.]* 401" <<<"$pdf_decl"'
+comprobar "PDF de la declaración con la CSP de la API (object-src 'self')" \
+  'grep -qi "^content-security-policy:.*object-src '"'"'self'"'"'" <<<"$pdf_decl"'
+
+# Certificado de firma (004, research R-6): instalado y utilizable en la API. Código 3: caduca en
+# 30 días o menos (contracts/cli.md de 004).
+docker compose -f docker-compose.prod.yml exec -T api joyeria estado-certificado
+estado_certificado=$?
+comprobar "Certificado de firma utilizable (joyeria estado-certificado)" \
+  '[[ "$estado_certificado" == 0 || "$estado_certificado" == 3 ]]'
+if [[ "$estado_certificado" == 3 ]]; then echo "  Aviso: el certificado caduca en 30 días o menos."; fi
+
 contenedor_db=$(docker compose -f docker-compose.prod.yml ps -q db)
 puertos=$(docker inspect --format '{{json .NetworkSettings.Ports}}' "$contenedor_db" 2>/dev/null)
 # Publicado sería p. ej. {"5432/tcp":[{"HostIp":"0.0.0.0","HostPort":"5432"}]}; sin publicar: null.

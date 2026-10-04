@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { ChevronDown, LogOut, UserRound } from 'lucide-react'
+import { ChevronDown, Info, LogOut, UserRound } from 'lucide-react'
 import { Button, Menu, MenuItem, MenuTrigger, Popover, Separator } from 'react-aria-components'
 import type { UsuarioSalida } from '../../api/tipos'
 import { cerrarSesion } from '../../auth/session'
@@ -42,6 +42,8 @@ export function UserMenu({ usuario }: { usuario: UsuarioSalida }) {
           onAction={(clave) => {
             if (clave === 'cuenta') {
               void navigate({ to: '/cuenta' })
+            } else if (clave === 'acerca') {
+              void navigate({ to: '/acerca' })
             } else {
               void cerrarSesion(queryClient).finally(() => {
                 void navigate({ to: '/acceso' })
@@ -52,6 +54,10 @@ export function UserMenu({ usuario }: { usuario: UsuarioSalida }) {
           <MenuItem id="cuenta" className={claseItem}>
             <UserRound aria-hidden="true" className="size-4" />
             Mi cuenta
+          </MenuItem>
+          <MenuItem id="acerca" className={claseItem}>
+            <Info aria-hidden="true" className="size-4" />
+            Acerca del sistema
           </MenuItem>
           <Separator className="my-1 h-px bg-primary-container/18" />
           <MenuItem id="salir" className={claseItem}>

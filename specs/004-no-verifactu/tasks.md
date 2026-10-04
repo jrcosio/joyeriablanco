@@ -467,41 +467,41 @@ se abre «Acerca del sistema» y se descarga la declaración.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T060 [P] [US5] Test `backend/tests/integration/test_sistema.py`:
+- [X] T060 [P] [US5] Test `backend/tests/integration/test_sistema.py`:
   - `GET /v1/sistema` para cualquier sesión, con los datos del sistema y la declaración (título
     literal, letras a a l en orden y con los textos del art. 15.1, e) y f) «No», g) XAdES
     Enveloped, productor de los ajustes);
   - el PDF, con su `Content-Disposition`;
   - la producción exige los ajustes nuevos (en el test de configuración);
   - la configuración devuelve el bloque `certificado`.
-- [ ] T061 [P] [US5] Tests web:
-  - `features/sistema/AcercaPage.test.tsx`;
-  - el enlace en el menú de usuario y en el pie del menú lateral;
+- [X] T061 [P] [US5] Tests web:
+  - `features/sistema/AcercaPage.test.tsx`, con el enlace en el menú de usuario y en el pie del
+    menú lateral;
   - `features/configuracion/FacturacionPage.test.tsx`: modalidad fija, VERI\*FACTU desactivada y
     tarjeta del certificado en cada estado.
 
 ### Implementation for User Story 5
 
-- [ ] T062 [US5] `backend/app/services/sistema.py` (R-13), la plantilla
+- [X] T062 [US5] `backend/app/services/sistema.py` (R-13), la plantilla
   `backend/app/resources/pdf/declaracion.html` («Paper») y la API `backend/app/api/v1/sistema.py`:
   - `GET /v1/sistema`;
   - `GET /v1/sistema/declaracion-responsable/pdf`, con la CSP de los PDF y la excepción del
     `Caddyfile` ampliada a `/api/v1/sistema/declaracion-responsable/pdf`.
 
   Salen de `PENDIENTES_004`. Hace pasar T060.
-- [ ] T063 [US5] Web:
+- [X] T063 [US5] Web:
   - `features/sistema/AcercaPage.tsx` y la ruta `routes/_app/acerca.tsx`;
   - los enlaces en `UserMenu` y en el pie de `Sidebar`;
   - en `FacturacionPage.tsx`, la modalidad fija y la tarjeta «Certificado de firma». Desaparece el
     texto que anuncia el cambio de modalidad «con la remisión a la AEAT» (FR-031).
 
   Hace pasar T061.
-- [ ] T064 [US5] Producción:
+- [X] T064 [US5] Producción:
   - `docker-compose.prod.yml`, con el *secret* del certificado en solo lectura y la ruta;
   - la CLI `estado-certificado` ([contracts/cli.md](contracts/cli.md)) y su comprobación en
     `deploy/verificar-produccion.sh`;
   - `docs/declaraciones/README.md`, con el procedimiento de archivo (RRSIF 13.3).
-- [ ] T065 [US5] E2E en `joyeriablanco_web/e2e/acerca.spec.ts`:
+- [X] T065 [US5] E2E en `joyeriablanco_web/e2e/acerca.spec.ts`:
   - el empleado abre «Acerca del sistema» y descarga el PDF;
   - en `configuracion-facturacion.spec.ts`, el administrador ve el certificado de prueba.
 
@@ -511,7 +511,7 @@ se abre «Acerca del sistema» y se descarga la declaración.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T066 Contrato completo: eliminar `PENDIENTES_004` de `test_contrato_openapi.py`, con el test en
+- [X] T066 Contrato completo: eliminar `PENDIENTES_004` de `test_contrato_openapi.py`, con el test en
   verde.
 - [ ] T067 [P] Logs (FR-033), en `backend/tests/integration/test_logs_facturacion.py`:
   - firmar, generar eventos, comprobar y exportar no dejan en los registros de actividad la

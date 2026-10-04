@@ -14,6 +14,7 @@ import { Route as AccesoRouteImport } from './routes/acceso'
 import { Route as CambiarContrasenaRouteImport } from './routes/cambiar-contrasena'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAccesoDenegadoRouteImport } from './routes/_app/acceso-denegado'
+import { Route as AppAcercaRouteImport } from './routes/_app/acerca'
 import { Route as AppClientesRouteImport } from './routes/_app/clientes'
 import { Route as AppConfiguracionRouteImport } from './routes/_app/configuracion'
 import { Route as AppCuentaRouteImport } from './routes/_app/cuenta'
@@ -57,6 +58,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppAccesoDenegadoRoute = AppAccesoDenegadoRouteImport.update({
   id: '/acceso-denegado',
   path: '/acceso-denegado',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAcercaRoute = AppAcercaRouteImport.update({
+  id: '/acerca',
+  path: '/acerca',
   getParentRoute: () => AppRoute,
 } as any)
 const AppClientesRoute = AppClientesRouteImport.update({
@@ -174,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/acceso': typeof AccesoRoute
   '/cambiar-contrasena': typeof CambiarContrasenaRoute
   '/acceso-denegado': typeof AppAccesoDenegadoRoute
+  '/acerca': typeof AppAcercaRoute
   '/clientes': typeof AppClientesRouteWithChildren
   '/configuracion': typeof AppConfiguracionRouteWithChildren
   '/cuenta': typeof AppCuentaRoute
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/acceso': typeof AccesoRoute
   '/cambiar-contrasena': typeof CambiarContrasenaRoute
   '/acceso-denegado': typeof AppAccesoDenegadoRoute
+  '/acerca': typeof AppAcercaRoute
   '/clientes': typeof AppClientesRouteWithChildren
   '/cuenta': typeof AppCuentaRoute
   '/facturas': typeof AppFacturasRouteWithChildren
@@ -226,6 +234,7 @@ export interface FileRoutesById {
   '/acceso': typeof AccesoRoute
   '/cambiar-contrasena': typeof CambiarContrasenaRoute
   '/_app/acceso-denegado': typeof AppAccesoDenegadoRoute
+  '/_app/acerca': typeof AppAcercaRoute
   '/_app/clientes': typeof AppClientesRouteWithChildren
   '/_app/configuracion': typeof AppConfiguracionRouteWithChildren
   '/_app/cuenta': typeof AppCuentaRoute
@@ -255,6 +264,7 @@ export interface FileRouteTypes {
     | '/acceso'
     | '/cambiar-contrasena'
     | '/acceso-denegado'
+    | '/acerca'
     | '/clientes'
     | '/configuracion'
     | '/cuenta'
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/acceso'
     | '/cambiar-contrasena'
     | '/acceso-denegado'
+    | '/acerca'
     | '/clientes'
     | '/cuenta'
     | '/facturas'
@@ -306,6 +317,7 @@ export interface FileRouteTypes {
     | '/acceso'
     | '/cambiar-contrasena'
     | '/_app/acceso-denegado'
+    | '/_app/acerca'
     | '/_app/clientes'
     | '/_app/configuracion'
     | '/_app/cuenta'
@@ -370,6 +382,13 @@ declare module '@tanstack/react-router' {
       path: '/acceso-denegado'
       fullPath: '/acceso-denegado'
       preLoaderRoute: typeof AppAccesoDenegadoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/acerca': {
+      id: '/_app/acerca'
+      path: '/acerca'
+      fullPath: '/acerca'
+      preLoaderRoute: typeof AppAcercaRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/clientes': {
@@ -587,6 +606,7 @@ const AppPresupuestosRouteWithChildren = AppPresupuestosRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAccesoDenegadoRoute: typeof AppAccesoDenegadoRoute
+  AppAcercaRoute: typeof AppAcercaRoute
   AppClientesRoute: typeof AppClientesRouteWithChildren
   AppConfiguracionRoute: typeof AppConfiguracionRouteWithChildren
   AppCuentaRoute: typeof AppCuentaRoute
@@ -598,6 +618,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAccesoDenegadoRoute: AppAccesoDenegadoRoute,
+  AppAcercaRoute: AppAcercaRoute,
   AppClientesRoute: AppClientesRouteWithChildren,
   AppConfiguracionRoute: AppConfiguracionRouteWithChildren,
   AppCuentaRoute: AppCuentaRoute,

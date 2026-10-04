@@ -66,10 +66,13 @@ Tests de cobertura obligatoria (constitución VII, 2.4.0):
 ## 3. Producción
 
 - **Certificado real**:
-  - se instala el `.p12` cualificado de Joyería Blanco como *secret* de Docker
-    (`docker-compose.prod.yml`, `secrets.certificado`);
+  - se copia el `.p12` cualificado de Joyería Blanco al servidor y se indica su ruta en
+    `CERTIFICADO_FICHERO`. Se monta como *secret* de Docker, en solo lectura, en
+    `/run/secrets/certificado.p12` (`docker-compose.prod.yml`);
+  - lo lee el usuario de la imagen: `chown 10001 certificado.p12 && chmod 0400 certificado.p12`;
   - la contraseña, en `CERTIFICADO_CONTRASENA`;
-  - comprobar con `deploy/verificar-produccion.sh`.
+  - comprobar con `docker compose -f docker-compose.prod.yml exec api joyeria estado-certificado`
+    o con `deploy/verificar-produccion.sh`, que lo incluye.
 - **Variables**: `SIF_PRODUCTOR_NOMBRE`, `SIF_PRODUCTOR_NIF`, `SIF_PRODUCTOR_DIRECCION`,
   `SIF_DECLARACION_FECHA` y `SIF_DECLARACION_LUGAR` con los datos reales. La API no arranca sin
   ellas.

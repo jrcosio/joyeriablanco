@@ -14,6 +14,7 @@ from app.api.v1 import (
     presupuestos,
     registro_fiscal,
     sesion,
+    sistema,
     usuarios,
 )
 
@@ -30,3 +31,4 @@ router.include_router(presupuestos.router)
 router.include_router(borradores_presupuesto.router)
 router.include_router(registro_fiscal.router)
 router.include_router(alarmas.router)
+router.include_router(sistema.router)

@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import {
   ClipboardList,
   FileText,
+  Info,
   Settings,
   ShieldCheck,
   Users,
@@ -59,6 +60,18 @@ export function Sidebar({ rol, onNavegar }: { rol: Rol; onNavegar?: () => void }
           })}
         </ul>
       </nav>
+      {/* «Acerca del sistema» (004, FR-027): la declaración responsable, a la vista de todos. */}
+      <div className="border-t border-primary-container/18 px-3 py-4">
+        <Link
+          to="/acerca"
+          onClick={onNavegar}
+          className="flex h-10 items-center gap-3 px-4 body-sm text-on-surface-variant transition-colors hover:text-on-surface"
+          activeProps={{ className: 'text-primary', 'aria-current': 'page' }}
+        >
+          <Info aria-hidden="true" className="size-4 shrink-0" />
+          Acerca del sistema
+        </Link>
+      </div>
     </div>
   )
 }

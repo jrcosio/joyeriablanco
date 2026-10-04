@@ -20,6 +20,19 @@
   }
 }
 
+/* Declaración responsable del sistema (004, research R-13). */
+@page declaracion {
+  size: A4 portrait;
+  margin: var(--print-margin) var(--print-margin) calc(var(--print-margin) + var(--print-gutter));
+  background: var(--paper);
+  @bottom-right {
+    content: "Declaración responsable · Página " counter(page) " de " counter(pages);
+    font-family: var(--print-small-family);
+    font-size: var(--print-small-size);
+    color: var(--paper-ink-muted);
+  }
+}
+
 /* El texto del pie lo pone listado.html, según la paginación por bloques (research R-7). */
 @page listado {
   size: A4 landscape;
@@ -48,6 +61,10 @@ body.doc-presupuesto {
 
 body.doc-listado {
   page: listado;
+}
+
+body.doc-declaracion {
+  page: declaracion;
 }
 
 h1,
@@ -468,4 +485,10 @@ table.totales-listado-tabla tr.total td {
 .excluidas {
   margin-top: 1.5mm;
   text-align: right;
+}
+
+/* ---------------------------------------------------- declaración responsable (004) */
+
+.declaracion dt {
+  margin-top: var(--print-gutter);
 }

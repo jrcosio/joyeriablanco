@@ -68,9 +68,14 @@ _FACTURAS = _Documento("La factura no existe.", "/facturas", "Volver a las factu
 _PRESUPUESTOS = _Documento(
     "El presupuesto no existe.", "/presupuestos", "Volver a los presupuestos"
 )  # 005, contracts/documentos-pdf.md
+_DECLARACION = _Documento(
+    "La declaración no existe.", "/acerca", "Volver a «Acerca del sistema»"
+)  # 004, US5
 
 
 def _documento(ruta: str) -> _Documento:
+    if ruta.startswith("/api/v1/sistema/"):
+        return _DECLARACION
     return _PRESUPUESTOS if ruta.startswith("/api/v1/presupuestos/") else _FACTURAS
 
 

@@ -818,6 +818,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sistema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Sistema */
+        get: operations["obtener_sistema_api_v1_sistema_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sistema/declaracion-responsable/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Descargar Declaracion */
+        get: operations["descargar_declaracion_api_v1_sistema_declaracion_responsable_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1486,6 +1520,28 @@ export interface components {
             /** Provincia */
             provincia: string | null;
         };
+        /** Declaracion */
+        Declaracion: {
+            /**
+             * Titulo
+             * @constant
+             */
+            titulo: "DECLARACIÓN RESPONSABLE DEL SISTEMA INFORMÁTICO DE FACTURACIÓN";
+            /** Apartados */
+            apartados: components["schemas"]["DeclaracionApartado"][];
+        };
+        /** DeclaracionApartado */
+        DeclaracionApartado: {
+            /** Letra */
+            letra: string;
+            /**
+             * Texto
+             * @description Texto descriptivo del art. 15.1 de la Orden
+             */
+            texto: string;
+            /** Valor */
+            valor: string;
+        };
         /** DesgloseSalida */
         DesgloseSalida: {
             /** Tipo Iva */
@@ -2132,6 +2188,15 @@ export interface components {
             emitido_en: string;
             emitido_por: components["schemas"]["UsuarioReferencia"];
         };
+        /** Productor */
+        Productor: {
+            /** Nombre */
+            nombre: string;
+            /** Nif */
+            nif: string;
+            /** Direccion */
+            direccion: string;
+        };
         /** ProvinciaSalida */
         ProvinciaSalida: {
             /** Codigo */
@@ -2252,6 +2317,24 @@ export interface components {
             expira_en: string;
             /** Inactividad Segundos */
             inactividad_segundos: number;
+        };
+        /** SistemaSalida */
+        SistemaSalida: {
+            /** Nombre */
+            nombre: string;
+            /** Id Sistema */
+            id_sistema: string;
+            /** Version */
+            version: string;
+            /** Numero Instalacion */
+            numero_instalacion: string;
+            productor: components["schemas"]["Productor"];
+            /**
+             * Modalidad
+             * @constant
+             */
+            modalidad: "no_verifactu";
+            declaracion: components["schemas"]["Declaracion"];
         };
         /**
          * TipoCierrePresupuesto
@@ -4318,6 +4401,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AlarmasSalida"];
+                };
+            };
+        };
+    };
+    obtener_sistema_api_v1_sistema_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SistemaSalida"];
+                };
+            };
+        };
+    };
+    descargar_declaracion_api_v1_sistema_declaracion_responsable_pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Declaración responsable en PDF (Orden, art. 15.3) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
         };

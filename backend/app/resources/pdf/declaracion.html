@@ -1,0 +1,19 @@
+{#
+  Declaración responsable del sistema informático de facturación (004, FR-027 a FR-029; Orden
+  HAC/1177/2024, art. 15). `d` es la Declaracion de services/sistema.py: el título literal y, en el
+  orden del art. 15.1, cada dato precedido del texto que lo describe.
+#}
+{% extends "base.html" %}
+{% block titulo %}{{ d.titulo }}{% endblock %}
+{% block autor %}{{ d.productor }}{% endblock %}
+{% block clase_cuerpo %}doc-declaracion{% endblock %}
+{% block contenido %}
+<h1 class="titulo">{{ d.titulo }}</h1>
+<p class="pequeno">{{ d.sistema }} · versión {{ d.version }}</p>
+<dl class="declaracion">
+  {% for a in d.apartados %}
+  <dt class="etiqueta">{{ a.letra }}) {{ a.texto }}</dt>
+  <dd>{{ a.valor }}</dd>
+  {% endfor %}
+</dl>
+{% endblock %}

@@ -272,6 +272,31 @@ def _nif_emisor() -> str:
     return nif or "B12345674"
 
 
+@app.command("estado-certificado")
+def estado_certificado() -> None:
+    """Estado del certificado de firma (004, FR-003). Nunca muestra la contraseña.
+
+    Código 0 si es utilizable, 1 si no lo es y 3 si es utilizable pero caduca en 30 días o menos.
+    """
+    from app.services import certificado
+    from app.services.certificado import TEXTO_MOTIVO
+
+    estado = certificado.estado()
+    if estado.titular is not None:
+        typer.echo(f"Titular: {estado.titular} ({estado.identificacion or 'sin NIF'})")
+        typer.echo(f"Emisor: {estado.emisor}")
+        desde = estado.valido_desde.date() if estado.valido_desde else "?"
+        hasta = estado.valido_hasta.date() if estado.valido_hasta else "?"
+        typer.echo(f"Válido del {desde} al {hasta} ({estado.dias_restantes} días restantes)")
+    if estado.motivo is not None:
+        typer.secho(f"No utilizable: {TEXTO_MOTIVO[estado.motivo]}.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1)
+    if estado.caduca_pronto:
+        typer.secho("Utilizable, pero caduca pronto.", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=3)
+    typer.echo("Utilizable.")
+
+
 @app.command("reiniciar-bd-e2e")
 def reiniciar_bd_e2e() -> None:
     """Reconstruye el esquema de la BD de E2E (downgrade + upgrade). Solo con ENTORNO=e2e."""

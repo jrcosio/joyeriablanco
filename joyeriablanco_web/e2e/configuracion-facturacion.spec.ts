@@ -14,6 +14,14 @@ test('configuración de facturación: IVA libre, IBAN y ajuste de la numeración
   // Sin clave de régimen (R-23).
   await expect(page.getByText(/Clave de régimen/)).toHaveCount(0)
 
+  // Modalidad fija y certificado de pruebas de E2E (004, FR-001 y FR-003).
+  await expect(page.getByText('En uso')).toBeVisible()
+  await expect(
+    page.getByText('No disponible: el sistema no tiene capacidad de remisión.'),
+  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Certificado de firma' })).toBeVisible()
+  await expect(page.getByText('Utilizable', { exact: true })).toBeVisible()
+
   // IVA por defecto libre (R-20, SC-012): 22 avisa y pide confirmación; se vuelve al 21 sin ella.
   // Tras cada guardado se recarga la página: el formulario se vuelve a montar con la versión
   // nueva de la configuración y descartaría lo escrito mientras tanto.
