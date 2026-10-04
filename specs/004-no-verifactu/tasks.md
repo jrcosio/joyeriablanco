@@ -336,7 +336,7 @@ sistema da su anomalía, su evento y la alarma.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T041 [P] [US3] ⚖️ Test `backend/tests/integration/test_integridad_anomalias.py`. Las
+- [X] T041 [P] [US3] ⚖️ Test `backend/tests/integration/test_integridad_anomalias.py`. Las
   alteraciones se hacen con `jb_owner`, desactivando los triggers, como en
   `test_verificar_cadena.py`.
   - Cadena íntegra: resultado íntegro, eventos 03 y 05 con los recuentos de las cuatro
@@ -351,65 +351,66 @@ sistema da su anomalía, su evento y la alarma.
     - fecha futura: 13;
     - evento alterado: 06.
   - Comprobación de un rango parcial.
-- [ ] T042 [P] [US3] Test `backend/tests/integration/test_alarmas.py` (R-11):
+- [X] T042 [P] [US3] Test `backend/tests/integration/test_alarmas.py` (R-11):
   - sin anomalías no hay alarma;
   - con una anomalía, la alarma está activa para cualquier sesión;
   - una comprobación posterior, desde después del registro afectado hasta el final, la apaga;
   - con el certificado no utilizable, la alarma de certificado;
   - un empleado ve la alarma.
-- [ ] T043 [P] [US3] ⚖️ Test de la emisión ante una anomalía (FR-010), en
+- [X] T043 [P] [US3] ⚖️ Test de la emisión ante una anomalía (FR-010), en
   `backend/tests/integration/test_cadena_registros.py` (002, ampliado):
   - en `no_verifactu`, con el último registro alterado, la factura **se emite**, se genera el
     evento 04 y la alarma, y el nuevo registro encadena con la huella guardada;
   - lo mismo si la fecha de generación del último registro supera en más de 1 minuto la hora
     actual (anomalía 13);
   - en `verifactu` se conserva el bloqueo de la 002.
-- [ ] T044 [P] [US3] Test `backend/tests/integration/test_api_cadena.py`:
+- [X] T044 [P] [US3] Test `backend/tests/integration/test_api_cadena.py`:
   - `GET /v1/registro-fiscal/registros/{secuencia}` con los saltos, el encadenamiento y las
     fechas;
   - el primero sin anterior y el último sin siguiente;
   - `POST /v1/registro-fiscal/comprobaciones` con y sin rango, con CSRF. Sin certificado
     utilizable, 409 `emision-no-disponible` sin evento;
   - un empleado recibe 403.
-- [ ] T045 [P] [US3] Test de la CLI en `backend/tests/integration/test_cli.py`: `verificar-cadena`
+- [X] T045 [P] [US3] Test de la CLI en `backend/tests/integration/test_verificar_cadena.py`, junto a los
+  de 002: `verificar-cadena`
   devuelve el código 0 si está íntegra y 1 con una anomalía, y admite `--desde` y `--hasta`
   ([contracts/cli.md](contracts/cli.md)).
-- [ ] T046 [P] [US3] Tests web:
+- [X] T046 [P] [US3] Tests web:
   - `components/layout/BandaAlarma.test.tsx`: dos alarmas, enlace solo para administradores y
     `role="alert"`;
-  - `features/registro-fiscal/CadenaTab.test.tsx` y `ComprobarTab.test.tsx`;
+  - las pestañas «Cadena» y «Comprobar integridad», en `RegistroFiscalPage.test.tsx`;
   - el enlace «Ver en la cadena» de la consulta de la factura.
 
 ### Implementation for User Story 3
 
-- [ ] T047 [US3] `backend/app/services/integridad.py` (R-9, R-10):
+- [X] T047 [US3] `backend/app/services/integridad.py` (R-9, R-10):
   - amplía `verify_chain` con el rango, la firma y la comprobación de las columnas frente al XML;
   - comprueba también la cadena de eventos;
   - genera los eventos 03, 04, 05 y 06 con `eventos_sif.record_evento` y la fila de
     `comprobaciones_integridad`.
 
   Lo hace con `backend/app/repositories/comprobaciones.py`. Hace pasar T041.
-- [ ] T048 [US3] `backend/app/services/cadena.verify_tail` (R-5): en `no_verifactu` genera el evento
+- [X] T048 [US3] `backend/app/services/cadena.verify_tail` (R-5): en `no_verifactu` genera el evento
   04, si esa anomalía no estaba ya registrada, y continúa. En `verifactu`, sin cambios. Hace pasar
   T043.
-- [ ] T049 [US3] `backend/app/services/alarmas.py` (R-11) y `GET /v1/alarmas` en
+- [X] T049 [US3] `backend/app/services/alarmas.py` (R-11) y `GET /v1/alarmas` en
   `backend/app/api/v1/alarmas.py`, para cualquier sesión. Sale de `PENDIENTES_004`. Hace pasar T042.
-- [ ] T050 [US3] API en `backend/app/api/v1/registro_fiscal.py`:
+- [X] T050 [US3] API en `backend/app/api/v1/registro_fiscal.py`:
   - `GET /v1/registro-fiscal/registros/{secuencia}`;
   - `POST /v1/registro-fiscal/comprobaciones` (201), con el evento de auditoría
     `INTEGRIDAD_COMPROBADA`.
 
   Salen de `PENDIENTES_004`. Hace pasar T044.
-- [ ] T051 [US3] CLI `verificar-cadena`, ampliada según [contracts/cli.md](contracts/cli.md). Hace
+- [X] T051 [US3] CLI `verificar-cadena`, ampliada según [contracts/cli.md](contracts/cli.md). Hace
   pasar T045.
-- [ ] T052 [US3] Web:
+- [X] T052 [US3] Web:
   - `components/layout/BandaAlarma.tsx` en el *layout*, con la query de alarmas al cambiar de ruta
     y cada 60 s;
   - `features/registro-fiscal/CadenaTab.tsx` y `ComprobarTab.tsx`;
   - «Ver en la cadena» en `HistorialFactura.tsx`.
 
   Hace pasar T046.
-- [ ] T053 [US3] E2E en `joyeriablanco_web/e2e/registro-fiscal.spec.ts`:
+- [X] T053 [US3] E2E en `joyeriablanco_web/e2e/registro-fiscal.spec.ts`:
   - «Comprobar integridad» da «Íntegra», con los eventos 03 y 05 en la lista;
   - la navegación por la cadena desde una factura;
   - ninguna banda de alarma.

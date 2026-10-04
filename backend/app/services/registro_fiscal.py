@@ -15,11 +15,13 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import NoEncontrado
+from app.core.errors import CampoError, DatosNoValidos, NoEncontrado
+from app.core.http import Origen
 from app.core.tiempo import ahora
 from app.domain import eventos
 from app.models.registro_evento import RegistroEvento
 from app.models.registro_facturacion import RegistroFacturacion
+from app.models.usuario import Usuario
 from app.repositories import eventos as eventos_repo
 from app.repositories import registros as registros_repo
 from app.services import cadena, eventos_sif, integridad
@@ -160,3 +162,23 @@ async def get_record(db: AsyncSession, secuencia: int) -> DetalleRegistro:
             _salto_registro(registro, posterior, posterior.secuencia) if posterior else None
         ),
     )
+
+
+# ---------------------------------------------------------------------- comprobación (web)
+
+
+async def check_integrity(
+    db: AsyncSession,
+    *,
+    desde: int | None,
+    hasta: int | None,
+    actor: Usuario,
+    origen: Origen,
+) -> integridad.ResultadoIntegridad:
+    """«Comprobar integridad» (FR-017): sus eventos se firman, así que exige certificado (409)."""
+    if desde is not None and hasta is not None and desde > hasta:
+        raise DatosNoValidos(
+            errores=[CampoError("hasta_secuencia", "No puede ser menor que «desde».")]
+        )
+    integridad.requires_certificate()
+    return await integridad.verify_chain(db, desde=desde, hasta=hasta, origen=origen, actor=actor)

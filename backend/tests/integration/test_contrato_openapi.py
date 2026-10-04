@@ -21,11 +21,8 @@ METODOS = {"get", "post", "put", "patch", "delete"}
 # Operaciones de 004 aún sin implementar: solo se excluyen del sentido «contrato → API». Cada ruta
 # nueva sale de la lista y T066 la elimina (tasks.md de 004).
 PENDIENTES_004 = {
-    ("/api/v1/alarmas", "get"),
     ("/api/v1/sistema", "get"),
     ("/api/v1/sistema/declaracion-responsable/pdf", "get"),
-    ("/api/v1/registro-fiscal/registros/{}", "get"),
-    ("/api/v1/registro-fiscal/comprobaciones", "post"),
     ("/api/v1/registro-fiscal/exportacion", "get"),
 }
 

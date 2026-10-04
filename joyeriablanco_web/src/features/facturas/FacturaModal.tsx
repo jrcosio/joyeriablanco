@@ -51,8 +51,7 @@ function AvisoNoEmitible({ faltan }: { faltan: readonly string[] }) {
   if (configuracion.length === 0) {
     return (
       <p className="body-sm text-on-surface-variant">
-        No se puede emitir todavía: falta {textoFalta('certificado')}. Avisa al responsable
-        técnico.
+        No se puede emitir todavía: falta {textoFalta('certificado')}. Avisa al responsable técnico.
       </p>
     )
   }

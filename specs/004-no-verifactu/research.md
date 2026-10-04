@@ -330,12 +330,13 @@ Los códigos 06, 09, 10, 12, 14, 15 y 90 no se usan: sus casos ya los cubren los
   (`secuencia_afectada`). La alarma de esa anomalía se apaga con una comprobación lanzada
   **después** del evento que:
   - cubre todo lo posterior al afectado: empieza en él o antes y llega al final de la cadena;
-  - no encuentra ninguna anomalía **posterior** al afectado (`max_secuencia_anomala` o
-    `max_evento_anomalo`, según la cadena).
+  - no encuentra ninguna anomalía **nueva posterior** al afectado (`max_secuencia_anomala` o
+    `max_evento_anomalo`, según la cadena, que solo cuentan las que no estaban ya registradas).
 
   La anomalía antigua sigue ahí, porque los registros no se pueden corregir, pero ya se garantizan
-  los siguientes (Orden, art. 6.f; FR-019). Sin registro afectado, hace falta una comprobación
-  completa sin anomalías.
+  los siguientes (Orden, art. 6.f; FR-019). Contar solo las nuevas evita que un hueco, que deja
+  para siempre un 05 y un 04, mantenga la alarma encendida aunque no pase nada más. Sin registro
+  afectado, hace falta una comprobación completa sin anomalías.
 - **Certificado**: activa si el certificado no es utilizable.
 - **Endpoint**: `GET /v1/alarmas`, accesible a cualquier sesión. La web lo consulta al cambiar de
   ruta y cada minuto. La banda la ven todos (Clarifications), y el detalle, solo los

@@ -7,13 +7,21 @@ cualquier registro o evento se salta al anterior y al siguiente.
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, status
 
-from app.api.deps import DbDep, require_admin
-from app.domain.tipos import TipoEventoSif
+from app.api.deps import AdminSession, DbDep, OrigenDep, require_admin
+from app.domain.tipos import TipoEventoSif, TipoRegistro
 from app.models.registro_evento import RegistroEvento
 from app.schemas.comunes import Pagina
-from app.schemas.registro_fiscal import EventoSifDetalle, EventoSifResumen, Salto
+from app.schemas.registro_fiscal import (
+    AnomaliaSalida,
+    ComprobacionEntrada,
+    ComprobacionSalida,
+    EventoSifDetalle,
+    EventoSifResumen,
+    RegistroCadenaDetalle,
+    Salto,
+)
 from app.services import registro_fiscal as servicio
 
 router = APIRouter(
@@ -79,4 +87,56 @@ async def obtener_evento(db: DbDep, secuencia: Secuencia) -> EventoSifDetalle:
         firma_correcta=detalle.firma_correcta,
         anterior=_salto(detalle.anterior),
         siguiente=_salto(detalle.siguiente),
+    )
+
+
+@router.get("/registros/{secuencia}")
+async def obtener_registro(db: DbDep, secuencia: Secuencia) -> RegistroCadenaDetalle:
+    """Un registro de facturación con los saltos al anterior y al siguiente (Orden, art. 7.h)."""
+    detalle = await servicio.get_record(db, secuencia)
+    r = detalle.registro
+    return RegistroCadenaDetalle(
+        secuencia=r.secuencia,
+        tipo="alta" if r.tipo == TipoRegistro.ALTA else "anulacion",
+        num_serie=r.num_serie,
+        factura_id=r.factura_id,
+        fecha_hora_huso_gen=r.fecha_hora_huso_gen,
+        huella=r.huella,
+        certificado_titular=r.certificado_titular,
+        huella_correcta=detalle.comprobacion.huella_correcta,
+        firma_correcta=detalle.comprobacion.firma_correcta,
+        anterior=_salto(detalle.anterior),
+        siguiente=_salto(detalle.siguiente),
+    )
+
+
+@router.post("/comprobaciones", status_code=status.HTTP_201_CREATED)
+async def comprobar_integridad(
+    db: DbDep,
+    sesion: AdminSession,
+    origen: OrigenDep,
+    datos: ComprobacionEntrada | None = None,
+) -> ComprobacionSalida:
+    """Comprueba la integridad, bajo demanda (Orden, arts. 6.b a 6.e). Genera sus eventos."""
+    entrada = datos or ComprobacionEntrada()
+    resultado = await servicio.check_integrity(
+        db,
+        desde=entrada.desde_secuencia,
+        hasta=entrada.hasta_secuencia,
+        actor=sesion.usuario,
+        origen=origen,
+    )
+    return ComprobacionSalida(
+        integra=resultado.integra,
+        registros=resultado.registros,
+        eventos=resultado.eventos,
+        anomalias=[
+            AnomaliaSalida(
+                cadena=a.cadena,
+                tipo_anomalia=a.tipo.value,
+                descripcion=a.descripcion,
+                secuencia=a.secuencia,
+            )
+            for a in resultado.anomalias
+        ],
     )

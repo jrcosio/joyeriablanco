@@ -452,4 +452,25 @@ describe('Registros firmados en la consulta (004, FR-011)', () => {
     expect(within(modal).getByText('Sin firma (VERI*FACTU)')).toBeInTheDocument()
     expect(within(modal).queryByText(/Firma correcta|Firma incorrecta/)).toBeNull()
   })
+
+  it('un administrador puede ver cada registro en la cadena (004, FR-020)', async () => {
+    conSesion(admin)
+    conFactura([crearFactura()])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0005' })
+    expect(within(modal).getByRole('link', { name: 'Ver en la cadena' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/registro-fiscal\?.*pestana=cadena.*secuencia=5/),
+    )
+  })
+
+  it('un empleado no tiene «Ver en la cadena»', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    conFactura([crearFactura()])
+    renderApp(`/facturas/${ID}`)
+
+    const modal = await screen.findByRole('dialog', { name: 'Factura FAC-2026-0005' })
+    expect(within(modal).queryByRole('link', { name: 'Ver en la cadena' })).toBeNull()
+  })
 })

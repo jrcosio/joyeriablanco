@@ -114,7 +114,7 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
         assert registro.estado_remision == "no_aplica"
         assert integridad.check_registro(registro).firma_correcta
     comprobacion = await integridad.verify_chain(db)  # FR-031 sobre una cadena con correcciones
-    assert comprobacion.integra, comprobacion.discrepancia
+    assert comprobacion.integra, comprobacion.anomalias
     assert comprobacion.registros == 57
 
     # Cinco borradores de hoy, el primero sin cliente, con sus totales previstos (T061).
@@ -171,7 +171,7 @@ async def test_siembra_presupuestos_en_todos_los_estados(db: AsyncSession) -> No
         len([f for f in facturas if f.serie == "FAC"]) == 10 + 1 + 3
     )  # + reemisión + conversiones
     comprobacion = await integridad.verify_chain(db)
-    assert comprobacion.integra, comprobacion.discrepancia
+    assert comprobacion.integra, comprobacion.anomalias
 
 
 async def test_sobre_datos_de_001_anade_solo_la_facturacion(db: AsyncSession) -> None:

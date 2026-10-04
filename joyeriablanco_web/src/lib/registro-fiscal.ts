@@ -14,3 +14,23 @@ export const TIPOS_EVENTO_SIF: Record<TipoEventoSif, string> = {
 }
 
 export type PestanaRegistroFiscal = 'eventos' | 'cadena' | 'comprobar' | 'exportar'
+
+/** F-17, `TipoAnomaliaType`: las descripciones oficiales del esquema (research R-10). */
+export const TEXTO_ANOMALIA: Record<string, string> = {
+  '01': 'Integridad-huella',
+  '02': 'Integridad-firma',
+  '03': 'Integridad - Otros',
+  '04': 'Registro no primero con el anterior no anotado o inexistente',
+  '05': 'Registro no último con el posterior no anotado o inexistente',
+  '06': 'Trazabilidad-cadena-registro - Otros',
+  '07': 'La huella no coincide con la «huella del anterior» del posterior',
+  '08': 'La «huella del anterior» no coincide con la huella del anterior',
+  '09': 'Trazabilidad-cadena-huella - Otros',
+  '10': 'Trazabilidad-cadena - Otros',
+  '11': 'Fecha y hora anteriores a las del registro anterior',
+  '12': 'Fecha y hora posteriores a las del registro posterior',
+  '13': 'Fecha y hora de generación posteriores a la hora actual',
+  '14': 'Trazabilidad-fechas - Otros',
+  '15': 'Trazabilidad - Otros',
+  '90': 'Otros',
+}

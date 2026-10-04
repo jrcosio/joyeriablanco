@@ -14,8 +14,8 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from app.core.tiempo import hoy
-from app.domain.tipos import Rol, TipoEvento
-from app.models import Cliente, RegistroFacturacion, Usuario
+from app.domain.tipos import Rol, TipoAnomalia, TipoEvento
+from app.models import Cliente, RegistroEvento, RegistroFacturacion, Usuario
 from app.services import cadena
 from tests.conftest import CrearUsuario, IniciarSesion, eventos
 from tests.integration.facturacion_datos import (
@@ -407,19 +407,44 @@ async def test_repetir_la_clave_devuelve_la_misma_factura_sin_emitir_otra(
 # ------------------------------------------------------------------- cadena y cliente
 
 
-async def test_una_cadena_inconsistente_impide_emitir(
+async def test_en_verifactu_una_cadena_inconsistente_impide_emitir(
     client: AsyncClient,
     empleada: tuple[Usuario, str],
     maria: Cliente,
+    db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    await configurar_facturacion(db, modalidad="verifactu")
     await _emitir(client, empleada[1], cuerpo_factura(maria.id))
-    monkeypatch.setattr(cadena, "tail_problem", lambda *_: "prueba")
+    monkeypatch.setattr(cadena, "tail_problem", lambda *_: (TipoAnomalia.HUELLA, "prueba"))
 
     respuesta = await _emitir(client, empleada[1], cuerpo_factura(maria.id))
 
     assert respuesta.status_code == 409
     assert respuesta.json()["type"] == "/problemas/cadena-inconsistente"
+
+
+async def test_en_no_verifactu_una_cadena_inconsistente_no_impide_emitir(
+    client: AsyncClient,
+    empleada: tuple[Usuario, str],
+    maria: Cliente,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """004, FR-010 y research R-5: se registra la anomalía y la facturación sigue (F-4, p. 28)."""
+    await _emitir(client, empleada[1], cuerpo_factura(maria.id))
+    monkeypatch.setattr(cadena, "tail_problem", lambda *_: (TipoAnomalia.HUELLA, "prueba"))
+
+    respuesta = await _emitir(client, empleada[1], cuerpo_factura(maria.id))
+
+    assert respuesta.status_code == 201, respuesta.text
+    [anomalia] = list(
+        (
+            await db.execute(select(RegistroEvento).where(RegistroEvento.tipo_evento == "04"))
+        ).scalars()
+    )
+    assert anomalia.tipo_anomalia == "01"
+    assert anomalia.secuencia_afectada == 1
 
 
 async def test_un_cliente_con_facturas_no_se_puede_borrar(

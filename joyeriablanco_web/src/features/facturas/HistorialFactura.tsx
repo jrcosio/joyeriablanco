@@ -7,6 +7,7 @@ import { cx } from '../../components/ui/cx'
 import { fechaHora } from '../../lib/fechas'
 import { MOTIVOS_MODIFICACION, TIPOS_CORRECCION } from '../../lib/facturacion'
 import { nombreConEstado } from '../../lib/usuarios'
+import { useSesion } from '../../auth/session'
 
 const claseEnlace = 'text-primary underline underline-offset-4 tabular-nums'
 
@@ -52,6 +53,7 @@ export function EnlacesFactura({ factura }: { factura: FacturaSalida }) {
  * FR-011; Orden, arts. 6.b y 6.d). Nunca solo con color: cada chip dice su resultado.
  */
 function RegistroFacturacion({ registro: r }: { registro: FacturaSalida['registros'][number] }) {
+  const { usuario } = useSesion()
   return (
     <li className="flex flex-col gap-2 border border-primary-container/18 px-4 py-3">
       <span className="flex flex-wrap gap-x-4 gap-y-1">
@@ -77,6 +79,15 @@ function RegistroFacturacion({ registro: r }: { registro: FacturaSalida['registr
             {r.firma_correcta ? 'Firma correcta' : 'Firma incorrecta'}
           </Chip>
         )}
+        {usuario.rol === 'administrador' ? (
+          <Link
+            to="/registro-fiscal"
+            search={{ pestana: 'cadena', pagina: 1, secuencia: r.secuencia }}
+            className={claseEnlace}
+          >
+            Ver en la cadena
+          </Link>
+        ) : null}
       </span>
     </li>
   )

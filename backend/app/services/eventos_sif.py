@@ -77,6 +77,8 @@ class NuevoEvento:
     secuencia_afectada: int | None = None
     # Para los datos que dependen de la cadena (el resumen): se calculan ya con el cerrojo.
     calcular_datos: CalcularDatos | None = None
+    # Para las detecciones (04 y 06): no se repite una anomalía ya registrada (research R-9).
+    solo_si_nueva: bool = False
 
 
 # ------------------------------------------------------------------------ huella y comprobación
@@ -204,6 +206,17 @@ async def _insertar(
 
 async def _generar(session: AsyncSession, nuevo: NuevoEvento) -> RegistroEvento | None:
     await repo.lock_events(session)
+    if (
+        nuevo.solo_si_nueva
+        and nuevo.tipo_anomalia is not None
+        and await repo.exists_anomaly(
+            session,
+            tipo_evento=nuevo.tipo.value,
+            tipo_anomalia=nuevo.tipo_anomalia.value,
+            secuencia_afectada=nuevo.secuencia_afectada,
+        )
+    ):
+        return None
     momento = ahora()
     try:
         firmante = certificado.utilizable(momento)
@@ -239,7 +252,8 @@ async def _generar(session: AsyncSession, nuevo: NuevoEvento) -> RegistroEvento 
 
 
 async def record_evento(origen: AsyncSession | None, nuevo: NuevoEvento) -> RegistroEvento | None:
-    """Genera un evento en su propia transacción (R-7). `None` si no hay certificado utilizable."""
+    """Genera un evento en su propia transacción (R-7). `None` si no hay certificado utilizable o
+    si es una anomalía `solo_si_nueva` que ya estaba registrada."""
     session = abrir_sesion(origen)
     try:
         evento = await _generar(session, nuevo)

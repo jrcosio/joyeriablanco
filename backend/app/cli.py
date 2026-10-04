@@ -128,21 +128,50 @@ def cargar_datos_ejemplo(
 
 
 @app.command("verificar-cadena")
-def verificar_cadena() -> None:
-    """Comprueba la cadena de registros y los documentos (FR-031). Código 1 si no es íntegra."""
+def verificar_cadena(
+    desde: Annotated[
+        int | None, typer.Option(min=1, help="Primera secuencia de facturación a comprobar")
+    ] = None,
+    hasta: Annotated[
+        int | None, typer.Option(min=1, help="Última secuencia de facturación a comprobar")
+    ] = None,
+) -> None:
+    """Comprueba la integridad de los registros de facturación y de evento (004, FR-017, FR-021).
+
+    Código 0 si todo es íntegro, 1 si hay anomalías y 2 si sus eventos no se han podido firmar.
+    """
+    from app.domain.eventos import TEXTO_ANOMALIA
     from app.services import integridad
 
-    resultado = _ejecutar(integridad.verify_chain)
-    if resultado.discrepancia is None:
-        typer.echo(f"Cadena íntegra ({resultado.registros} registros).")
-        return
-    d = resultado.discrepancia
-    typer.secho(
-        f"Cadena inconsistente en el registro nº {d.secuencia} ({d.num_serie}): {d.motivo}.",
-        fg=typer.colors.RED,
-        err=True,
-    )
-    raise typer.Exit(code=1)
+    if desde is not None and hasta is not None and desde > hasta:
+        typer.secho("Error: --desde no puede ser mayor que --hasta.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2)
+    resultado = _ejecutar(lambda db: integridad.verify_chain(db, desde=desde, hasta=hasta))
+    if (primera := resultado.primera) is None:
+        typer.echo(
+            f"Cadena íntegra ({resultado.registros} registros de facturación y "
+            f"{resultado.eventos} de evento)."
+        )
+    else:
+        cadena = "facturación" if primera.cadena == "facturacion" else "evento"
+        factura = f" ({primera.num_serie})" if primera.num_serie else ""
+        typer.secho(
+            f"Anomalía {primera.tipo.value} ({TEXTO_ANOMALIA[primera.tipo.value]}) en el registro "
+            f"de {cadena} nº {primera.secuencia}{factura}: {primera.descripcion}. "
+            f"Anomalías en total: {len(resultado.anomalias)}.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+    if resultado.eventos_pendientes:
+        typer.secho(
+            "Sin certificado de firma utilizable: los eventos de esta comprobación quedan "
+            "pendientes.",
+            fg=typer.colors.YELLOW,
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if not resultado.integra:
+        raise typer.Exit(code=1)
 
 
 @app.command("generar-certificado-pruebas")

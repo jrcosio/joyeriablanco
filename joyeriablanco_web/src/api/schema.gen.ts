@@ -738,6 +738,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/registro-fiscal/registros/{secuencia}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Obtener Registro
+         * @description Un registro de facturación con los saltos al anterior y al siguiente (Orden, art. 7.h).
+         */
+        get: operations["obtener_registro_api_v1_registro_fiscal_registros__secuencia__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registro-fiscal/comprobaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Comprobar Integridad
+         * @description Comprueba la integridad, bajo demanda (Orden, arts. 6.b a 6.e). Genera sus eventos.
+         */
+        post: operations["comprobar_integridad_api_v1_registro_fiscal_comprobaciones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alarmas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Alarmas */
+        get: operations["obtener_alarmas_api_v1_alarmas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -768,6 +825,45 @@ export interface components {
             numeros_sin_usar: number;
             /** Aplicado */
             aplicado: boolean;
+        };
+        /** Alarma */
+        Alarma: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "integridad" | "certificado";
+            /** Mensaje */
+            mensaje: string;
+            /**
+             * Desde
+             * Format: date-time
+             */
+            desde: string;
+            /** Secuencia Afectada */
+            secuencia_afectada: number | null;
+        };
+        /** AlarmasSalida */
+        AlarmasSalida: {
+            /** Alarmas */
+            alarmas: components["schemas"]["Alarma"][];
+        };
+        /** AnomaliaSalida */
+        AnomaliaSalida: {
+            /**
+             * Cadena
+             * @enum {string}
+             */
+            cadena: "facturacion" | "eventos";
+            /**
+             * Tipo Anomalia
+             * @description F-17, TipoAnomaliaType (research R-10)
+             */
+            tipo_anomalia: string;
+            /** Descripcion */
+            descripcion: string;
+            /** Secuencia */
+            secuencia: number | null;
         };
         /** AnulacionEntrada */
         AnulacionEntrada: {
@@ -1196,6 +1292,30 @@ export interface components {
              */
             actualizado_en: string;
             actualizado_por: components["schemas"]["UsuarioReferencia"];
+        };
+        /** ComprobacionEntrada */
+        ComprobacionEntrada: {
+            /**
+             * Desde Secuencia
+             * @description Sin valor: desde el primero
+             */
+            desde_secuencia?: number | null;
+            /**
+             * Hasta Secuencia
+             * @description Sin valor: hasta el último
+             */
+            hasta_secuencia?: number | null;
+        };
+        /** ComprobacionSalida */
+        ComprobacionSalida: {
+            /** Integra */
+            integra: boolean;
+            /** Registros */
+            registros: number;
+            /** Eventos */
+            eventos: number;
+            /** Anomalias */
+            anomalias: components["schemas"]["AnomaliaSalida"][];
         };
         /**
          * ConfiguracionFacturacionEntrada
@@ -2012,6 +2132,38 @@ export interface components {
              */
             cuota_rectificada: string;
             causa: components["schemas"]["CausaRectificacion"];
+        };
+        /** RegistroCadenaDetalle */
+        RegistroCadenaDetalle: {
+            /** Secuencia */
+            secuencia: number;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "alta" | "anulacion";
+            /** Num Serie */
+            num_serie: string;
+            /**
+             * Factura Id
+             * Format: uuid
+             */
+            factura_id: string;
+            /** Fecha Hora Huso Gen */
+            fecha_hora_huso_gen: string;
+            /** Huella */
+            huella: string;
+            /** Certificado Titular */
+            certificado_titular: string | null;
+            /** Huella Correcta */
+            huella_correcta: boolean;
+            /**
+             * Firma Correcta
+             * @description Nulo si el registro no lleva firma (VERI*FACTU)
+             */
+            firma_correcta: boolean | null;
+            anterior: components["schemas"]["Salto"] | null;
+            siguiente: components["schemas"]["Salto"] | null;
         };
         /** RegistroResumen */
         RegistroResumen: {
@@ -4024,6 +4176,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_registro_api_v1_registro_fiscal_registros__secuencia__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                secuencia: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistroCadenaDetalle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    comprobar_integridad_api_v1_registro_fiscal_comprobaciones_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ComprobacionEntrada"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComprobacionSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_alarmas_api_v1_alarmas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmasSalida"];
                 };
             };
         };

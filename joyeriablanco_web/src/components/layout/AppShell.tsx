@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components'
 import type { SesionSalida } from '../../api/tipos'
 import { Button } from '../ui/Button'
+import { BandaAlarma } from './BandaAlarma'
 import { overlayClase } from '../ui/Dialog'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
@@ -56,6 +57,7 @@ export function AppShell({ sesion, children }: { sesion: SesionSalida; children:
             setCajonAbierto(true)
           }}
         />
+        <BandaAlarma rol={rol} />
         <main className="mx-auto w-full max-w-contenido flex-1 px-margin-mobile py-8 md:px-margin md:py-10">
           {children}
         </main>

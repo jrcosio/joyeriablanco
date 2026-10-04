@@ -14,18 +14,22 @@ from decimal import Decimal
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from typer.testing import CliRunner
 
 from app.cli import app as cli
 from app.core.http import Origen
 from app.core.security import hash_password
 from app.core.tiempo import hoy
-from app.domain.tipos import CausaRectificacion, MotivoModificacion, Rol, TipoEvento
+from app.domain.tipos import CausaRectificacion, MotivoModificacion, Rol, TipoAnomalia, TipoEvento
 from app.models import Factura, Usuario
 from app.services import emision, integridad
 from tests.conftest import eventos
-from tests.integration.facturacion_datos import configurar_facturacion, crear_cliente
+from tests.integration.facturacion_datos import (
+    configurar_facturacion,
+    crear_cliente,
+    limpiar_facturacion_confirmada,
+)
 
 ORIGEN = Origen(ip=None, agente="pytest")
 
@@ -138,10 +142,10 @@ async def test_una_cadena_sin_alterar_es_integra(
 ) -> None:
     resultado = await integridad.verify_chain(db_owner)
 
-    assert resultado.integra
+    assert resultado.integra, resultado.anomalias
     assert resultado.registros == 7
-    [evento] = await eventos(db_owner, TipoEvento.CADENA_VERIFICADA)
-    assert evento.detalle == {"registros": 7}
+    [evento] = await eventos(db_owner, TipoEvento.INTEGRIDAD_COMPROBADA)
+    assert evento.detalle == {"registros": 7, "eventos": 0, "anomalias": 0}  # 004, FR-033
     assert evento.actor_nombre_usuario == "consola"
 
 
@@ -273,13 +277,14 @@ async def _alteracion_detectada(
     resultado = await integridad.verify_chain(db_owner)
 
     assert not resultado.integra
-    assert resultado.discrepancia is not None
-    assert resultado.discrepancia.secuencia == secuencia
-    assert resultado.discrepancia.num_serie == num_serie
-    assert motivo in resultado.discrepancia.motivo
-    [aviso] = await eventos(db_owner, TipoEvento.CADENA_INCONSISTENTE)
-    assert aviso.detalle["secuencia"] == secuencia
-    assert aviso.detalle["momento"] == "verificacion"
+    primera = resultado.primera
+    assert primera is not None
+    assert primera.cadena == "facturacion"
+    assert primera.secuencia == secuencia
+    assert primera.num_serie == num_serie
+    assert motivo in primera.descripcion
+    [aviso] = await eventos(db_owner, TipoEvento.INTEGRIDAD_COMPROBADA)
+    assert aviso.detalle["primera"]["secuencia"] == secuencia
 
 
 async def test_un_registro_intercalado_rompe_el_encadenamiento(
@@ -294,31 +299,87 @@ async def test_un_registro_intercalado_rompe_el_encadenamiento(
 
     resultado = await integridad.verify_chain(db_owner)
 
-    assert resultado.discrepancia is not None
-    assert resultado.discrepancia.secuencia == 3
-    assert "encadena" in resultado.discrepancia.motivo
+    assert {(a.secuencia, a.tipo) for a in resultado.anomalias} >= {
+        (3, TipoAnomalia.HUELLA_ANTERIOR_ERRONEA)  # 08 (004, research R-10)
+    }
 
 
 # ------------------------------------------------------------------------------------ CLI
 
 
+@pytest.fixture
+async def limpiar_lo_confirmado(engine_owner: AsyncEngine) -> AsyncIterator[None]:
+    """La CLI confirma de verdad sus eventos y su comprobación: se borran al terminar."""
+    yield
+    await limpiar_facturacion_confirmada(engine_owner, clientes=[], usuarios=[])
+
+
+@pytest.mark.usefixtures("limpiar_lo_confirmado")
 async def test_la_cli_informa_y_devuelve_el_codigo() -> None:
     # La BD de test no tiene registros confirmados: la cadena vacía es íntegra.
     resultado = await asyncio.to_thread(CliRunner().invoke, cli, ["verificar-cadena"])
 
     assert resultado.exit_code == 0, resultado.output
-    assert "Cadena íntegra (0 registros)." in resultado.output
+    assert "Cadena íntegra (0 registros de facturación y 0 de evento)." in resultado.output
 
 
-async def test_la_cli_senala_la_discrepancia_con_codigo_1(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_la_cli_senala_la_anomalia_con_codigo_1(monkeypatch: pytest.MonkeyPatch) -> None:
     async def inconsistente(*_: object, **__: object) -> integridad.ResultadoIntegridad:
         return integridad.ResultadoIntegridad(
             registros=4,
-            discrepancia=integridad.Discrepancia(2, "FAC-2026-0002", "la huella no coincide"),
+            eventos=6,
+            anomalias=(
+                integridad.Anomalia(
+                    "facturacion",
+                    TipoAnomalia.HUELLA,
+                    "La huella no coincide con los datos",
+                    2,
+                    "FAC-2026-0002",
+                ),
+                integridad.Anomalia("eventos", TipoAnomalia.FIRMA, "La firma no se verifica", 5),
+            ),
         )
 
     monkeypatch.setattr(integridad, "verify_chain", inconsistente)
     resultado = await asyncio.to_thread(CliRunner().invoke, cli, ["verificar-cadena"])
 
     assert resultado.exit_code == 1
-    assert "registro nº 2 (FAC-2026-0002): la huella no coincide" in resultado.output
+    assert (
+        "Anomalía 01 (Integridad-huella) en el registro de facturación nº 2 (FAC-2026-0002): "
+        "La huella no coincide con los datos. Anomalías en total: 2."
+    ) in resultado.output
+
+
+async def test_la_cli_sin_certificado_termina_con_codigo_2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def sin_firmar(*_: object, **__: object) -> integridad.ResultadoIntegridad:
+        return integridad.ResultadoIntegridad(
+            registros=0, eventos=0, anomalias=(), eventos_pendientes=True
+        )
+
+    monkeypatch.setattr(integridad, "verify_chain", sin_firmar)
+    resultado = await asyncio.to_thread(CliRunner().invoke, cli, ["verificar-cadena"])
+
+    assert resultado.exit_code == 2
+    assert "quedan pendientes" in resultado.output
+
+
+async def test_la_cli_acota_el_rango_y_lo_valida(monkeypatch: pytest.MonkeyPatch) -> None:
+    recibidos: list[tuple[int | None, int | None]] = []
+
+    async def comprobar(*_: object, **rango: int | None) -> integridad.ResultadoIntegridad:
+        recibidos.append((rango["desde"], rango["hasta"]))
+        return integridad.ResultadoIntegridad(registros=3, eventos=0, anomalias=())
+
+    monkeypatch.setattr(integridad, "verify_chain", comprobar)
+    acotado = await asyncio.to_thread(
+        CliRunner().invoke, cli, ["verificar-cadena", "--desde", "2", "--hasta", "4"]
+    )
+    al_reves = await asyncio.to_thread(
+        CliRunner().invoke, cli, ["verificar-cadena", "--desde", "5", "--hasta", "4"]
+    )
+
+    assert acotado.exit_code == 0, acotado.output
+    assert recibidos == [(2, 4)]
+    assert al_reves.exit_code == 2

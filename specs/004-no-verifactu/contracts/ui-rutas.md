@@ -21,7 +21,9 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
 - **Accesibilidad**: `role="alert"` la primera vez que aparece.
 - **Alarma de certificado**: «No se puede facturar: el certificado de firma no es utilizable
   (motivo)».
-- **Detalle**: los administradores ven el enlace «Ver detalle», que lleva a «Registro fiscal».
+- **Detalle**: los administradores ven el enlace «Ver detalle». La de integridad lleva a «Registro
+  fiscal», con los eventos de anomalía arriba, y la de certificado, a Configuración → Facturación,
+  donde está la tarjeta del certificado.
 - **Actualización**: se consulta `GET /v1/alarmas` al cambiar de ruta y cada 60 s.
 - **Dos alarmas a la vez**: se apilan, primero la de integridad y después la de certificado. La
   banda no tiene botón de cerrar: desaparece cuando la API deja de devolver la alarma.
@@ -40,8 +42,8 @@ Los endpoints son los de [openapi.yaml](openapi.yaml).
     certificado;
   - filtros por tipo y por fechas, guardados en la URL, como en los listados de 002;
   - el detalle abre un modal con los datos propios, la huella, si la huella y la firma son
-    correctas, y «Evento anterior» y «Evento siguiente». Cada salto indica si el encadenamiento y
-    las fechas son correctos.
+    correctas, y «Evento anterior» y «Evento siguiente». Cada salto indica, con un chip, si el
+    encadenamiento es correcto o incorrecto y si las fechas están en orden o fuera de orden.
 - **Cadena**:
   - se elige un número de secuencia, o se llega desde una factura, y se ve el registro;
   - «Anterior» y «Siguiente» llevan cada uno su indicador de encadenamiento y fechas: chip `success`

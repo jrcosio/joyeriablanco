@@ -86,7 +86,7 @@ Cada comprobación lanzada, con su resultado. Alimenta la alarma (R-11).
 | `llega_al_final` | `boolean` | Si la comprobación llega al final de la cadena de facturación. La de eventos se comprueba siempre entera |
 | `registros` / `eventos` | `integer` | Cuántos se procesaron |
 | `anomalias` | `integer` | 0 si todo está bien |
-| `max_secuencia_anomala` / `max_evento_anomalo` | `bigint` NULL | La secuencia más alta con anomalía en cada cadena. Con ellas se apaga la alarma (R-11) |
+| `max_secuencia_anomala` / `max_evento_anomalo` | `bigint` NULL | La secuencia más alta con una anomalía **nueva** (no registrada antes) en cada cadena. Con ellas se apaga la alarma (R-11) |
 | `evento_lanzamiento_id` | `uuid` FK `registros_evento` | El 03 de la comprobación |
 
 ## Sin tabla

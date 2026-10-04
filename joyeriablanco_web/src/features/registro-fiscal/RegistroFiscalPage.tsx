@@ -3,6 +3,8 @@ import type { TipoEventoSif } from '../../api/tipos'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { cx } from '../../components/ui/cx'
 import type { PestanaRegistroFiscal } from '../../lib/registro-fiscal'
+import { CadenaTab } from './CadenaTab'
+import { ComprobarTab } from './ComprobarTab'
 import { EventosTab } from './EventosTab'
 
 export interface BusquedaRegistroFiscal {
@@ -21,12 +23,14 @@ const claseTab =
 
 const PESTANAS: readonly { id: PestanaRegistroFiscal; label: string }[] = [
   { id: 'eventos', label: 'Eventos' },
+  { id: 'cadena', label: 'Cadena' },
+  { id: 'comprobar', label: 'Comprobar integridad' },
 ]
 
 /**
- * «Registro fiscal» (004; RRSIF, art. 8.3): el registro de eventos y, en las historias siguientes,
- * la cadena, la comprobación de integridad y la exportación. Pestañas de React Aria (flechas y
- * foco visible), con la pestaña en la URL.
+ * «Registro fiscal» (004; RRSIF, art. 8.3): el registro de eventos, la cadena de registros, la
+ * comprobación de integridad y, en la US4, la exportación. Pestañas de React Aria (flechas y foco
+ * visible), con la pestaña en la URL.
  */
 export function RegistroFiscalPage({
   busqueda,
@@ -75,6 +79,17 @@ export function RegistroFiscalPage({
               onBusqueda({ ...cambios, pagina: cambios.pagina ?? 1 })
             }}
           />
+        </TabPanel>
+        <TabPanel id="cadena" className="outline-none">
+          <CadenaTab
+            secuencia={busqueda.secuencia}
+            onSecuencia={(secuencia) => {
+              onBusqueda({ secuencia })
+            }}
+          />
+        </TabPanel>
+        <TabPanel id="comprobar" className="outline-none">
+          <ComprobarTab />
         </TabPanel>
       </Tabs>
     </div>

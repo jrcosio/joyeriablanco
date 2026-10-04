@@ -4,9 +4,12 @@ Solo lo llama `services/emision.py`, siempre dentro de su transacción y con est
 
 1. `lock_and_verify`: toma el cerrojo de la cadena y hace la comprobación previa de F-10, art. 7.i
    sobre el último registro (huella recalculada y hora no más de un minuto posterior a la
-   actual). Va ANTES de asignar número o insertar nada: si falla, se audita, se confirma solo ese
-   evento y se lanza `CadenaInconsistente` sin haber emitido nada (F-8, art. 8.2.a: «detecte y
-   avise»).
+   actual). Va ANTES de asignar número o insertar nada. Si falla, se audita y:
+   - en No VERI*FACTU (004, R-5) se genera el evento 04 con su anomalía, en su propia
+     transacción, y **la emisión sigue**: la facturación nunca se interrumpe por esto (F-4, p. 28;
+     Orden, art. 7.j). El nuevo registro encadena con la huella guardada del último;
+   - en VERI*FACTU se confirma solo el aviso y se lanza `CadenaInconsistente` sin haber emitido
+     nada (F-8, art. 8.2.a: «detecte y avise»).
 2. `create_registro_alta` / `create_registro_anulacion`: encadenan con el último registro,
    construyen el contenido F-1 (`domain/registro.py`), calculan la huella (`domain/huella.py`) e
    insertan con la secuencia siguiente. El trigger `validar_encadenamiento` lo vuelve a exigir.
@@ -30,6 +33,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import CadenaInconsistente, EmisionNoDisponible
 from app.core.http import Origen
 from app.core.tiempo import ahora
+from app.domain import eventos
 from app.domain.huella import (
     CamposHuellaAlta,
     CamposHuellaAnulacion,
@@ -49,7 +53,15 @@ from app.domain.registro import (
     build_contenido_alta,
     build_contenido_anulacion,
 )
-from app.domain.tipos import EstadoRemision, Modalidad, TipoEvento, TipoFactura, TipoRegistro
+from app.domain.tipos import (
+    EstadoRemision,
+    Modalidad,
+    TipoAnomalia,
+    TipoEvento,
+    TipoEventoSif,
+    TipoFactura,
+    TipoRegistro,
+)
 from app.domain.xml_registro import build_registro_alta, build_registro_anulacion
 from app.models.factura import Factura
 from app.models.registro_facturacion import RegistroFacturacion
@@ -108,12 +120,19 @@ def recompute_huella(registro: RegistroFacturacion) -> str:
     return compute_huella(campos.cadena())
 
 
-def tail_problem(ultimo: RegistroFacturacion, momento: datetime) -> str | None:
-    """Motivo por el que el último registro no permite seguir la cadena, o `None`."""
-    if recompute_huella(ultimo) != ultimo.huella:
-        return "la huella del último registro no coincide con su contenido"
+def tail_problem(ultimo: RegistroFacturacion, momento: datetime) -> tuple[TipoAnomalia, str] | None:
+    """La anomalía (R-10) por la que el último registro no permite seguir la cadena, o `None`."""
+    try:
+        correcta = recompute_huella(ultimo) == ultimo.huella
+    except ValueError:
+        correcta = False
+    if not correcta:
+        return TipoAnomalia.HUELLA, "la huella del último registro no coincide con su contenido"
     if datetime.fromisoformat(ultimo.fecha_hora_huso_gen) > momento + MARGEN_HORA:
-        return "el último registro tiene una hora posterior a la actual en más de un minuto"
+        return (
+            TipoAnomalia.FECHA_FUTURA,
+            "el último registro tiene una hora posterior a la actual en más de un minuto",
+        )
     return None
 
 
@@ -131,9 +150,10 @@ async def verify_tail(
     ultimo = await repo.get_last(session)
     if ultimo is None:
         return
-    motivo = tail_problem(ultimo, ahora())
-    if motivo is None:
+    problema = tail_problem(ultimo, ahora())
+    if problema is None:
         return
+    tipo_anomalia, motivo = problema
     logger.error(
         "Cadena de registros inconsistente en la secuencia %s: %s", ultimo.secuencia, motivo
     )
@@ -144,6 +164,26 @@ async def verify_tail(
         actor=actor,
         detalle={"secuencia": ultimo.secuencia, "motivo": motivo, "momento": "antes_de_registrar"},
     )
+    if ultimo.modalidad == Modalidad.NO_VERIFACTU:  # la de la cadena: se bloquea con el primero
+        from app.services import eventos_sif  # evita el ciclo de imports
+
+        await eventos_sif.record_evento(
+            session,
+            eventos_sif.NuevoEvento(
+                TipoEventoSif.ANOMALIA_FACTURACION,
+                datos_propios=eventos.anomalia_facturacion(
+                    tipo_anomalia,
+                    descripcion=motivo[:1].upper() + motivo[1:],
+                    factura=eventos.IdFactura(
+                        ultimo.id_emisor, ultimo.num_serie, ultimo.fecha_expedicion
+                    ),
+                ),
+                tipo_anomalia=tipo_anomalia,
+                secuencia_afectada=ultimo.secuencia,
+                solo_si_nueva=True,
+            ),
+        )
+        return
     await session.commit()  # que el aviso quede aunque la operación se rechace
     raise CadenaInconsistente
 
