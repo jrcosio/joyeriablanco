@@ -15,6 +15,9 @@ x-backend: &backend
     ORIGEN_PERMITIDO: https://${DOMINIO:?Falta DOMINIO}
     SESION_COOKIE_SEGURA: "true"
     AEAT_ENTORNO: ${AEAT_ENTORNO:?Falta AEAT_ENTORNO (pruebas o produccion)}
+    # Certificado de firma de los registros (004, research R-6): el secret de abajo. La
+    # contraseña va en CERTIFICADO_CONTRASENA (.env). Ninguno se guarda en la BD.
+    CERTIFICADO_RUTA: /run/secrets/certificado.p12
   security_opt:
     - no-new-privileges:true
   cap_drop: [ALL]
@@ -58,6 +61,11 @@ services:
       <<: *entorno-backend
       # Solo Caddy llega a la API (red interna, sin puertos publicados).
       FORWARDED_ALLOW_IPS: "*"
+    # Montado en solo lectura en /run/secrets/certificado.p12. El fichero del servidor lo lee el
+    # usuario de la imagen (uid 10001): `chown 10001 certificado.p12 && chmod 0400 certificado.p12`.
+    secrets:
+      - source: certificado
+        target: certificado.p12
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -86,3 +94,7 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+
+secrets:
+  certificado:
+    file: ${CERTIFICADO_FICHERO:?Falta CERTIFICADO_FICHERO (ruta del .p12 de la empresa en el servidor)}

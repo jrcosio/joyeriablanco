@@ -36,4 +36,7 @@ export const TIPOS_EVENTO: Record<TipoEvento, string> = {
   presupuesto_modificado: 'Presupuesto modificado',
   presupuesto_anulado: 'Presupuesto anulado',
   presupuesto_convertido: 'Presupuesto convertido en factura',
+  // Modalidad No VERI*FACTU (004, FR-033)
+  registros_exportados: 'Registros fiscales exportados',
+  integridad_comprobada: 'Integridad del registro fiscal comprobada',
 }

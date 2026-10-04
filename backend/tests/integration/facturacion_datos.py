@@ -25,7 +25,7 @@ async def configurar_facturacion(
     db: AsyncSession,
     *,
     iva: str = "21",
-    modalidad: str | None = "verifactu",
+    modalidad: str | None = "no_verifactu",  # la de Joyería Blanco desde 004 (R-14)
     iban: str | None = None,
     validez: int = 30,
 ) -> None:
@@ -169,6 +169,8 @@ from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncEngine  # noqa: E402
 
 _TABLAS_CON_TRIGGERS = (
+    "comprobaciones_integridad",
+    "registros_evento",
     "cierres_presupuesto",
     "correcciones_factura",
     "registros_facturacion",
@@ -184,6 +186,8 @@ _TABLAS_CON_TRIGGERS = (
 # Orden de borrado por las FK (005, tasks T013): los cierres apuntan a facturas y presupuestos, y
 # los borradores de factura vinculados, a presupuestos.
 _ORDEN_DE_BORRADO = (
+    "comprobaciones_integridad",
+    "registros_evento",
     "cierres_presupuesto",
     "correcciones_factura",
     "registros_facturacion",
@@ -217,7 +221,7 @@ async def limpiar_facturacion_confirmada(
         await conn.execute(
             text(
                 "UPDATE configuracion_facturacion SET iva_por_defecto = 21, emisor_iban = NULL, "
-                "modalidad = NULL, emisor_nombre = NULL, emisor_nif = NULL, "
+                "modalidad = 'no_verifactu', emisor_nombre = NULL, emisor_nif = NULL, "
                 "emisor_direccion = NULL, emisor_codigo_postal = NULL, emisor_localidad = NULL, "
                 "emisor_provincia_codigo = NULL, validez_presupuesto_dias = 30, "
                 "pie_presupuesto = NULL"

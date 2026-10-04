@@ -2,7 +2,7 @@
 estado derivado, enlaces e historial (FR-026)."""
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from app.models.factura import Factura
 from app.models.presupuesto import Presupuesto
 from app.models.registro_facturacion import RegistroFacturacion
 from app.repositories import cierres_presupuesto, correcciones, facturas, presupuestos, registros
+from app.services.integridad import ComprobacionRegistro, check_registro
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +62,8 @@ class DetalleFactura:
     registros: list[RegistroFacturacion]
     # Presupuesto convertido en esta factura, leído de su cierre (005, FR-022)
     presupuesto_origen: Presupuesto | None = None
+    # Huella y firma de cada registro, comprobadas al consultar (004, FR-011)
+    comprobaciones: dict[uuid.UUID, ComprobacionRegistro] = field(default_factory=dict)
 
 
 async def _vigente_actual(
@@ -118,6 +121,7 @@ async def get_factura(db: AsyncSession, factura_id: uuid.UUID) -> DetalleFactura
         else None
     )
     conversion = await cierres_presupuesto.get_by_factura(db, factura.id)
+    lista_registros = await registros.list_by_factura(db, factura.id)
     return DetalleFactura(
         factura=factura,
         estado=estado,
@@ -125,8 +129,9 @@ async def get_factura(db: AsyncSession, factura_id: uuid.UUID) -> DetalleFactura
         sustituye_a=sustituye_a,
         vigente_actual=await _vigente_actual(db, vistas, estado),
         correcciones=vistas,
-        registros=await registros.list_by_factura(db, factura.id),
+        registros=lista_registros,
         presupuesto_origen=(
             await presupuestos.get(db, conversion.presupuesto_id) if conversion else None
         ),
+        comprobaciones={r.id: check_registro(r) for r in lista_registros},
     )

@@ -35,6 +35,17 @@ function crearConfiguracion(
     pie_factura: null,
     validez_presupuesto_dias: 30,
     pie_presupuesto: null,
+    certificado: {
+      estado: 'utilizable',
+      motivo: null,
+      titular: 'JOYERIA BLANCO (PRUEBAS)',
+      identificacion: 'B12345674',
+      emisor: 'JOYERIA BLANCO (PRUEBAS)',
+      valido_desde: '2026-10-02T18:00:00Z',
+      valido_hasta: '2027-10-02T18:00:00Z',
+      dias_restantes: 363,
+      caduca_pronto: false,
+    },
     ...parcial,
   }
 }
@@ -185,14 +196,57 @@ describe('Configuración → Facturación (US1)', () => {
     )
   })
 
-  it('ofrece la modalidad «Sin decidir» y la bloquea con su explicación si ya hay registros', async () => {
+  it('la modalidad es No VERI*FACTU, fija, con VERI*FACTU desactivada y su motivo (004, FR-001)', async () => {
     conSesion(admin)
-    conConfiguracion(crearConfiguracion({ modalidad: 'verifactu', modalidad_bloqueada: true }))
+    conConfiguracion(crearConfiguracion({ modalidad: 'no_verifactu', modalidad_bloqueada: true }))
     renderApp('/configuracion/facturacion')
 
-    const modalidad = await screen.findByRole('button', { name: /Modalidad/ })
-    expect(modalidad).toBeDisabled()
-    expect(screen.getByText(/ya hay registros de facturación/i)).toBeInTheDocument()
+    expect(await screen.findByText('En uso')).toBeInTheDocument()
+    expect(screen.getByText(/Nada se envía a la AEAT/)).toBeInTheDocument()
+    expect(
+      screen.getByText('No disponible: el sistema no tiene capacidad de remisión.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Modalidad/ })).toBeNull()
+    expect(screen.queryByText(/remisión a la AEAT/)).toBeNull() // FR-031
+  })
+
+  it('la tarjeta del certificado enseña sus datos y su estado, sin acciones (004, FR-003)', async () => {
+    conSesion(admin)
+    conConfiguracion(crearConfiguracion())
+    renderApp('/configuracion/facturacion')
+
+    const titulo = await screen.findByRole('heading', { name: 'Certificado de firma' })
+    const tarjeta = titulo.closest('div')?.parentElement
+    if (!tarjeta) throw new Error('Sin tarjeta')
+    expect(within(tarjeta).getByText('Utilizable')).toBeInTheDocument()
+    // Titular y emisor coinciden en el certificado autofirmado de prueba.
+    expect(within(tarjeta).getAllByText('JOYERIA BLANCO (PRUEBAS)')).toHaveLength(2)
+    expect(within(tarjeta).getByText('B12345674')).toBeInTheDocument()
+    expect(within(tarjeta).getByText(/quedan 363 días/)).toBeInTheDocument()
+    expect(within(tarjeta).queryByRole('button')).toBeNull()
+  })
+
+  it('el certificado que caduca pronto o no es utilizable lo dice con su motivo', async () => {
+    conSesion(admin)
+    const base = crearConfiguracion().certificado
+    conConfiguracion(crearConfiguracion({ certificado: { ...base, caduca_pronto: true } }))
+    const { unmount } = renderApp('/configuracion/facturacion')
+    expect(await screen.findByText('Caduca pronto')).toBeInTheDocument()
+    unmount()
+
+    conConfiguracion(
+      crearConfiguracion({
+        certificado: {
+          ...base,
+          estado: 'no_utilizable',
+          motivo: 'caducado',
+          dias_restantes: 0,
+        },
+      }),
+    )
+    renderApp('/configuracion/facturacion')
+    expect(await screen.findByText('No utilizable')).toBeInTheDocument()
+    expect(screen.getByText('El certificado ha caducado.')).toBeInTheDocument()
   })
 
   it('envía el IVA como texto y los datos del emisor, sin campos de más', async () => {
@@ -214,7 +268,7 @@ describe('Configuración → Facturación (US1)', () => {
         version: 1,
         iva_por_defecto: '21.00',
         confirmar_tipo_iva: false,
-        modalidad: null,
+        modalidad: 'no_verifactu',
         emisor: {
           nombre: 'Joyería Blanco, S.L.',
           nif: 'B12345674',

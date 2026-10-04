@@ -4,25 +4,36 @@ Solo lo llama `services/emision.py`, siempre dentro de su transacción y con est
 
 1. `lock_and_verify`: toma el cerrojo de la cadena y hace la comprobación previa de F-10, art. 7.i
    sobre el último registro (huella recalculada y hora no más de un minuto posterior a la
-   actual). Va ANTES de asignar número o insertar nada: si falla, se audita, se confirma solo ese
-   evento y se lanza `CadenaInconsistente` sin haber emitido nada (F-8, art. 8.2.a: «detecte y
-   avise»).
+   actual). Va ANTES de asignar número o insertar nada. Si falla, se audita y:
+   - en No VERI*FACTU (004, R-5) se genera el evento 04 con su anomalía, en su propia
+     transacción, y **la emisión sigue**: la facturación nunca se interrumpe por esto (F-4, p. 28;
+     Orden, art. 7.j). El nuevo registro encadena con la huella guardada del último;
+   - en VERI*FACTU se confirma solo el aviso y se lanza `CadenaInconsistente` sin haber emitido
+     nada (F-8, art. 8.2.a: «detecte y avise»).
 2. `create_registro_alta` / `create_registro_anulacion`: encadenan con el último registro,
    construyen el contenido F-1 (`domain/registro.py`), calculan la huella (`domain/huella.py`) e
    insertan con la secuencia siguiente. El trigger `validar_encadenamiento` lo vuelve a exigir.
+
+En No VERI*FACTU (feature 004, research R-4), el registro se genera en XML, se firma con XAdES-EPES
+y se valida contra el XSD ANTES de insertarlo, en la misma transacción: un registro sin firma no
+existe (F-4, p. 13). Sin un certificado utilizable en la fecha de generación, la operación entera
+se rechaza con `emision-no-disponible` y no se consume número.
 """
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Final
 
+from lxml import etree
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import __version__
 from app.core.config import Settings, get_settings
-from app.core.errors import CadenaInconsistente
+from app.core.errors import CadenaInconsistente, EmisionNoDisponible
 from app.core.http import Origen
 from app.core.tiempo import ahora
+from app.domain import eventos
 from app.domain.huella import (
     CamposHuellaAlta,
     CamposHuellaAnulacion,
@@ -42,12 +53,23 @@ from app.domain.registro import (
     build_contenido_alta,
     build_contenido_anulacion,
 )
-from app.domain.tipos import EstadoRemision, TipoEvento, TipoFactura, TipoRegistro
+from app.domain.tipos import (
+    EstadoRemision,
+    Modalidad,
+    TipoAnomalia,
+    TipoEvento,
+    TipoEventoSif,
+    TipoFactura,
+    TipoRegistro,
+)
+from app.domain.xml_registro import build_registro_alta, build_registro_anulacion
 from app.models.factura import Factura
 from app.models.registro_facturacion import RegistroFacturacion
 from app.models.usuario import Usuario
 from app.repositories import registros as repo
+from app.services import certificado, firma
 from app.services.auditoria import record_event
+from app.services.certificado import CertificadoNoUtilizable
 
 logger = logging.getLogger(__name__)
 
@@ -98,12 +120,19 @@ def recompute_huella(registro: RegistroFacturacion) -> str:
     return compute_huella(campos.cadena())
 
 
-def tail_problem(ultimo: RegistroFacturacion, momento: datetime) -> str | None:
-    """Motivo por el que el último registro no permite seguir la cadena, o `None`."""
-    if recompute_huella(ultimo) != ultimo.huella:
-        return "la huella del último registro no coincide con su contenido"
+def tail_problem(ultimo: RegistroFacturacion, momento: datetime) -> tuple[TipoAnomalia, str] | None:
+    """La anomalía (R-10) por la que el último registro no permite seguir la cadena, o `None`."""
+    try:
+        correcta = recompute_huella(ultimo) == ultimo.huella
+    except ValueError:
+        correcta = False
+    if not correcta:
+        return TipoAnomalia.HUELLA, "la huella del último registro no coincide con su contenido"
     if datetime.fromisoformat(ultimo.fecha_hora_huso_gen) > momento + MARGEN_HORA:
-        return "el último registro tiene una hora posterior a la actual en más de un minuto"
+        return (
+            TipoAnomalia.FECHA_FUTURA,
+            "el último registro tiene una hora posterior a la actual en más de un minuto",
+        )
     return None
 
 
@@ -121,9 +150,10 @@ async def verify_tail(
     ultimo = await repo.get_last(session)
     if ultimo is None:
         return
-    motivo = tail_problem(ultimo, ahora())
-    if motivo is None:
+    problema = tail_problem(ultimo, ahora())
+    if problema is None:
         return
+    tipo_anomalia, motivo = problema
     logger.error(
         "Cadena de registros inconsistente en la secuencia %s: %s", ultimo.secuencia, motivo
     )
@@ -134,8 +164,66 @@ async def verify_tail(
         actor=actor,
         detalle={"secuencia": ultimo.secuencia, "motivo": motivo, "momento": "antes_de_registrar"},
     )
+    if ultimo.modalidad == Modalidad.NO_VERIFACTU:  # la de la cadena: se bloquea con el primero
+        from app.services import eventos_sif  # evita el ciclo de imports
+
+        await eventos_sif.record_evento(
+            session,
+            eventos_sif.NuevoEvento(
+                TipoEventoSif.ANOMALIA_FACTURACION,
+                datos_propios=eventos.anomalia_facturacion(
+                    tipo_anomalia,
+                    descripcion=motivo[:1].upper() + motivo[1:],
+                    factura=eventos.IdFactura(
+                        ultimo.id_emisor, ultimo.num_serie, ultimo.fecha_expedicion
+                    ),
+                ),
+                tipo_anomalia=tipo_anomalia,
+                secuencia_afectada=ultimo.secuencia,
+                solo_si_nueva=True,
+            ),
+        )
+        return
     await session.commit()  # que el aviso quede aunque la operación se rechace
     raise CadenaInconsistente
+
+
+@dataclass(frozen=True, slots=True)
+class Firma:
+    """Lo que se guarda de la firma junto al registro (data-model, `registros_facturacion`)."""
+
+    xml: bytes
+    titular: str
+    huella_certificado: str
+
+
+def signing_certificate(momento: datetime) -> certificado.CertificadoFirma:
+    """El certificado utilizable en la fecha de generación, o el 409 con su motivo (FR-004)."""
+    try:
+        return certificado.utilizable(momento)
+    except CertificadoNoUtilizable as exc:
+        logger.warning("Registro rechazado: certificado no utilizable (%s)", exc.motivo.value)
+        raise EmisionNoDisponible(
+            f"No se puede emitir: el certificado de firma no es utilizable ({exc}).",
+            extra={"faltan": ["certificado"], "motivo": exc.motivo.value},
+        ) from exc
+
+
+def _firmar(elemento: etree._Element, momento: datetime) -> Firma:
+    firmante = signing_certificate(momento)
+    xml = firma.sign_and_validate(elemento, firma.Esquema.SUMINISTRO, firmante, momento)
+    return Firma(xml=xml, titular=firmante.titular, huella_certificado=firmante.huella)
+
+
+def _columnas_firma(firma_registro: Firma | None) -> dict[str, object]:
+    if firma_registro is None:  # VERI*FACTU: sin firma y pendiente de remisión (002)
+        return {"estado_remision": EstadoRemision.PENDIENTE.value}
+    return {
+        "estado_remision": EstadoRemision.NO_APLICA.value,
+        "xml_firmado": firma_registro.xml,
+        "certificado_titular": firma_registro.titular,
+        "certificado_huella": firma_registro.huella_certificado,
+    }
 
 
 def registro_anterior(ultimo: RegistroFacturacion | None) -> RegistroAnterior | None:
@@ -203,7 +291,8 @@ async def create_registro_alta(
 ) -> RegistroFacturacion:
     ultimo = await repo.get_last(session)
     anterior = registro_anterior(ultimo)
-    fecha_hora = format_timestamp(ahora())
+    momento = ahora()
+    fecha_hora = format_timestamp(momento)
     fecha_expedicion = format_date(factura.fecha_expedicion)
     huella = compute_huella(
         CamposHuellaAlta(
@@ -224,6 +313,11 @@ async def create_registro_alta(
         fecha_hora_huso_gen=fecha_hora,
         huella=huella,
     )
+    firma_registro = (
+        _firmar(build_registro_alta(contenido), momento)
+        if factura.modalidad == Modalidad.NO_VERIFACTU
+        else None
+    )
     return await repo.insert(
         session,
         RegistroFacturacion(
@@ -243,7 +337,7 @@ async def create_registro_alta(
             tipo_huella="01",
             huella=huella,
             contenido=contenido,
-            estado_remision=EstadoRemision.PENDIENTE.value,
+            **_columnas_firma(firma_registro),
         ),
     )
 
@@ -253,7 +347,8 @@ async def create_registro_anulacion(
 ) -> RegistroFacturacion:
     ultimo = await repo.get_last(session)
     anterior = registro_anterior(ultimo)
-    fecha_hora = format_timestamp(ahora())
+    momento = ahora()
+    fecha_hora = format_timestamp(momento)
     fecha_expedicion = format_date(factura.fecha_expedicion)
     huella = compute_huella(
         CamposHuellaAnulacion(
@@ -272,6 +367,11 @@ async def create_registro_anulacion(
         sistema=sistema_informatico(),
         fecha_hora_huso_gen=fecha_hora,
         huella=huella,
+    )
+    firma_registro = (
+        _firmar(build_registro_anulacion(contenido), momento)
+        if modalidad == Modalidad.NO_VERIFACTU
+        else None
     )
     return await repo.insert(
         session,
@@ -292,6 +392,6 @@ async def create_registro_anulacion(
             tipo_huella="01",
             huella=huella,
             contenido=contenido,
-            estado_remision=EstadoRemision.PENDIENTE.value,
+            **_columnas_firma(firma_registro),
         ),
     )

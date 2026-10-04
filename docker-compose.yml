@@ -39,6 +39,10 @@ services:
       DB_HOST: db
       DB_NAME: joyeriablanco
       OPENAPI_DESTINO: /web-api/openapi.json
+      # Certificado de PRUEBAS (004, R-6): backend/var está montado y fuera de git.
+      # Se crea con `joyeria generar-certificado-pruebas` (quickstart de 004).
+      CERTIFICADO_RUTA: /app/var/certificados/pruebas.p12
+      CERTIFICADO_CONTRASENA: pruebas
     ports:
       - "127.0.0.1:8000:8000"
 
@@ -52,6 +56,9 @@ services:
       DB_NAME: joyeriablanco_e2e
       ORIGEN_PERMITIDO: http://localhost:5174
       OPENAPI_DESTINO: /web-api/openapi.json
+      # Lo genera e2e/global-setup.ts en cada ejecución (004, R-6).
+      CERTIFICADO_RUTA: /app/var/certificados/pruebas-e2e.p12
+      CERTIFICADO_CONTRASENA: pruebas
     ports:
       - "127.0.0.1:8001:8000"
 

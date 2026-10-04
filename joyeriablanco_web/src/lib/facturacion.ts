@@ -1,4 +1,5 @@
 /** Textos y catálogos de facturación compartidos por Configuración y el modal de factura. */
+import type { EstadoCertificado } from '../api/tipos'
 
 /** Lo que falta para poder emitir (FR-004), con el nombre que ve el usuario. */
 export const FALTA_PARA_EMITIR: Record<string, string> = {
@@ -8,17 +9,12 @@ export const FALTA_PARA_EMITIR: Record<string, string> = {
   'emisor.direccion': 'Dirección del emisor',
   'emisor.codigo_postal': 'Código postal del emisor',
   'emisor.localidad': 'Localidad del emisor',
+  certificado: 'un certificado de firma utilizable', // 004, FR-004
 }
 
 export function textoFalta(clave: string): string {
   return FALTA_PARA_EMITIR[clave] ?? clave
 }
-
-export const MODALIDADES: readonly { id: string; label: string }[] = [
-  { id: '', label: 'Sin decidir (pendiente de la asesoría)' },
-  { id: 'verifactu', label: 'VERI*FACTU' },
-  { id: 'no_verifactu', label: 'No VERI*FACTU' },
-]
 
 /** «21.00» → «21»; «12.50» → «12,5»: el tipo como se escribe en el campo de Configuración. */
 export function tipoIvaATexto(tipo: string): string {
@@ -88,4 +84,15 @@ export function tipoIvaDe(factura: {
 }): string | null {
   if (factura.oro_inversion) return null
   return factura.lineas[0]?.tipo_iva ?? factura.totales.desglose[0]?.tipo_iva ?? null
+}
+
+/** Por qué el certificado no es utilizable (004, FR-003; los motivos de research R-6). */
+export const MOTIVOS_CERTIFICADO: Record<NonNullable<EstadoCertificado['motivo']>, string> = {
+  no_instalado: 'No hay ningún certificado instalado',
+  ilegible: 'No se puede leer el certificado o su contraseña no es correcta',
+  caducado: 'El certificado ha caducado',
+  aun_no_valido: 'El certificado todavía no es válido',
+  sin_clave_privada: 'El fichero no contiene la clave privada',
+  no_apto_para_firmar: 'El certificado no permite firmar con RSA',
+  de_pruebas_en_produccion: 'Es un certificado de pruebas',
 }

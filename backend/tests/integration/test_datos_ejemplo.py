@@ -3,13 +3,14 @@
 from collections import Counter
 from datetime import timedelta
 from itertools import pairwise
+from pathlib import Path
 
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import SinPermiso
+from app.core.errors import EmisionNoDisponible, SinPermiso
 from app.core.security import verify_password
 from app.core.tiempo import hoy
 from app.domain.identificacion import validate_identificacion
@@ -61,7 +62,7 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
     assert resumen.facturas_emitidas == 50
     estado = await get_config(db)
     assert estado.faltan == []
-    assert estado.config.modalidad == "verifactu"
+    assert estado.config.modalidad == "no_verifactu"  # 004, FR-032
     assert estado.config.emisor_nombre == "Joyería Blanco (demo)"
     assert estado.config.emisor_iban == "ES9121000418450200051332"  # R-22
     # Contacto y pie ficticios (003, FR-032)
@@ -108,8 +109,12 @@ async def test_emite_facturas_encadenadas_con_la_configuracion_demo(db: AsyncSes
         assert actual.huella_anterior == anterior.huella
     for registro in cola:
         assert cadena.recompute_huella(registro) == registro.huella
+        # Firmados con el certificado de pruebas instalado (004, FR-032)
+        assert registro.xml_firmado is not None
+        assert registro.estado_remision == "no_aplica"
+        assert integridad.check_registro(registro).firma_correcta
     comprobacion = await integridad.verify_chain(db)  # FR-031 sobre una cadena con correcciones
-    assert comprobacion.integra, comprobacion.discrepancia
+    assert comprobacion.integra, comprobacion.anomalias
     assert comprobacion.registros == 57
 
     # Cinco borradores de hoy, el primero sin cliente, con sus totales previstos (T061).
@@ -166,7 +171,7 @@ async def test_siembra_presupuestos_en_todos_los_estados(db: AsyncSession) -> No
         len([f for f in facturas if f.serie == "FAC"]) == 10 + 1 + 3
     )  # + reemisión + conversiones
     comprobacion = await integridad.verify_chain(db)
-    assert comprobacion.integra, comprobacion.discrepancia
+    assert comprobacion.integra, comprobacion.anomalias
 
 
 async def test_sobre_datos_de_001_anade_solo_la_facturacion(db: AsyncSession) -> None:
@@ -211,6 +216,9 @@ async def test_se_niega_en_produccion(db: AsyncSession, monkeypatch: pytest.Monk
     monkeypatch.setenv("SIF_PRODUCTOR_NIF", "12345678Z")
     monkeypatch.setenv("ORIGEN_PERMITIDO", "https://joyeria.example.com")
     monkeypatch.setenv("AEAT_ENTORNO", "pruebas")  # obligatorio en producción (003, R-3)
+    monkeypatch.setenv("SIF_PRODUCTOR_DIRECCION", "Calle Mayor 1, 28001 Madrid")  # 004, R-13
+    monkeypatch.setenv("SIF_DECLARACION_FECHA", "2026-10-03")
+    monkeypatch.setenv("SIF_DECLARACION_LUGAR", "Madrid (España)")
     get_settings.cache_clear()
     try:
         with pytest.raises(SinPermiso):
@@ -218,3 +226,18 @@ async def test_se_niega_en_produccion(db: AsyncSession, monkeypatch: pytest.Monk
     finally:
         monkeypatch.undo()
         get_settings.cache_clear()
+
+
+async def test_sin_certificado_no_carga_nada(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Los registros de ejemplo se firman (004, FR-032): sin certificado, error y nada creado."""
+    monkeypatch.setenv("CERTIFICADO_RUTA", str(tmp_path / "no-existe.p12"))
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(EmisionNoDisponible, match="generar-certificado-pruebas"):
+            await datos_ejemplo.cargar(db, clientes=1)
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
+    assert await db.scalar(select(Usuario).where(Usuario.nombre_usuario == "admin.demo")) is None

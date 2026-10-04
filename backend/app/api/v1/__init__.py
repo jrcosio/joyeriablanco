@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    alarmas,
     auditoria,
     borradores,
     borradores_presupuesto,
@@ -11,7 +12,9 @@ from app.api.v1 import (
     configuracion,
     facturas,
     presupuestos,
+    registro_fiscal,
     sesion,
+    sistema,
     usuarios,
 )
 
@@ -26,3 +29,6 @@ router.include_router(facturas.router)
 router.include_router(borradores.router)
 router.include_router(presupuestos.router)
 router.include_router(borradores_presupuesto.router)
+router.include_router(registro_fiscal.router)
+router.include_router(alarmas.router)
+router.include_router(sistema.router)

@@ -14,11 +14,13 @@ import { Route as AccesoRouteImport } from './routes/acceso'
 import { Route as CambiarContrasenaRouteImport } from './routes/cambiar-contrasena'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAccesoDenegadoRouteImport } from './routes/_app/acceso-denegado'
+import { Route as AppAcercaRouteImport } from './routes/_app/acerca'
 import { Route as AppClientesRouteImport } from './routes/_app/clientes'
 import { Route as AppConfiguracionRouteImport } from './routes/_app/configuracion'
 import { Route as AppCuentaRouteImport } from './routes/_app/cuenta'
 import { Route as AppFacturasRouteImport } from './routes/_app/facturas'
 import { Route as AppPresupuestosRouteImport } from './routes/_app/presupuestos'
+import { Route as AppRegistroFiscalRouteImport } from './routes/_app/registro-fiscal'
 import { Route as AppClientesClienteIdRouteImport } from './routes/_app/clientes/$clienteId'
 import { Route as AppClientesNuevoRouteImport } from './routes/_app/clientes/nuevo'
 import { Route as AppConfiguracionIndexRouteImport } from './routes/_app/configuracion/index'
@@ -58,6 +60,11 @@ const AppAccesoDenegadoRoute = AppAccesoDenegadoRouteImport.update({
   path: '/acceso-denegado',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAcercaRoute = AppAcercaRouteImport.update({
+  id: '/acerca',
+  path: '/acerca',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppClientesRoute = AppClientesRouteImport.update({
   id: '/clientes',
   path: '/clientes',
@@ -81,6 +88,11 @@ const AppFacturasRoute = AppFacturasRouteImport.update({
 const AppPresupuestosRoute = AppPresupuestosRouteImport.update({
   id: '/presupuestos',
   path: '/presupuestos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRegistroFiscalRoute = AppRegistroFiscalRouteImport.update({
+  id: '/registro-fiscal',
+  path: '/registro-fiscal',
   getParentRoute: () => AppRoute,
 } as any)
 const AppClientesClienteIdRoute = AppClientesClienteIdRouteImport.update({
@@ -168,11 +180,13 @@ export interface FileRoutesByFullPath {
   '/acceso': typeof AccesoRoute
   '/cambiar-contrasena': typeof CambiarContrasenaRoute
   '/acceso-denegado': typeof AppAccesoDenegadoRoute
+  '/acerca': typeof AppAcercaRoute
   '/clientes': typeof AppClientesRouteWithChildren
   '/configuracion': typeof AppConfiguracionRouteWithChildren
   '/cuenta': typeof AppCuentaRoute
   '/facturas': typeof AppFacturasRouteWithChildren
   '/presupuestos': typeof AppPresupuestosRouteWithChildren
+  '/registro-fiscal': typeof AppRegistroFiscalRoute
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
   '/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
@@ -192,10 +206,12 @@ export interface FileRoutesByTo {
   '/acceso': typeof AccesoRoute
   '/cambiar-contrasena': typeof CambiarContrasenaRoute
   '/acceso-denegado': typeof AppAccesoDenegadoRoute
+  '/acerca': typeof AppAcercaRoute
   '/clientes': typeof AppClientesRouteWithChildren
   '/cuenta': typeof AppCuentaRoute
   '/facturas': typeof AppFacturasRouteWithChildren
   '/presupuestos': typeof AppPresupuestosRouteWithChildren
+  '/registro-fiscal': typeof AppRegistroFiscalRoute
   '/': typeof AppIndexRoute
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
@@ -218,11 +234,13 @@ export interface FileRoutesById {
   '/acceso': typeof AccesoRoute
   '/cambiar-contrasena': typeof CambiarContrasenaRoute
   '/_app/acceso-denegado': typeof AppAccesoDenegadoRoute
+  '/_app/acerca': typeof AppAcercaRoute
   '/_app/clientes': typeof AppClientesRouteWithChildren
   '/_app/configuracion': typeof AppConfiguracionRouteWithChildren
   '/_app/cuenta': typeof AppCuentaRoute
   '/_app/facturas': typeof AppFacturasRouteWithChildren
   '/_app/presupuestos': typeof AppPresupuestosRouteWithChildren
+  '/_app/registro-fiscal': typeof AppRegistroFiscalRoute
   '/_app/': typeof AppIndexRoute
   '/_app/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/_app/clientes/nuevo': typeof AppClientesNuevoRoute
@@ -246,11 +264,13 @@ export interface FileRouteTypes {
     | '/acceso'
     | '/cambiar-contrasena'
     | '/acceso-denegado'
+    | '/acerca'
     | '/clientes'
     | '/configuracion'
     | '/cuenta'
     | '/facturas'
     | '/presupuestos'
+    | '/registro-fiscal'
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
     | '/configuracion/auditoria'
@@ -270,10 +290,12 @@ export interface FileRouteTypes {
     | '/acceso'
     | '/cambiar-contrasena'
     | '/acceso-denegado'
+    | '/acerca'
     | '/clientes'
     | '/cuenta'
     | '/facturas'
     | '/presupuestos'
+    | '/registro-fiscal'
     | '/'
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
@@ -295,11 +317,13 @@ export interface FileRouteTypes {
     | '/acceso'
     | '/cambiar-contrasena'
     | '/_app/acceso-denegado'
+    | '/_app/acerca'
     | '/_app/clientes'
     | '/_app/configuracion'
     | '/_app/cuenta'
     | '/_app/facturas'
     | '/_app/presupuestos'
+    | '/_app/registro-fiscal'
     | '/_app/'
     | '/_app/clientes/$clienteId'
     | '/_app/clientes/nuevo'
@@ -360,6 +384,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAccesoDenegadoRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/acerca': {
+      id: '/_app/acerca'
+      path: '/acerca'
+      fullPath: '/acerca'
+      preLoaderRoute: typeof AppAcercaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/clientes': {
       id: '/_app/clientes'
       path: '/clientes'
@@ -393,6 +424,13 @@ declare module '@tanstack/react-router' {
       path: '/presupuestos'
       fullPath: '/presupuestos'
       preLoaderRoute: typeof AppPresupuestosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/registro-fiscal': {
+      id: '/_app/registro-fiscal'
+      path: '/registro-fiscal'
+      fullPath: '/registro-fiscal'
+      preLoaderRoute: typeof AppRegistroFiscalRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/clientes/$clienteId': {
@@ -568,21 +606,25 @@ const AppPresupuestosRouteWithChildren = AppPresupuestosRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAccesoDenegadoRoute: typeof AppAccesoDenegadoRoute
+  AppAcercaRoute: typeof AppAcercaRoute
   AppClientesRoute: typeof AppClientesRouteWithChildren
   AppConfiguracionRoute: typeof AppConfiguracionRouteWithChildren
   AppCuentaRoute: typeof AppCuentaRoute
   AppFacturasRoute: typeof AppFacturasRouteWithChildren
   AppPresupuestosRoute: typeof AppPresupuestosRouteWithChildren
+  AppRegistroFiscalRoute: typeof AppRegistroFiscalRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAccesoDenegadoRoute: AppAccesoDenegadoRoute,
+  AppAcercaRoute: AppAcercaRoute,
   AppClientesRoute: AppClientesRouteWithChildren,
   AppConfiguracionRoute: AppConfiguracionRouteWithChildren,
   AppCuentaRoute: AppCuentaRoute,
   AppFacturasRoute: AppFacturasRouteWithChildren,
   AppPresupuestosRoute: AppPresupuestosRouteWithChildren,
+  AppRegistroFiscalRoute: AppRegistroFiscalRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

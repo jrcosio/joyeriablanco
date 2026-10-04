@@ -698,6 +698,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/registro-fiscal/eventos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Eventos
+         * @description Registro de eventos, del más reciente al más antiguo (FR-016).
+         */
+        get: operations["listar_eventos_api_v1_registro_fiscal_eventos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registro-fiscal/eventos/{secuencia}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Obtener Evento
+         * @description Un evento con sus datos propios y los saltos al anterior y al siguiente (arts. 7.h, 9.3).
+         */
+        get: operations["obtener_evento_api_v1_registro_fiscal_eventos__secuencia__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registro-fiscal/registros/{secuencia}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Obtener Registro
+         * @description Un registro de facturación con los saltos al anterior y al siguiente (Orden, art. 7.h).
+         */
+        get: operations["obtener_registro_api_v1_registro_fiscal_registros__secuencia__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registro-fiscal/comprobaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Comprobar Integridad
+         * @description Comprueba la integridad, bajo demanda (Orden, arts. 6.b a 6.e). Genera sus eventos.
+         */
+        post: operations["comprobar_integridad_api_v1_registro_fiscal_comprobaciones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registro-fiscal/exportacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar Registros
+         * @description Los registros de un periodo, tal como se firmaron (Orden, art. 8.2). Genera el 08 o el 09.
+         *
+         *     Es un GET sin CSRF, como los PDF de 003: su único efecto es generar el evento de exportación,
+         *     que solo puede provocar un administrador con sesión.
+         */
+        get: operations["exportar_registros_api_v1_registro_fiscal_exportacion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alarmas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Alarmas */
+        get: operations["obtener_alarmas_api_v1_alarmas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sistema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Sistema */
+        get: operations["obtener_sistema_api_v1_sistema_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sistema/declaracion-responsable/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Descargar Declaracion */
+        get: operations["descargar_declaracion_api_v1_sistema_declaracion_responsable_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -728,6 +882,45 @@ export interface components {
             numeros_sin_usar: number;
             /** Aplicado */
             aplicado: boolean;
+        };
+        /** Alarma */
+        Alarma: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "integridad" | "certificado";
+            /** Mensaje */
+            mensaje: string;
+            /**
+             * Desde
+             * Format: date-time
+             */
+            desde: string;
+            /** Secuencia Afectada */
+            secuencia_afectada: number | null;
+        };
+        /** AlarmasSalida */
+        AlarmasSalida: {
+            /** Alarmas */
+            alarmas: components["schemas"]["Alarma"][];
+        };
+        /** AnomaliaSalida */
+        AnomaliaSalida: {
+            /**
+             * Cadena
+             * @enum {string}
+             */
+            cadena: "facturacion" | "eventos";
+            /**
+             * Tipo Anomalia
+             * @description F-17, TipoAnomaliaType (research R-10)
+             */
+            tipo_anomalia: string;
+            /** Descripcion */
+            descripcion: string;
+            /** Secuencia */
+            secuencia: number | null;
         };
         /** AnulacionEntrada */
         AnulacionEntrada: {
@@ -1157,6 +1350,30 @@ export interface components {
             actualizado_en: string;
             actualizado_por: components["schemas"]["UsuarioReferencia"];
         };
+        /** ComprobacionEntrada */
+        ComprobacionEntrada: {
+            /**
+             * Desde Secuencia
+             * @description Sin valor: desde el primero
+             */
+            desde_secuencia?: number | null;
+            /**
+             * Hasta Secuencia
+             * @description Sin valor: hasta el último
+             */
+            hasta_secuencia?: number | null;
+        };
+        /** ComprobacionSalida */
+        ComprobacionSalida: {
+            /** Integra */
+            integra: boolean;
+            /** Registros */
+            registros: number;
+            /** Eventos */
+            eventos: number;
+            /** Anomalias */
+            anomalias: components["schemas"]["AnomaliaSalida"][];
+        };
         /**
          * ConfiguracionFacturacionEntrada
          * @description Sin clave de régimen: la fija el sistema, 01 o 04 (research R-23).
@@ -1224,6 +1441,8 @@ export interface components {
             validez_presupuesto_dias: number;
             /** Pie Presupuesto */
             pie_presupuesto: string | null;
+            /** @description Ampliado en 004 (FR-003) */
+            certificado: components["schemas"]["EstadoCertificado"];
         };
         /**
          * ContactoEntrada
@@ -1301,6 +1520,28 @@ export interface components {
             /** Provincia */
             provincia: string | null;
         };
+        /** Declaracion */
+        Declaracion: {
+            /**
+             * Titulo
+             * @constant
+             */
+            titulo: "DECLARACIÓN RESPONSABLE DEL SISTEMA INFORMÁTICO DE FACTURACIÓN";
+            /** Apartados */
+            apartados: components["schemas"]["DeclaracionApartado"][];
+        };
+        /** DeclaracionApartado */
+        DeclaracionApartado: {
+            /** Letra */
+            letra: string;
+            /**
+             * Texto
+             * @description Texto descriptivo del art. 15.1 de la Orden
+             */
+            texto: string;
+            /** Valor */
+            valor: string;
+        };
         /** DesgloseSalida */
         DesgloseSalida: {
             /** Tipo Iva */
@@ -1315,6 +1556,35 @@ export interface components {
              * @example 1290.00
              */
             cuota: string;
+        };
+        /**
+         * EstadoCertificado
+         * @description Estado del certificado de firma (004, FR-003). Nunca la contraseña ni la clave.
+         */
+        EstadoCertificado: {
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "utilizable" | "no_utilizable";
+            motivo: components["schemas"]["MotivoNoUtilizable"] | null;
+            /** Titular */
+            titular: string | null;
+            /** Identificacion */
+            identificacion: string | null;
+            /** Emisor */
+            emisor: string | null;
+            /** Valido Desde */
+            valido_desde: string | null;
+            /** Valido Hasta */
+            valido_hasta: string | null;
+            /** Dias Restantes */
+            dias_restantes: number | null;
+            /**
+             * Caduca Pronto
+             * @description 30 días o menos (FR-003)
+             */
+            caduca_pronto: boolean;
         };
         /**
          * EstadoFactura
@@ -1358,6 +1628,53 @@ export interface components {
             detalle: {
                 [key: string]: unknown;
             };
+        };
+        /** EventoSifDetalle */
+        EventoSifDetalle: {
+            /** Secuencia */
+            secuencia: number;
+            tipo_evento: components["schemas"]["TipoEventoSif"];
+            /** Fecha Hora Huso Gen */
+            fecha_hora_huso_gen: string;
+            /** Huella */
+            huella: string;
+            /** Certificado Titular */
+            certificado_titular: string;
+            /**
+             * Resumen
+             * @description Una línea legible de sus datos propios
+             */
+            resumen: string | null;
+            /**
+             * Datos
+             * @description DatosPropiosEvento (F-17)
+             */
+            datos: {
+                [key: string]: unknown;
+            };
+            /** Huella Correcta */
+            huella_correcta: boolean;
+            /** Firma Correcta */
+            firma_correcta: boolean;
+            anterior: components["schemas"]["Salto"] | null;
+            siguiente: components["schemas"]["Salto"] | null;
+        };
+        /** EventoSifResumen */
+        EventoSifResumen: {
+            /** Secuencia */
+            secuencia: number;
+            tipo_evento: components["schemas"]["TipoEventoSif"];
+            /** Fecha Hora Huso Gen */
+            fecha_hora_huso_gen: string;
+            /** Huella */
+            huella: string;
+            /** Certificado Titular */
+            certificado_titular: string;
+            /**
+             * Resumen
+             * @description Una línea legible de sus datos propios
+             */
+            resumen: string | null;
         };
         /** FacturaEntrada */
         FacturaEntrada: {
@@ -1619,6 +1936,12 @@ export interface components {
          * @enum {string}
          */
         MotivoModificacion: "no_debio_emitirse" | "factura_entregada";
+        /**
+         * MotivoNoUtilizable
+         * @description Por qué el certificado de firma no es utilizable (004, FR-003, research R-6).
+         * @enum {string}
+         */
+        MotivoNoUtilizable: "no_instalado" | "ilegible" | "caducado" | "aun_no_valido" | "sin_clave_privada" | "no_apto_para_firmar" | "de_pruebas_en_produccion";
         /** Pagina[ClienteResumenSalida] */
         Pagina_ClienteResumenSalida_: {
             /** Elementos */
@@ -1634,6 +1957,17 @@ export interface components {
         Pagina_EventoSalida_: {
             /** Elementos */
             elementos: components["schemas"]["EventoSalida"][];
+            /** Total */
+            total: number;
+            /** Pagina */
+            pagina: number;
+            /** Tamano */
+            tamano: number;
+        };
+        /** Pagina[EventoSifResumen] */
+        Pagina_EventoSifResumen_: {
+            /** Elementos */
+            elementos: components["schemas"]["EventoSifResumen"][];
             /** Total */
             total: number;
             /** Pagina */
@@ -1683,6 +2017,11 @@ export interface components {
             hoy: string;
             /** Fecha Minima */
             fecha_minima: string | null;
+            /**
+             * Certificado Caduca El
+             * @description Ampliado en 004 (FR-003): caducidad si quedan 30 días o menos
+             */
+            certificado_caduca_el?: string | null;
             /** Mencion Exencion Oro Inversion */
             mencion_exencion_oro_inversion: string;
         };
@@ -1849,6 +2188,15 @@ export interface components {
             emitido_en: string;
             emitido_por: components["schemas"]["UsuarioReferencia"];
         };
+        /** Productor */
+        Productor: {
+            /** Nombre */
+            nombre: string;
+            /** Nif */
+            nif: string;
+            /** Direccion */
+            direccion: string;
+        };
         /** ProvinciaSalida */
         ProvinciaSalida: {
             /** Codigo */
@@ -1873,6 +2221,38 @@ export interface components {
             cuota_rectificada: string;
             causa: components["schemas"]["CausaRectificacion"];
         };
+        /** RegistroCadenaDetalle */
+        RegistroCadenaDetalle: {
+            /** Secuencia */
+            secuencia: number;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "alta" | "anulacion";
+            /** Num Serie */
+            num_serie: string;
+            /**
+             * Factura Id
+             * Format: uuid
+             */
+            factura_id: string;
+            /** Fecha Hora Huso Gen */
+            fecha_hora_huso_gen: string;
+            /** Huella */
+            huella: string;
+            /** Certificado Titular */
+            certificado_titular: string | null;
+            /** Huella Correcta */
+            huella_correcta: boolean;
+            /**
+             * Firma Correcta
+             * @description Nulo si el registro no lleva firma (VERI*FACTU)
+             */
+            firma_correcta: boolean | null;
+            anterior: components["schemas"]["Salto"] | null;
+            siguiente: components["schemas"]["Salto"] | null;
+        };
         /** RegistroResumen */
         RegistroResumen: {
             /** Tipo */
@@ -1885,12 +2265,38 @@ export interface components {
             fecha_hora_huso_gen: string;
             /** Estado Remision */
             estado_remision: string;
+            /** Firmado */
+            firmado: boolean;
+            /** Certificado Titular */
+            certificado_titular: string | null;
+            /** Huella Correcta */
+            huella_correcta: boolean | null;
+            /**
+             * Firma Correcta
+             * @description Nulo si el registro no lleva firma (VERI*FACTU)
+             */
+            firma_correcta: boolean | null;
         };
         /**
          * Rol
          * @enum {string}
          */
         Rol: "administrador" | "empleado";
+        /**
+         * Salto
+         * @description Un salto de la cadena al anterior o al siguiente (Orden, art. 7.h).
+         */
+        Salto: {
+            /** Secuencia */
+            secuencia: number;
+            /** Encadenamiento Correcto */
+            encadenamiento_correcto: boolean;
+            /**
+             * Fechas En Orden
+             * @description Entre sí y con la hora actual
+             */
+            fechas_en_orden: boolean;
+        };
         /** SaludSalida */
         SaludSalida: {
             /**
@@ -1912,6 +2318,24 @@ export interface components {
             /** Inactividad Segundos */
             inactividad_segundos: number;
         };
+        /** SistemaSalida */
+        SistemaSalida: {
+            /** Nombre */
+            nombre: string;
+            /** Id Sistema */
+            id_sistema: string;
+            /** Version */
+            version: string;
+            /** Numero Instalacion */
+            numero_instalacion: string;
+            productor: components["schemas"]["Productor"];
+            /**
+             * Modalidad
+             * @constant
+             */
+            modalidad: "no_verifactu";
+            declaracion: components["schemas"]["Declaracion"];
+        };
         /**
          * TipoCierrePresupuesto
          * @description Desenlace de un presupuesto emitido: como mucho uno (data-model «cierres_presupuesto»).
@@ -1932,7 +2356,15 @@ export interface components {
          * TipoEvento
          * @enum {string}
          */
-        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente" | "borrador_presupuesto_creado" | "borrador_presupuesto_editado" | "borrador_presupuesto_eliminado" | "presupuesto_emitido" | "presupuesto_modificado" | "presupuesto_anulado" | "presupuesto_convertido";
+        TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente" | "borrador_presupuesto_creado" | "borrador_presupuesto_editado" | "borrador_presupuesto_eliminado" | "presupuesto_emitido" | "presupuesto_modificado" | "presupuesto_anulado" | "presupuesto_convertido" | "registros_exportados" | "integridad_comprobada";
+        /**
+         * TipoEventoSif
+         * @description F-17, `TipoEventoType`: los eventos que genera el sistema (004, FR-012; Orden, art. 9.1).
+         *
+         *     El 07 (restauración de copias desde el propio sistema) y el 90 (otros) no se generan.
+         * @enum {string}
+         */
+        TipoEventoSif: "01" | "02" | "03" | "04" | "05" | "06" | "08" | "09" | "10";
         /**
          * TipoFactura
          * @description Lista L2 de DsRegistroVeriFactu.xlsx v1.0 (research R-3, R-4). Solo las de esta feature.
@@ -3784,6 +4216,231 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_eventos_api_v1_registro_fiscal_eventos_get: {
+        parameters: {
+            query?: {
+                tipo?: components["schemas"]["TipoEventoSif"] | null;
+                desde?: string | null;
+                hasta?: string | null;
+                pagina?: number;
+                tamano?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pagina_EventoSifResumen_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_evento_api_v1_registro_fiscal_eventos__secuencia__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                secuencia: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventoSifDetalle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_registro_api_v1_registro_fiscal_registros__secuencia__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                secuencia: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistroCadenaDetalle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    comprobar_integridad_api_v1_registro_fiscal_comprobaciones_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ComprobacionEntrada"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComprobacionSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exportar_registros_api_v1_registro_fiscal_exportacion_get: {
+        parameters: {
+            query: {
+                tipo: "facturacion" | "eventos";
+                /** @description Primer día, en hora de Madrid, incluido */
+                desde: string;
+                /** @description Último día, en hora de Madrid, incluido */
+                hasta: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ZIP con los registros del periodo (contracts/exportacion.md) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_alarmas_api_v1_alarmas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmasSalida"];
+                };
+            };
+        };
+    };
+    obtener_sistema_api_v1_sistema_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SistemaSalida"];
+                };
+            };
+        };
+    };
+    descargar_declaracion_api_v1_sistema_declaracion_responsable_pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Declaración responsable en PDF (Orden, art. 15.3) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
         };

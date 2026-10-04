@@ -24,7 +24,7 @@ from app.domain.tipos import Rol, Serie
 from app.models import Factura, RegistroFacturacion, Usuario
 from app.repositories import contadores
 from app.schemas.configuracion_facturacion import AjusteContadorEntrada
-from app.services import cadena, configuracion_facturacion, emision
+from app.services import cadena, configuracion_facturacion, emision, integridad
 from tests.integration.facturacion_datos import (
     configurar_facturacion,
     crear_cliente,
@@ -112,6 +112,12 @@ def _cadena_lineal(registros: list[RegistroFacturacion]) -> None:
     for anterior, actual in itertools.pairwise(registros):
         assert actual.huella_anterior == anterior.huella
         assert cadena.recompute_huella(actual) == actual.huella
+    # ⚖️ 004 (constitución VII, 2.4.0): en No VERI*FACTU, cada uno firmado y verificable.
+    for registro in registros:
+        assert registro.modalidad == "no_verifactu"
+        assert integridad.check_registro(registro) == integridad.ComprobacionRegistro(
+            huella_correcta=True, firma_correcta=True
+        )
 
 
 async def test_200_emisiones_simultaneas_sin_huecos_ni_duplicados(

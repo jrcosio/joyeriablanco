@@ -59,11 +59,10 @@ async def test_valores_iniciales_y_faltan_los_datos_del_emisor(
     datos = respuesta.json()
     assert datos["iva_por_defecto"] == "21.00"
     assert "clave_regimen" not in datos  # la fija el sistema (R-23)
-    assert datos["modalidad"] is None
+    assert datos["modalidad"] == "no_verifactu"  # la fija la migración 0009 (004, R-14)
     assert all(v is None for k, v in datos["emisor"].items())
     assert datos["emision_posible"] is False
     assert set(datos["faltan"]) == {
-        "modalidad",
         "emisor.nombre",
         "emisor.nif",
         "emisor.direccion",
@@ -103,7 +102,7 @@ async def test_guardar_la_configuracion_completa_y_auditarla(
 
     respuesta = await client.put(
         URL,
-        json=_cuerpo(actual, iva_por_defecto="10", modalidad="verifactu", emisor=EMISOR),
+        json=_cuerpo(actual, iva_por_defecto="10", emisor=EMISOR),
         headers=cabeceras,
     )
 
@@ -116,7 +115,7 @@ async def test_guardar_la_configuracion_completa_y_auditarla(
     assert datos["version"] == actual["version"] + 1
     (evento,) = await eventos(db, TipoEvento.CONFIGURACION_FACTURACION_CAMBIADA)
     assert evento.detalle["cambios"]["iva_por_defecto"] == ["21.00", "10.00"]
-    assert evento.detalle["cambios"]["modalidad"] == [None, "verifactu"]
+    assert "modalidad" not in evento.detalle["cambios"]  # ya era no_verifactu (004, R-14)
 
 
 @pytest.mark.parametrize(
@@ -172,10 +171,7 @@ async def test_la_modalidad_se_bloquea_cuando_ya_hay_registros(
     conexion: AsyncConnection,
 ) -> None:
     cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
-    actual = (await client.get(URL)).json()
-    guardada = (
-        await client.put(URL, json=_cuerpo(actual, modalidad="verifactu"), headers=cabeceras)
-    ).json()
+    guardada = (await client.get(URL)).json()
     usuario, cliente = await insertar_usuario_y_cliente(conexion)
     factura = await insertar_factura(conexion, usuario, cliente, 1)
     await insertar_registro(
@@ -183,9 +179,8 @@ async def test_la_modalidad_se_bloquea_cuando_ya_hay_registros(
     )
 
     lectura = (await client.get(URL)).json()
-    cambio = await client.put(
-        URL, json=_cuerpo(guardada, modalidad="no_verifactu"), headers=cabeceras
-    )
+    # Desde 004 la única modalidad admitida es no_verifactu: quitarla es el único cambio posible.
+    cambio = await client.put(URL, json=_cuerpo(guardada, modalidad=None), headers=cabeceras)
     otro_campo = await client.put(
         URL, json=_cuerpo(guardada, iva_por_defecto="10"), headers=cabeceras
     )
@@ -194,6 +189,24 @@ async def test_la_modalidad_se_bloquea_cuando_ya_hay_registros(
     assert cambio.status_code == 409
     assert cambio.json()["type"] == "/problemas/modalidad-bloqueada"
     assert otro_campo.status_code == 200  # el resto sí se puede cambiar
+
+
+async def test_verifactu_no_se_puede_elegir(
+    client: AsyncClient, crear_usuario: CrearUsuario, iniciar_sesion: IniciarSesion
+) -> None:
+    """El sistema no tiene capacidad de remisión (004, FR-001, research R-14)."""
+    cabeceras = await _admin(client, crear_usuario, iniciar_sesion)
+    actual = (await client.get(URL)).json()
+
+    respuesta = await client.put(
+        URL, json=_cuerpo(actual, modalidad="verifactu"), headers=cabeceras
+    )
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["type"] == "/problemas/validacion"
+    [error] = respuesta.json()["errores"]
+    assert error["campo"] == "modalidad"
+    assert "capacidad de remisión" in error["mensaje"]
 
 
 # ------------------------------------------- IVA libre con confirmación (R-20, SC-012)
@@ -276,11 +289,7 @@ async def test_iban_opcional_normalizado_y_auditado(
 
     con_iban = await client.put(
         URL,
-        json=_cuerpo(
-            actual,
-            modalidad="verifactu",
-            emisor={**EMISOR, "iban": " es91 2100 0418 4502 0005 1332 "},
-        ),
+        json=_cuerpo(actual, emisor={**EMISOR, "iban": " es91 2100 0418 4502 0005 1332 "}),
         headers=cabeceras,
     )
     vacio = await client.put(
@@ -419,7 +428,6 @@ async def test_parametros_para_cualquier_usuario(
         "iva_por_defecto": "21.00",
         "emision_posible": False,
         "faltan": [
-            "modalidad",
             "emisor.nombre",
             "emisor.nif",
             "emisor.direccion",
@@ -429,6 +437,7 @@ async def test_parametros_para_cualquier_usuario(
         "proximo_numero": f"FAC-{hoy().year}-0001",
         "hoy": hoy().isoformat(),
         "fecha_minima": "2024-10-28",  # F-3 §3.1.3.1 (FR-018)
+        "certificado_caduca_el": None,  # el de la sesión de tests no caduca pronto (004)
         "mencion_exencion_oro_inversion": (
             "Operación exenta de IVA (art. 140 bis.Uno.1.º de la Ley 37/1992)"
         ),

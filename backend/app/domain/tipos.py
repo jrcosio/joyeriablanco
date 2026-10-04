@@ -66,6 +66,9 @@ class TipoEvento(StrEnum):
     PRESUPUESTO_MODIFICADO = "presupuesto_modificado"
     PRESUPUESTO_ANULADO = "presupuesto_anulado"
     PRESUPUESTO_CONVERTIDO = "presupuesto_convertido"
+    # Modalidad No VERI*FACTU (feature 004, data-model «Enumeraciones»)
+    REGISTROS_EXPORTADOS = "registros_exportados"
+    INTEGRIDAD_COMPROBADA = "integridad_comprobada"
 
 
 # ------------------------------------------------------------------------- facturación (002)
@@ -154,9 +157,53 @@ class EntornoAeat(StrEnum):
 
 
 class EstadoRemision(StrEnum):
-    """Estado de remisión a la AEAT. La remisión llega con la feature 004 (FR-030)."""
+    """Estado de remisión a la AEAT. En No VERI*FACTU no hay remisión: `no_aplica` (004, R-14)."""
 
     PENDIENTE = "pendiente"
+    NO_APLICA = "no_aplica"
+
+
+class TipoEventoSif(StrEnum):
+    """F-17, `TipoEventoType`: los eventos que genera el sistema (004, FR-012; Orden, art. 9.1).
+
+    El 07 (restauración de copias desde el propio sistema) y el 90 (otros) no se generan.
+    """
+
+    INICIO = "01"
+    FIN = "02"
+    LANZAMIENTO_ANOMALIAS_FACTURACION = "03"
+    ANOMALIA_FACTURACION = "04"
+    LANZAMIENTO_ANOMALIAS_EVENTOS = "05"
+    ANOMALIA_EVENTOS = "06"
+    EXPORTACION_FACTURACION = "08"
+    EXPORTACION_EVENTOS = "09"
+    RESUMEN = "10"
+
+
+class MotivoNoUtilizable(StrEnum):
+    """Por qué el certificado de firma no es utilizable (004, FR-003, research R-6)."""
+
+    NO_INSTALADO = "no_instalado"
+    ILEGIBLE = "ilegible"
+    CADUCADO = "caducado"
+    AUN_NO_VALIDO = "aun_no_valido"
+    SIN_CLAVE_PRIVADA = "sin_clave_privada"
+    NO_APTO_PARA_FIRMAR = "no_apto_para_firmar"
+    DE_PRUEBAS_EN_PRODUCCION = "de_pruebas_en_produccion"
+
+
+class TipoAnomalia(StrEnum):
+    """F-17, `TipoAnomaliaType`: los códigos que detecta la comprobación (004, research R-10)."""
+
+    HUELLA = "01"
+    FIRMA = "02"
+    INTEGRIDAD_OTROS = "03"
+    SIN_ANTERIOR = "04"
+    SIN_POSTERIOR = "05"
+    HUELLA_NO_ENLAZA_CON_POSTERIOR = "07"
+    HUELLA_ANTERIOR_ERRONEA = "08"
+    FECHA_ANTERIOR_A_LA_PREVIA = "11"
+    FECHA_FUTURA = "13"
 
 
 class EstadoFactura(StrEnum):

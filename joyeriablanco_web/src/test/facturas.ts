@@ -12,6 +12,7 @@ export const PARAMETROS: ParametrosFacturacionSalida = {
   proximo_numero: 'FAC-2026-0006',
   hoy: '2026-09-29',
   fecha_minima: '2024-10-28',
+  certificado_caduca_el: null,
   mencion_exencion_oro_inversion: MENCION_ORO,
 }
 
@@ -95,7 +96,11 @@ export function crearFactura(parcial: Partial<FacturaSalida> = {}): FacturaSalid
         secuencia: 5,
         huella: '3C464DAF61ACB827C65FDA19F352A4E3BDC2C640E9E9FC4CC058073F38F12F60',
         fecha_hora_huso_gen: '2026-09-29T10:30:00+02:00',
-        estado_remision: 'pendiente',
+        estado_remision: 'no_aplica',
+        firmado: true,
+        certificado_titular: 'JOYERIA BLANCO (PRUEBAS)',
+        huella_correcta: true,
+        firma_correcta: true,
       },
     ],
     ...parcial,

@@ -4,7 +4,7 @@ Los valores por defecto son los de la spec (FR-003, FR-006, FR-015). Todo se pue
 con variables de entorno o con el fichero `.env` de la raíz del repositorio.
 """
 
-from datetime import timedelta
+from datetime import date, timedelta
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
@@ -67,6 +67,20 @@ class Settings(BaseSettings):
     sif_nombre_sistema: str = Field(default="Joyería Blanco Gestión", min_length=1, max_length=30)
     sif_id_sistema: str = Field(default="JB", pattern=r"^[A-Z0-9]{2}$")
     sif_numero_instalacion: str = Field(default="1", min_length=1, max_length=100)
+    # Declaración responsable (004, research R-13): letras j) y l) del art. 15.1 de la Orden.
+    sif_productor_direccion: str = Field(
+        default="Dirección de pruebas (ficticia)", min_length=1, max_length=200
+    )
+    sif_declaracion_fecha: date | None = None
+    sif_declaracion_lugar: str = Field(
+        default="Lugar de pruebas (ficticio)", min_length=1, max_length=120
+    )
+
+    # --- Certificado de firma de los registros (004, research R-6) ---
+    # Un PKCS#12 montado por quien despliega (en producción, un secret de solo lectura). Ni el
+    # fichero ni su contraseña se guardan en la BD, se devuelven por la API o se registran.
+    certificado_ruta: Path | None = None
+    certificado_contrasena: SecretStr | None = None
 
     # --- AEAT (003, research R-3) ---
     # Entorno de la dirección de cotejo del QR (F-12 §5). Vacío equivale a `pruebas` fuera de
@@ -87,6 +101,7 @@ class Settings(BaseSettings):
                 msg = "En producción ORIGEN_PERMITIDO debe usar https://"
                 raise ValueError(msg)
             self._exigir_productor()
+            self._exigir_declaracion_y_certificado()
             if self.aeat_entorno is None:
                 msg = "En producción hay que fijar AEAT_ENTORNO (pruebas o produccion)"
                 raise ValueError(msg)
@@ -106,6 +121,24 @@ class Settings(BaseSettings):
         nif = normalize_identificacion(self.sif_productor_nif)
         if nif == valores_ficticios["sif_productor_nif"].default or validate_nif(nif) is not None:
             msg = "En producción SIF_PRODUCTOR_NIF debe ser un NIF válido del productor"
+            raise ValueError(msg)
+
+    def _exigir_declaracion_y_certificado(self) -> None:
+        """La declaración responsable (004, R-13) y el certificado de firma (R-6) en producción."""
+        valores_ficticios = Settings.model_fields
+        for campo, variable in (
+            ("sif_productor_direccion", "SIF_PRODUCTOR_DIRECCION"),
+            ("sif_declaracion_lugar", "SIF_DECLARACION_LUGAR"),
+        ):
+            valor = getattr(self, campo)
+            if not valor.strip() or valor == valores_ficticios[campo].default:
+                msg = f"En producción hay que configurar {variable}"
+                raise ValueError(msg)
+        if self.sif_declaracion_fecha is None:
+            msg = "En producción hay que configurar SIF_DECLARACION_FECHA"
+            raise ValueError(msg)
+        if self.certificado_ruta is None or self.certificado_contrasena is None:
+            msg = "En producción hay que configurar CERTIFICADO_RUTA y CERTIFICADO_CONTRASENA"
             raise ValueError(msg)
 
     # --- Derivados ---

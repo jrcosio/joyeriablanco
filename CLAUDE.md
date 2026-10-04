@@ -79,8 +79,9 @@ uv run pytest -k clientes         # un subconjunto
 uv run ruff check . && uv run ruff format --check . && uv run mypy .   # calidad (obligatoria)
 uv run alembic revision -m "descripcion"   # nueva migración (escrita a mano y revisada)
 uv run joyeria --help             # CLI: crear-admin, restablecer-admin, purgar-sesiones,
-                                  # cargar-datos-ejemplo, verificar-cadena, reiniciar-bd-e2e,
-                                  # exportar-openapi
+                                  # cargar-datos-ejemplo, verificar-cadena, exportar-registros,
+                                  # estado-certificado, generar-certificado-pruebas,
+                                  # reiniciar-bd-e2e, exportar-openapi
 
 # Web (dentro de joyeriablanco_web/)
 npm ci
@@ -179,6 +180,17 @@ concurrencia (secuencia de BD o bloqueo explícito sobre tabla de contadores).
     imprimen como «PRESUPUESTO» con la leyenda «Documento sin validez fiscal. No es una factura.».
   - La conversión en factura es una emisión normal y queda vinculada y conservada (FAQ de la AEAT
     sobre prefacturas y proformas).
+- **Modalidad de Joyería Blanco: no VERI\*FACTU** (constitución 2.4.0, decisión del responsable
+  del 2026-10-03):
+  - **No se envía nada a la AEAT.** Un requerimiento se atiende exportando los registros firmados
+    en el formato oficial.
+  - **Cada registro se firma antes de insertarlo**, en la misma transacción: altas, anulaciones y
+    registros de evento. La firma es XAdES Enveloped EPES, con la política de la AGE, RSA y
+    SHA-256, y un certificado cualificado de la empresa o de su representante. Si la firma falla,
+    no se emite nada.
+  - **Registro de eventos** según `EventosSIF.xsd`: encadenado, firmado e inalterable en la BD.
+  - **Declaración responsable**: Joyería Blanco es productora (uso propio) y la declaración se
+    consulta en el propio sistema.
 
 ### Marco normativo
 
@@ -197,7 +209,9 @@ RD 1007/2023 en su redacción por el RD-ley 15/2025):
 | Diseños de registro | `agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/DsRegistroVeriFactu.xlsx` | 1.0 |
 | Huella / hash | `.../Veri-Factu_especificaciones_huella_hash_registros.pdf` | 0.1.2 (27/08/2024) |
 | Código QR | `.../DetalleEspecificacTecnCodigoQRfactura.pdf` | 0.5.0 (10/12/2025) |
-| Firma electrónica (no VERI\*FACTU) | `.../Espec-Tecnicas/EspecTecGenerFirmaElectRfact.pdf` | 0.1.5 (06/03/2025) |
+| Firma electrónica (no VERI\*FACTU) | `agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Espec-Tecnicas/EspecTecGenerFirmaElectRfact.pdf` (SHA-256 `60953acd…a8ac04af481`) | 0.1.5 (06/03/2025) |
+| Esquemas XSD | `prewww2.aeat.es/static_files/common/internet/dep/aplicaciones/es/aeat/tikeV1.0/cont/ws/`: `SuministroInformacion.xsd`, `SuministroLR.xsd` y `EventosSIF.xsd` (registro de eventos de no VERI\*FACTU) | 1.0 |
+| Ejemplos de declaración responsable | Sede: `.../informacion-tecnica/ejemplo-declaracion-responsable.html` | — |
 | Validaciones y errores | `.../Validaciones_Errores_Veri-Factu.pdf` | 1.2.2 (08/04/2026) |
 | Descripción de servicios web | `.../Veri-Factu_Descripcion_SWeb.pdf` | 1.0.3 (28/07/2025) |
 

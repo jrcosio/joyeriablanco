@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, StringConstraints
 
-from app.domain.tipos import Modalidad
+from app.domain.tipos import Modalidad, MotivoNoUtilizable
 from app.schemas.comunes import EntradaBase, SalidaBase
 from app.schemas.importes import TipoIvaEntrada, TipoIvaSalida
 from app.schemas.usuario import UsuarioReferencia
@@ -66,6 +66,20 @@ class ContactoSalida(SalidaBase):
     web: str | None
 
 
+class EstadoCertificado(SalidaBase):
+    """Estado del certificado de firma (004, FR-003). Nunca la contraseña ni la clave."""
+
+    estado: Literal["utilizable", "no_utilizable"]
+    motivo: MotivoNoUtilizable | None
+    titular: str | None
+    identificacion: str | None
+    emisor: str | None
+    valido_desde: datetime | None
+    valido_hasta: datetime | None
+    dias_restantes: int | None
+    caduca_pronto: Annotated[bool, Field(description="30 días o menos (FR-003)")]
+
+
 class ConfiguracionFacturacionSalida(SalidaBase):
     version: int
     iva_por_defecto: TipoIvaSalida
@@ -85,6 +99,7 @@ class ConfiguracionFacturacionSalida(SalidaBase):
     pie_factura: str | None
     validez_presupuesto_dias: int
     pie_presupuesto: str | None
+    certificado: Annotated[EstadoCertificado, Field(description="Ampliado en 004 (FR-003)")]
 
 
 class AjusteContadorEntrada(EntradaBase):
@@ -109,4 +124,8 @@ class ParametrosFacturacionSalida(SalidaBase):
     proximo_numero: str
     hoy: date
     fecha_minima: date | None
+    certificado_caduca_el: Annotated[
+        date | None,
+        Field(description="Ampliado en 004 (FR-003): caducidad si quedan 30 días o menos"),
+    ] = None
     mencion_exencion_oro_inversion: str

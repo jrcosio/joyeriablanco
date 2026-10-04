@@ -7,9 +7,11 @@ después el contador (R-7), para descartar interbloqueos.
 """
 
 import uuid
+from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Final
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import TIMESTAMP, ColumnElement, cast, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.registro_facturacion import RegistroFacturacion
@@ -54,3 +56,45 @@ async def list_by_factura(
         .order_by(RegistroFacturacion.secuencia)
     )
     return list(resultado.scalars())
+
+
+async def list_after(session: AsyncSession, secuencia: int) -> list[RegistroFacturacion]:
+    """Los registros posteriores a una secuencia, en orden (resumen de eventos, 004 R-8)."""
+    resultado = await session.execute(
+        select(RegistroFacturacion)
+        .where(RegistroFacturacion.secuencia > secuencia)
+        .order_by(RegistroFacturacion.secuencia)
+    )
+    return list(resultado.scalars())
+
+
+async def get_by_huella(session: AsyncSession, huella: str) -> RegistroFacturacion | None:
+    resultado = await session.execute(
+        select(RegistroFacturacion).where(RegistroFacturacion.huella == huella)
+    )
+    return resultado.scalar_one_or_none()
+
+
+async def get_by_secuencia(session: AsyncSession, secuencia: int) -> RegistroFacturacion | None:
+    resultado = await session.execute(
+        select(RegistroFacturacion).where(RegistroFacturacion.secuencia == secuencia)
+    )
+    return resultado.scalar_one_or_none()
+
+
+def _generado() -> ColumnElement[datetime]:
+    return cast(RegistroFacturacion.fecha_hora_huso_gen, TIMESTAMP(timezone=True))
+
+
+async def stream_between(
+    session: AsyncSession, desde: datetime, hasta: datetime
+) -> AsyncIterator[RegistroFacturacion]:
+    """Los registros generados en el periodo, en orden de la cadena, de 500 en 500 (004, R-12)."""
+    resultado = await session.stream_scalars(
+        select(RegistroFacturacion)
+        .where(_generado() >= desde, _generado() <= hasta)
+        .order_by(RegistroFacturacion.secuencia)
+        .execution_options(yield_per=500)
+    )
+    async for registro in resultado:
+        yield registro

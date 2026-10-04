@@ -10,6 +10,7 @@ from app.schemas.configuracion_facturacion import (
     ConfiguracionFacturacionSalida,
     ContactoSalida,
     DatosEmisorSalida,
+    EstadoCertificado,
 )
 from app.schemas.usuario import UsuarioReferencia
 from app.services import configuracion_facturacion as servicio
@@ -53,6 +54,17 @@ def _salida(estado: servicio.EstadoConfiguracion) -> ConfiguracionFacturacionSal
         pie_factura=config.pie_factura,
         validez_presupuesto_dias=config.validez_presupuesto_dias,
         pie_presupuesto=config.pie_presupuesto,
+        certificado=EstadoCertificado(
+            estado="utilizable" if estado.certificado.utilizable else "no_utilizable",
+            motivo=estado.certificado.motivo,
+            titular=estado.certificado.titular,
+            identificacion=estado.certificado.identificacion,
+            emisor=estado.certificado.emisor,
+            valido_desde=estado.certificado.valido_desde,
+            valido_hasta=estado.certificado.valido_hasta,
+            dias_restantes=estado.certificado.dias_restantes,
+            caduca_pronto=estado.certificado.caduca_pronto,
+        ),
     )
 
 

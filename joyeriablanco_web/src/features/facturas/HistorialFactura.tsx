@@ -7,6 +7,7 @@ import { cx } from '../../components/ui/cx'
 import { fechaHora } from '../../lib/fechas'
 import { MOTIVOS_MODIFICACION, TIPOS_CORRECCION } from '../../lib/facturacion'
 import { nombreConEstado } from '../../lib/usuarios'
+import { useSesion } from '../../auth/session'
 
 const claseEnlace = 'text-primary underline underline-offset-4 tabular-nums'
 
@@ -47,8 +48,54 @@ export function EnlacesFactura({ factura }: { factura: FacturaSalida }) {
 }
 
 /**
+ * Un registro de facturación: tipo, número, hora de generación y huella abreviada. En No
+ * VERI*FACTU, firmado y con quién, y la comprobación inmediata de su huella y su firma (004,
+ * FR-011; Orden, arts. 6.b y 6.d). Nunca solo con color: cada chip dice su resultado.
+ */
+function RegistroFacturacion({ registro: r }: { registro: FacturaSalida['registros'][number] }) {
+  const { usuario } = useSesion()
+  return (
+    <li className="flex flex-col gap-2 border border-primary-container/18 px-4 py-3">
+      <span className="flex flex-wrap gap-x-4 gap-y-1">
+        <span className="text-on-surface">
+          Registro de {r.tipo === 'alta' ? 'alta' : 'anulación'} nº {r.secuencia}
+        </span>
+        <span>{fechaHora(r.fecha_hora_huso_gen)}</span>
+        <span className="font-mono tabular-nums" title={r.huella}>
+          Huella {r.huella.slice(0, 16)}…
+        </span>
+      </span>
+      <span className="flex flex-wrap items-center gap-2">
+        <span>
+          {r.firmado ? `Firmado · ${r.certificado_titular ?? ''}` : 'Sin firma (VERI*FACTU)'}
+        </span>
+        {r.huella_correcta === null ? null : (
+          <Chip tone={r.huella_correcta ? 'success' : 'danger'}>
+            {r.huella_correcta ? 'Huella correcta' : 'Huella incorrecta'}
+          </Chip>
+        )}
+        {r.firma_correcta === null ? null : (
+          <Chip tone={r.firma_correcta ? 'success' : 'danger'}>
+            {r.firma_correcta ? 'Firma correcta' : 'Firma incorrecta'}
+          </Chip>
+        )}
+        {usuario.rol === 'administrador' ? (
+          <Link
+            to="/registro-fiscal"
+            search={{ pestana: 'cadena', pagina: 1, secuencia: r.secuencia }}
+            className={claseEnlace}
+          >
+            Ver en la cadena
+          </Link>
+        ) : null}
+      </span>
+    </li>
+  )
+}
+
+/**
  * Historial plegable (FR-026, contracts/ui-rutas.md): cada corrección con su tipo, fecha, autor,
- * motivo y la factura que la materializa, y los registros de facturación con su huella abreviada.
+ * motivo y la factura que la materializa, y los registros de facturación (004, FR-011).
  */
 export function HistorialFactura({ factura }: { factura: FacturaSalida }) {
   const [abierto, setAbierto] = useState(true)
@@ -109,16 +156,7 @@ export function HistorialFactura({ factura }: { factura: FacturaSalida }) {
           <h4 className="label-md text-primary">Registros de facturación</h4>
           <ul className="flex flex-col gap-2 body-sm text-on-surface-variant">
             {factura.registros.map((r) => (
-              <li key={r.secuencia} className="flex flex-wrap gap-x-4 gap-y-1">
-                <span className="text-on-surface">
-                  Registro de {r.tipo === 'alta' ? 'alta' : 'anulación'} nº {r.secuencia}
-                </span>
-                <span>{r.fecha_hora_huso_gen}</span>
-                <span className="font-mono tabular-nums" title={r.huella}>
-                  Huella {r.huella.slice(0, 16)}…
-                </span>
-                <span>Remisión: pendiente</span>
-              </li>
+              <RegistroFacturacion key={r.secuencia} registro={r} />
             ))}
           </ul>
         </div>

@@ -86,6 +86,9 @@ async def insertar_registro(
     huella: str,
     huella_anterior: str | None,
     tipo: str = "alta",
+    modalidad: str = "verifactu",
+    estado_remision: str = "pendiente",
+    xml_firmado: bytes | None = None,
 ) -> None:
     alta = tipo == "alta"
     parametros: dict[str, Any] = {
@@ -98,6 +101,11 @@ async def insertar_registro(
         "primer": huella_anterior is None,
         "anterior": huella_anterior,
         "huella": huella,
+        "modalidad": modalidad,
+        "estado": estado_remision,
+        "xml": xml_firmado,
+        "titular": "Prueba" if xml_firmado else None,
+        "certificado": huella_de_prueba("certificado") if xml_firmado else None,
     }
     await conn.execute(
         text(
@@ -105,12 +113,50 @@ async def insertar_registro(
             INSERT INTO registros_facturacion (
                 secuencia, tipo, factura_id, modalidad, id_emisor, num_serie, fecha_expedicion,
                 tipo_factura, cuota_total, importe_total, primer_registro, huella_anterior,
-                fecha_hora_huso_gen, huella, contenido)
+                fecha_hora_huso_gen, huella, contenido, estado_remision, xml_firmado,
+                certificado_titular, certificado_huella)
             VALUES (
-                :secuencia, :tipo, :factura, 'verifactu', 'B12345674', 'FAC-2026-0001',
+                :secuencia, :tipo, :factura, :modalidad, 'B12345674', 'FAC-2026-0001',
                 '29-09-2026', :tipo_factura, :cuota, :importe, :primer, :anterior,
-                '2026-09-29T10:00:00+02:00', :huella, '{}'::jsonb)
+                '2026-09-29T10:00:00+02:00', :huella, '{}'::jsonb, :estado, :xml, :titular,
+                :certificado)
             """
         ),
         parametros,
+    )
+
+
+async def insertar_evento(
+    conn: AsyncConnection,
+    *,
+    secuencia: int,
+    huella: str,
+    anterior: tuple[str, str, str] | None,
+    tipo_evento: str = "01",
+    fecha_hora: str = "2026-10-03T10:00:00+02:00",
+) -> None:
+    """Un registro de evento mínimo. `anterior` es (tipo, fecha y hora, huella) del previo."""
+    await conn.execute(
+        text(
+            """
+            INSERT INTO registros_evento (
+                secuencia, tipo_evento, fecha_hora_huso_gen, primer_evento, tipo_evento_anterior,
+                fecha_hora_huso_gen_anterior, huella_anterior, huella, contenido, xml_firmado,
+                certificado_titular, certificado_huella)
+            VALUES (
+                :secuencia, :tipo, :fecha, :primer, :tipo_ant, :fecha_ant, :huella_ant, :huella,
+                '{}'::jsonb, '<x/>'::bytea, 'Prueba', :certificado)
+            """
+        ),
+        {
+            "secuencia": secuencia,
+            "tipo": tipo_evento,
+            "fecha": fecha_hora,
+            "primer": anterior is None,
+            "tipo_ant": anterior[0] if anterior else None,
+            "fecha_ant": anterior[1] if anterior else None,
+            "huella_ant": anterior[2] if anterior else None,
+            "huella": huella,
+            "certificado": huella_de_prueba("certificado"),
+        },
     )

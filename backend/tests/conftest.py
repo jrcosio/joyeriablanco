@@ -6,9 +6,15 @@
   sobre la misma conexión en modo *savepoint*, así que sus `commit()` no escapan del test.
 - `TEST_DB_NAME`, `TEST_DATABASE_URL_APP` y `TEST_DATABASE_URL_OWNER` permiten apuntar a otra BD
   (por ejemplo, desde dentro del contenedor).
+- Un certificado de firma de prueba para toda la sesión (004, research R-6), en una carpeta
+  temporal: los registros en No VERI*FACTU se firman con él.
 """
 
+import atexit
 import os
+import shutil
+import tempfile
+from pathlib import Path
 
 os.environ["ENTORNO"] = "test"
 os.environ["DB_NAME"] = os.environ.get("TEST_DB_NAME", "joyeriablanco_test")
@@ -18,8 +24,16 @@ for _var in ("APP", "OWNER"):
     if _url := os.environ.get(f"TEST_DATABASE_URL_{_var}"):
         os.environ[f"DATABASE_URL_{_var}"] = _url
 
+_CARPETA_CERTIFICADO = tempfile.mkdtemp(prefix="jb-certificado-")
+atexit.register(shutil.rmtree, _CARPETA_CERTIFICADO, ignore_errors=True)
+os.environ["CERTIFICADO_RUTA"] = str(Path(_CARPETA_CERTIFICADO) / "pruebas.p12")
+
+from tests.certificados import CONTRASENA_PRUEBAS, escribir_pkcs12  # noqa: E402
+
+os.environ["CERTIFICADO_CONTRASENA"] = CONTRASENA_PRUEBAS
+CERTIFICADO_SESION = escribir_pkcs12(Path(os.environ["CERTIFICADO_RUTA"]))
+
 from collections.abc import AsyncIterator  # noqa: E402
-from pathlib import Path  # noqa: E402
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
@@ -208,7 +222,8 @@ async def eventos(db: AsyncSession, tipo: TipoEvento) -> list[EventoAuditoria]:
     resultado = await db.execute(
         select(EventoAuditoria)
         .where(EventoAuditoria.tipo == tipo.value, EventoAuditoria.ocurrido_en == func.now())
-        .order_by(EventoAuditoria.ocurrido_en)
+        # `ocurrido_en` es el mismo en toda la transacción: el id (uuidv7) da el orden de inserción.
+        .order_by(EventoAuditoria.ocurrido_en, EventoAuditoria.id)
     )
     return list(resultado.scalars())
 

@@ -3,13 +3,17 @@
 import asyncio
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
 
 import pytest
+from pydantic import SecretStr
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from typer.testing import CliRunner
 
 from app.cli import app as cli
+from app.core.config import Entorno, Settings, get_settings
 from app.core.errors import NoEncontrado
 from app.core.http import Origen
 from app.core.security import verify_password
@@ -17,8 +21,9 @@ from app.core.tiempo import ahora
 from app.domain.contrasenas import validate_password
 from app.domain.tipos import Rol, TipoEvento
 from app.models import Sesion
-from app.services import auth, usuarios
+from app.services import auth, certificado, usuarios
 from app.services.auditoria import ACTOR_CONSOLA
+from tests.certificados import CONTRASENA_PRUEBAS, escribir_pkcs12
 from tests.conftest import CrearUsuario, eventos
 
 
@@ -137,3 +142,71 @@ async def test_comando_crear_admin_muestra_la_contrasena_una_vez(
             await conn.execute(
                 text("UPDATE usuarios SET activo = false WHERE nombre_usuario = :n"), {"n": nombre}
             )
+
+
+# ------------------------------------------------------- certificado de pruebas (004, R-6)
+
+
+async def test_generar_certificado_de_pruebas_crea_uno_utilizable(tmp_path: Path) -> None:
+    destino = tmp_path / "certificados" / "pruebas.p12"
+
+    resultado = await asyncio.to_thread(
+        CliRunner().invoke,
+        cli,
+        ["generar-certificado-pruebas", "--destino", str(destino), "--contrasena", "secreta"],
+    )
+
+    assert resultado.exit_code == 0, resultado.output
+    assert "secreta" not in resultado.output
+    ajustes = Settings(
+        entorno=Entorno.TEST, certificado_ruta=destino, certificado_contrasena=SecretStr("secreta")
+    )
+    estado = certificado.estado(ajustes=ajustes)
+    assert estado.utilizable
+    assert estado.dias_restantes in {363, 364}
+
+
+def test_generar_certificado_de_pruebas_se_niega_en_produccion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    produccion = Settings.model_construct(entorno=Entorno.PRODUCCION)
+    monkeypatch.setattr("app.cli.get_settings", lambda: produccion)
+    destino = tmp_path / "pruebas.p12"
+
+    resultado = CliRunner().invoke(
+        cli, ["generar-certificado-pruebas", "--destino", str(destino), "--contrasena", "x"]
+    )
+
+    assert resultado.exit_code == 1
+    assert not destino.exists()
+
+
+@pytest.mark.parametrize(
+    ("opciones", "codigo", "texto"),
+    [
+        (None, 0, "Utilizable."),
+        ({"desde": ahora() - timedelta(days=340), "dias": 365}, 3, "caduca pronto"),
+        ({"firma": False}, 1, "No utilizable: el certificado no permite firmar con RSA."),
+    ],
+    ids=["utilizable", "caduca-pronto", "no-utilizable"],
+)
+def test_estado_del_certificado_con_su_codigo(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    opciones: dict[str, Any] | None,
+    codigo: int,
+    texto: str,
+) -> None:
+    """004, contracts/cli.md: lo usa deploy/verificar-produccion.sh. Nunca la contraseña."""
+    if opciones is not None:
+        monkeypatch.setenv("CERTIFICADO_RUTA", str(escribir_pkcs12(tmp_path / "c.p12", **opciones)))
+    get_settings.cache_clear()
+    try:
+        resultado = CliRunner().invoke(cli, ["estado-certificado"])
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
+
+    assert resultado.exit_code == codigo, resultado.output
+    assert texto in resultado.output
+    assert CONTRASENA_PRUEBAS not in resultado.output

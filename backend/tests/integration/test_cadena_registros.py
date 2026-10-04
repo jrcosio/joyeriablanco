@@ -8,18 +8,23 @@
 import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from app.core.errors import CadenaInconsistente
-from app.core.tiempo import ahora
-from app.domain.tipos import TipoEvento
-from app.models import Factura, RegistroFacturacion
-from app.services import cadena
+from app.core.http import Origen
+from app.core.security import hash_password
+from app.core.tiempo import ahora, hoy
+from app.domain.tipos import Rol, TipoEvento
+from app.models import Factura, RegistroEvento, RegistroFacturacion, Usuario
+from app.repositories import registros
+from app.services import cadena, emision
 from tests.conftest import eventos
+from tests.integration.facturacion_datos import configurar_facturacion, crear_cliente
 from tests.integration.facturacion_sql import (
     huella_de_prueba,
     insertar_factura,
@@ -203,3 +208,87 @@ async def test_sin_registros_la_comprobacion_no_bloquea(db: AsyncSession) -> Non
     await cadena.lock_and_verify(db, origen=None, actor=None)
 
     assert await db.get(RegistroFacturacion, uuid.uuid4()) is None
+
+
+# --------------------------------------------------- No VERI*FACTU: no se interrumpe (004, R-5)
+
+
+async def _emitida(db_owner: AsyncSession, admin: Usuario, cliente_id: uuid.UUID) -> Factura:
+    factura, _ = await emision.emit_factura(
+        db_owner,
+        emision.DatosFactura(
+            fecha_expedicion=hoy(),
+            cliente_id=cliente_id,
+            lineas=(emision.DatosLinea(Decimal(1), "Anillo", Decimal(100)),),
+        ),
+        actor=admin,
+        origen=Origen(ip=None, agente="pytest"),
+        clave=uuid.uuid4(),
+    )
+    return factura
+
+
+@pytest.fixture
+async def emisor_no_verifactu(db_owner: AsyncSession) -> tuple[Usuario, uuid.UUID]:
+    admin = Usuario(
+        nombre_usuario=f"r5.{uuid.uuid4().hex[:6]}",
+        nombre="R-5",
+        rol=Rol.ADMINISTRADOR.value,
+        hash_contrasena=hash_password("x" * 12),
+        contrasena_temporal=False,
+    )
+    db_owner.add(admin)
+    await db_owner.flush()
+    await configurar_facturacion(db_owner)  # No VERI*FACTU
+    cliente = await crear_cliente(db_owner, admin.id)
+    return admin, cliente.id
+
+
+async def test_en_no_verifactu_un_ultimo_registro_alterado_no_impide_emitir(
+    conexion_owner: AsyncConnection,
+    db_owner: AsyncSession,
+    emisor_no_verifactu: tuple[Usuario, uuid.UUID],
+) -> None:
+    """⚖️ FR-010: se registra el evento 04 y la nueva alta encadena con la huella guardada."""
+    admin, cliente_id = emisor_no_verifactu
+    await _emitida(db_owner, admin, cliente_id)
+    await conexion_owner.execute(text("ALTER TABLE registros_facturacion DISABLE TRIGGER USER"))
+    await conexion_owner.execute(text("UPDATE registros_facturacion SET importe_total = 1"))
+    await conexion_owner.execute(text("ALTER TABLE registros_facturacion ENABLE TRIGGER USER"))
+    db_owner.expire_all()
+    await db_owner.refresh(admin)
+    [primero] = (await db_owner.execute(select(RegistroFacturacion))).scalars().all()
+
+    segunda = await _emitida(db_owner, admin, cliente_id)
+
+    [alta] = await registros.list_by_factura(db_owner, segunda.id)
+    assert alta.huella_anterior == primero.huella
+    [anomalia] = (
+        (await db_owner.execute(select(RegistroEvento).where(RegistroEvento.tipo_evento == "04")))
+        .scalars()
+        .all()
+    )
+    assert (anomalia.tipo_anomalia, anomalia.secuencia_afectada) == ("01", 1)
+    assert await eventos(db_owner, TipoEvento.CADENA_INCONSISTENTE)  # el aviso de 002 sigue
+
+
+async def test_en_no_verifactu_un_ultimo_registro_con_hora_futura_no_impide_emitir(
+    db_owner: AsyncSession,
+    emisor_no_verifactu: tuple[Usuario, uuid.UUID],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-010 y Orden, art. 7.i: hora del último registro posterior a la actual (anomalía 13)."""
+    admin, cliente_id = emisor_no_verifactu
+    await _emitida(db_owner, admin, cliente_id)
+    [primero] = (await db_owner.execute(select(RegistroFacturacion))).scalars().all()
+    generado = datetime.fromisoformat(primero.fecha_hora_huso_gen)
+    monkeypatch.setattr(cadena, "ahora", lambda: generado - timedelta(minutes=2))
+
+    await cadena.lock_and_verify(db_owner, origen=None, actor=None)
+
+    [anomalia] = (
+        (await db_owner.execute(select(RegistroEvento).where(RegistroEvento.tipo_evento == "04")))
+        .scalars()
+        .all()
+    )
+    assert (anomalia.tipo_anomalia, anomalia.secuencia_afectada) == ("13", 1)

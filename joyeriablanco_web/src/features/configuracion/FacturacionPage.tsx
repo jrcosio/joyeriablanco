@@ -17,10 +17,10 @@ import type {
 import { Alerta } from '../../components/forms/Alerta'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+import { Chip } from '../../components/ui/Chip'
 import { CampoDecimal } from '../../components/ui/CampoDecimal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { ErrorState } from '../../components/ui/ErrorState'
-import { Select } from '../../components/ui/Select'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { TextField } from '../../components/ui/TextField'
 import { toast } from '../../components/ui/toast-store'
@@ -28,13 +28,44 @@ import { aApi, parsearEntrada } from '../../lib/dinero'
 import {
   formatearIban,
   listaTiposIva,
-  MODALIDADES,
   normalizarIban,
   textoFalta,
   textoTipoIva,
   tipoIvaATexto,
 } from '../../lib/facturacion'
 import { AjusteContadorDialog } from './AjusteContadorDialog'
+import { TarjetaCertificado } from './TarjetaCertificado'
+
+/**
+ * La modalidad es No VERI*FACTU, fija (004, FR-001; constitución 2.4.0): VERI*FACTU aparece
+ * desactivada con su motivo. El modelo sigue admitiendo las dos.
+ */
+function ModalidadFija() {
+  return (
+    <div className="flex flex-col gap-1.5 md:col-span-3">
+      <span className="label-md text-on-surface-variant">Modalidad del sistema de facturación</span>
+      <ul className="flex flex-col gap-2 sm:flex-row">
+        <li className="flex flex-1 flex-col gap-1 border border-primary-container bg-surface-container-high px-4 py-3">
+          <span className="flex flex-wrap items-center gap-2 title-md text-on-surface">
+            No VERI*FACTU <Chip tone="success">En uso</Chip>
+          </span>
+          <span className="body-sm text-on-surface-variant">
+            Cada registro se firma y se conserva. Nada se envía a la AEAT.
+          </span>
+        </li>
+        <li
+          aria-disabled="true"
+          className="flex flex-1 flex-col gap-1 border border-outline-variant px-4 py-3 opacity-60"
+        >
+          <span className="title-md text-on-surface">VERI*FACTU</span>
+          <span className="body-sm text-on-surface-variant">
+            No disponible: el sistema no tiene capacidad de remisión.
+          </span>
+        </li>
+      </ul>
+    </div>
+  )
+}
 
 /** De 0 a 99,99, con dos decimales como mucho (FR-001, research R-20): en centésimas. */
 const IVA_MAXIMO = 9999n
@@ -48,7 +79,6 @@ function tipoEscrito(texto: string): string | null {
 
 const esquema = z.object({
   iva_por_defecto: z.string().refine((v) => tipoEscrito(v) !== null, ERROR_IVA),
-  modalidad: z.enum(['', 'verifactu', 'no_verifactu']),
   nombre: z.string().max(120),
   nif: z.string().max(20),
   direccion: z.string().max(200),
@@ -73,7 +103,6 @@ type CampoFormulario = keyof Valores
 
 const CAMPO_DEL_SERVIDOR: Record<string, CampoFormulario> = {
   iva_por_defecto: 'iva_por_defecto',
-  modalidad: 'modalidad',
   'emisor.nombre': 'nombre',
   'emisor.nif': 'nif',
   'emisor.direccion': 'direccion',
@@ -91,7 +120,6 @@ const CAMPO_DEL_SERVIDOR: Record<string, CampoFormulario> = {
 function valoresIniciales(config: ConfiguracionFacturacionSalida): Valores {
   return {
     iva_por_defecto: tipoIvaATexto(config.iva_por_defecto),
-    modalidad: config.modalidad ?? '',
     nombre: config.emisor.nombre ?? '',
     nif: config.emisor.nif ?? '',
     direccion: config.emisor.direccion ?? '',
@@ -118,7 +146,7 @@ function aCuerpo(
     version,
     iva_por_defecto: tipoEscrito(valores.iva_por_defecto) ?? valores.iva_por_defecto,
     confirmar_tipo_iva: confirmarTipoIva,
-    modalidad: valores.modalidad === '' ? null : valores.modalidad,
+    modalidad: 'no_verifactu', // fija (004, FR-001)
     emisor: {
       nombre: vacioANulo(valores.nombre),
       nif: vacioANulo(valores.nif),
@@ -269,32 +297,7 @@ function Formulario({ config }: { config: ConfiguracionFacturacionSalida }) {
               </div>
             )}
           />
-          <Controller
-            control={control}
-            name="modalidad"
-            render={({ field, fieldState }) => (
-              <div className="flex flex-col gap-1.5 md:col-span-3">
-                <Select
-                  label="Modalidad del sistema de facturación"
-                  options={MODALIDADES.map((m) => ({
-                    id: m.id === '' ? 'sin-decidir' : m.id,
-                    label: m.label,
-                  }))}
-                  value={field.value === '' ? 'sin-decidir' : field.value}
-                  onChange={(v) => {
-                    field.onChange(v === 'sin-decidir' || v === null ? '' : v)
-                  }}
-                  isDisabled={config.modalidad_bloqueada}
-                  error={fieldState.error?.message}
-                />
-                <p className="body-sm text-on-surface-variant">
-                  {config.modalidad_bloqueada
-                    ? 'Ya hay registros de facturación: el cambio de modalidad llega con la remisión a la AEAT, que gestiona la permanencia y la renuncia.'
-                    : 'Pendiente de la asesoría. Hace falta elegirla para emitir.'}
-                </p>
-              </div>
-            )}
-          />
+          <ModalidadFija />
         </div>
         <p className="body-sm text-on-surface-variant">
           El IVA se aplica a todas las líneas de las facturas nuevas, salvo en las de oro de
@@ -447,6 +450,7 @@ export function FacturacionPage() {
   return (
     <div className="flex flex-col gap-6">
       <AvisoEmision faltan={config.faltan} />
+      <TarjetaCertificado certificado={config.certificado} />
       <Card className="p-6">
         <Formulario key={config.version} config={config} />
       </Card>

@@ -413,6 +413,7 @@ components:
       type: object
       required: [version, iva_por_defecto, modalidad, emisor, emision_posible, faltan, proximo_numero, modalidad_bloqueada, tipos_iva_oficiales, actualizado_en]
       properties:
+        certificado: { $ref: "../../004-no-verifactu/contracts/openapi.yaml#/components/schemas/EstadoCertificado", description: "Ampliado en 004 (FR-003)" }
         version: { type: integer }
         iva_por_defecto: { $ref: "#/components/schemas/TipoIva" }
         modalidad: { oneOf: [{ $ref: "#/components/schemas/Modalidad" }, { type: "null" }] }
@@ -466,6 +467,7 @@ components:
         hoy: { type: string, format: date, description: "Fecha actual en Europe/Madrid" }
         fecha_minima: { type: [string, "null"], format: date, description: "Primera fecha de expedición admitida: el 28/10/2024 (F-3 §3.1.3.1; FR-018)" }
         mencion_exencion_oro_inversion: { type: string, description: "Texto de la mención para la previsualización del modal (FR-052, R-21)" }
+        certificado_caduca_el: { type: [string, "null"], format: date, description: "Ampliado en 004 (FR-003): fecha de caducidad si quedan 30 días o menos. `faltan` admite además `certificado`" }
 
     LineaEntrada:
       type: object
@@ -629,7 +631,11 @@ components:
         secuencia: { type: integer }
         huella: { type: string, pattern: "^[0-9A-F]{64}$" }
         fecha_hora_huso_gen: { type: string }
-        estado_remision: { type: string, enum: [pendiente] }
+        estado_remision: { type: string, enum: [pendiente, no_aplica], description: "Ampliado en 004: `no_aplica` en No VERI*FACTU" }
+        firmado: { type: boolean, description: "Ampliado en 004 (FR-011): el registro lleva su firma XAdES" }
+        certificado_titular: { type: [string, "null"], description: "Ampliado en 004 (FR-011)" }
+        huella_correcta: { type: [boolean, "null"], description: "Ampliado en 004 (Orden, art. 6.b). Se calcula al consultar la factura" }
+        firma_correcta: { type: [boolean, "null"], description: "Ampliado en 004 (Orden, art. 6.d). Nulo si el registro no lleva firma (VERI*FACTU)" }
 
     FacturaSalida:
       type: object

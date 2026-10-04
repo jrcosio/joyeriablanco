@@ -6,7 +6,10 @@
   valida con `domain/iban.py` (R-22).
 - Emitir exige emisor completo y modalidad (FR-004). El productor del sistema lo exige `Settings`
   al arrancar en producción (research R-5), así que no figura en `faltan`.
-- La modalidad se bloquea en cuanto existe un registro (FR-050, research R-19).
+- La modalidad se bloquea en cuanto existe un registro (FR-050, research R-19). Desde 004 es No
+  VERI*FACTU: VERI*FACTU se rechaza porque el sistema no tiene capacidad de remisión (R-14).
+- En No VERI*FACTU, emitir exige además un certificado de firma utilizable, y la configuración y
+  los parámetros muestran su estado y su caducidad próxima (004, FR-003, FR-004).
 - El contador de la serie ordinaria del año en curso solo se ajusta al alza, con motivo, bajo el
   cerrojo de la cadena y auditado (constitución 2.2.0, «Numeración»; R-7).
 """
@@ -16,15 +19,18 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import Final
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
+from app.core.config import get_settings
 from app.core.errors import (
     CampoError,
     ConflictoVersion,
     ContadorNoAjustable,
     DatosNoValidos,
+    EmisionNoDisponible,
     ModalidadBloqueada,
     TipoIvaSinConfirmar,
 )
@@ -38,7 +44,7 @@ from app.domain.identificacion import normalize_identificacion, validate_nif
 from app.domain.importes import allowed_rates, is_rate_allowed
 from app.domain.numeracion import format_num_serie
 from app.domain.registro import FECHA_MINIMA_EXPEDICION
-from app.domain.tipos import Serie, TipoEvento
+from app.domain.tipos import Modalidad, Serie, TipoEvento
 from app.models.configuracion_facturacion import ConfiguracionFacturacion
 from app.models.usuario import Usuario
 from app.repositories import configuracion_facturacion as repo
@@ -47,7 +53,9 @@ from app.schemas.configuracion_facturacion import (
     AjusteContadorEntrada,
     ConfiguracionFacturacionEntrada,
 )
+from app.services import certificado
 from app.services.auditoria import diff, record_event
+from app.services.certificado import TEXTO_MOTIVO
 
 CAMPOS_EMISION: Final = (
     ("modalidad", "modalidad"),
@@ -79,7 +87,24 @@ CAMPOS_AUDITADOS: Final = (
 
 
 def missing_for_emission(config: ConfiguracionFacturacion) -> list[str]:
-    return [clave for clave, atributo in CAMPOS_EMISION if getattr(config, atributo) is None]
+    """Lo que falta para emitir. En No VERI*FACTU, también un certificado de firma utilizable
+    (004, FR-004, research R-4)."""
+    faltan = [clave for clave, atributo in CAMPOS_EMISION if getattr(config, atributo) is None]
+    if config.modalidad == Modalidad.NO_VERIFACTU and not certificado.estado().utilizable:
+        faltan.append("certificado")
+    return faltan
+
+
+def emission_unavailable(faltan: list[str]) -> EmisionNoDisponible:
+    """El 409 `emision-no-disponible`. Si falta el certificado, con su motivo (004, FR-004)."""
+    if "certificado" not in faltan:
+        return EmisionNoDisponible(extra={"faltan": faltan})
+    motivo = certificado.estado().motivo
+    return EmisionNoDisponible(
+        "No se puede emitir: el certificado de firma no es utilizable"
+        + (f" ({TEXTO_MOTIVO[motivo]})." if motivo else "."),
+        extra={"faltan": faltan, "motivo": motivo.value if motivo else None},
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +114,14 @@ class EstadoConfiguracion:
     proximo_numero: str
     modalidad_bloqueada: bool
     tipos_iva_oficiales: tuple[Decimal, ...]
+    certificado: certificado.EstadoCertificado
+
+
+def expiry_warning(estado: certificado.EstadoCertificado) -> date | None:
+    """La fecha de caducidad del certificado si quedan 30 días o menos (FR-003)."""
+    if not estado.utilizable or not estado.caduca_pronto or estado.valido_hasta is None:
+        return None
+    return estado.valido_hasta.astimezone(ZoneInfo(get_settings().zona_horaria)).date()
 
 
 async def next_num_serie(db: AsyncSession) -> str:
@@ -107,6 +140,7 @@ async def get_config(db: AsyncSession) -> EstadoConfiguracion:
         proximo_numero=await next_num_serie(db),
         modalidad_bloqueada=await registros.exists_any(db),
         tipos_iva_oficiales=allowed_rates(hoy()),
+        certificado=certificado.estado(),
     )
 
 
@@ -223,6 +257,13 @@ def _normalizar(
         iban = normalize_iban(iban)
         if motivo := validate_iban(iban):
             errores.append(CampoError("emisor.iban", motivo))
+    if entrada.modalidad is Modalidad.VERIFACTU:  # 004, research R-14
+        errores.append(
+            CampoError(
+                "modalidad",
+                "VERI*FACTU no está disponible: el sistema no tiene capacidad de remisión.",
+            )
+        )
     telefono, correo, web, pie = _contacto(entrada, actual, errores)
     validez, pie_presupuesto = _presupuestos(entrada, actual)
     if errores:
@@ -338,6 +379,7 @@ class Parametros:
     proximo_numero: str
     hoy: date
     fecha_minima: date | None
+    certificado_caduca_el: date | None = None
     mencion_exencion_oro_inversion: str = MENCION_EXENCION_ORO_INVERSION
 
 
@@ -350,4 +392,9 @@ async def get_parametros(db: AsyncSession) -> Parametros:
         proximo_numero=await next_num_serie(db),
         hoy=fecha,
         fecha_minima=FECHA_MINIMA_EXPEDICION,
+        certificado_caduca_el=(
+            expiry_warning(certificado.estado())
+            if config.modalidad == Modalidad.NO_VERIFACTU
+            else None
+        ),
     )
