@@ -77,3 +77,32 @@ export function useComprobarIntegridad() {
       ]),
   })
 }
+
+export interface FiltrosExportacion {
+  tipo: 'facturacion' | 'eventos'
+  desde: string // AAAA-MM-DD, hora de Madrid
+  hasta: string
+}
+
+/**
+ * Descarga el ZIP de la exportación (FR-022). Se pide con `fetch`, no con una navegación, para
+ * poder avisar de un periodo sin registros (FR-026) en la propia pantalla.
+ */
+export async function descargarExportacion(
+  filtros: FiltrosExportacion,
+): Promise<{ nombre: string; contenido: Blob }> {
+  let disposicion = ''
+  const contenido = await unwrap(
+    api
+      .GET('/api/v1/registro-fiscal/exportacion', {
+        params: { query: filtros },
+        parseAs: 'blob',
+      })
+      .then((resultado) => {
+        disposicion = resultado.response.headers.get('Content-Disposition') ?? ''
+        return resultado
+      }),
+  )
+  const nombre = /filename="([^"]+)"/.exec(disposicion)?.[1] ?? `registros-${filtros.tipo}.zip`
+  return { nombre, contenido }
+}

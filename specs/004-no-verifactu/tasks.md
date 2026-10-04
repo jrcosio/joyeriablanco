@@ -428,7 +428,7 @@ sistema da su anomalía, su evento y la alarma.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T054 [P] [US4] Test `backend/tests/integration/test_exportacion.py`:
+- [X] T054 [P] [US4] Test `backend/tests/integration/test_exportacion.py`:
   - estructura del ZIP (nombres, orden, `indice.csv`, `manifiesto.sha256` y `resumen.txt`);
   - cada XML idéntico byte a byte a `xml_firmado` y verificable fuera de la BD;
   - el periodo en días completos, hora de Madrid y extremos incluidos;
@@ -438,19 +438,19 @@ sistema da su anomalía, su evento y la alarma.
   - un empleado recibe 403;
   - el evento de auditoría `REGISTROS_EXPORTADOS`;
   - la CLI `exportar-registros`, con sus códigos.
-- [ ] T055 [P] [US4] Test web `features/registro-fiscal/ExportarTab.test.tsx`: valores por defecto
+- [X] T055 [P] [US4] Test web `features/registro-fiscal/ExportarTab.test.tsx`: valores por defecto
   (el mes en curso), validación, `href` de la descarga y aviso de periodo vacío.
 
 ### Implementation for User Story 4
 
-- [ ] T056 [US4] `backend/app/services/exportacion.py` (R-12), con las consultas por rango en
+- [X] T056 [US4] `backend/app/services/exportacion.py` (R-12), con las consultas por rango en
   `repositories/registros.py` y `eventos.py`: ZIP en un fichero temporal y evento 08 o 09 al
   terminar.
-- [ ] T057 [US4] `GET /v1/registro-fiscal/exportacion` en `backend/app/api/v1/registro_fiscal.py`
+- [X] T057 [US4] `GET /v1/registro-fiscal/exportacion` en `backend/app/api/v1/registro_fiscal.py`
   (`FileResponse`, `attachment`) y la CLI `exportar-registros`. Sale de `PENDIENTES_004`. Hace pasar
   T054.
-- [ ] T058 [US4] Web: `features/registro-fiscal/ExportarTab.tsx`. Hace pasar T055.
-- [ ] T059 [US4] E2E en `registro-fiscal.spec.ts`: exportar el día de hoy descarga un ZIP que empieza
+- [X] T058 [US4] Web: `features/registro-fiscal/ExportarTab.tsx`. Hace pasar T055.
+- [X] T059 [US4] E2E en `registro-fiscal.spec.ts`: exportar el día de hoy descarga un ZIP que empieza
   por `PK`, y el evento de exportación aparece en la lista.
 
 **Checkpoint**: conservación y requerimientos cubiertos con la exportación.

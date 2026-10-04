@@ -195,6 +195,13 @@ class SinCambios(ProblemaError):
     detalle_por_defecto = "La rectificativa sería idéntica a la factura vigente."
 
 
+class SinRegistros(ProblemaError):
+    """Exportación de un periodo sin registros (004, FR-026): ni fichero ni evento."""
+
+    status, tipo, titulo = 422, "sin-registros", "No hay registros"
+    detalle_por_defecto = "No hay registros en ese periodo."
+
+
 class ModalidadBloqueada(ProblemaError):
     status, tipo, titulo = 409, "modalidad-bloqueada", "Modalidad bloqueada"
     detalle_por_defecto = (

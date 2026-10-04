@@ -5,7 +5,7 @@ se comparte con el de los registros de facturación. Una emisión tiene el de fa
 transacción y el evento usa otra conexión con este, así que no hay ciclo de espera.
 """
 
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from datetime import datetime
 from typing import Final
 
@@ -141,3 +141,17 @@ async def list_anomalies(session: AsyncSession) -> list[RegistroEvento]:
         .order_by(RegistroEvento.secuencia)
     )
     return list(resultado.scalars())
+
+
+async def stream_between(
+    session: AsyncSession, desde: datetime, hasta: datetime
+) -> AsyncIterator[RegistroEvento]:
+    """Los eventos generados en el periodo, en orden de la cadena (004, R-12)."""
+    resultado = await session.stream_scalars(
+        select(RegistroEvento)
+        .where(_generado() >= desde, _generado() <= hasta)
+        .order_by(RegistroEvento.secuencia)
+        .execution_options(yield_per=500)
+    )
+    async for evento in resultado:
+        yield evento

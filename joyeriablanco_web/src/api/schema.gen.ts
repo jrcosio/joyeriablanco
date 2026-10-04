@@ -778,6 +778,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/registro-fiscal/exportacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar Registros
+         * @description Los registros de un periodo, tal como se firmaron (Orden, art. 8.2). Genera el 08 o el 09.
+         *
+         *     Es un GET sin CSRF, como los PDF de 003: su único efecto es generar el evento de exportación,
+         *     que solo puede provocar un administrador con sesión.
+         */
+        get: operations["exportar_registros_api_v1_registro_fiscal_exportacion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/alarmas": {
         parameters: {
             query?: never;
@@ -4231,6 +4254,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ComprobacionSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exportar_registros_api_v1_registro_fiscal_exportacion_get: {
+        parameters: {
+            query: {
+                tipo: "facturacion" | "eventos";
+                /** @description Primer día, en hora de Madrid, incluido */
+                desde: string;
+                /** @description Último día, en hora de Madrid, incluido */
+                hasta: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ZIP con los registros del periodo (contracts/exportacion.md) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
                 };
             };
             /** @description Validation Error */

@@ -23,7 +23,6 @@ METODOS = {"get", "post", "put", "patch", "delete"}
 PENDIENTES_004 = {
     ("/api/v1/sistema", "get"),
     ("/api/v1/sistema/declaracion-responsable/pdf", "get"),
-    ("/api/v1/registro-fiscal/exportacion", "get"),
 }
 
 

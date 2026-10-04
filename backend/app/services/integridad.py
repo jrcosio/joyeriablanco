@@ -649,15 +649,15 @@ async def verify_chain(
     return resultado
 
 
-def requires_certificate() -> None:
-    """La comprobación desde la web exige poder firmar sus eventos (contrato: 409)."""
+def requires_certificate(accion: str = "comprobar") -> None:
+    """Comprobar desde la web y exportar exigen poder firmar sus eventos (contrato: 409)."""
     from app.core.errors import EmisionNoDisponible
     from app.services.certificado import TEXTO_MOTIVO
 
     estado = certificado.estado()
     if estado.motivo is not None:
         raise EmisionNoDisponible(
-            "No se puede comprobar: sus eventos se firman y el certificado de firma no es "
+            f"No se puede {accion}: sus eventos se firman y el certificado de firma no es "
             f"utilizable ({TEXTO_MOTIVO[estado.motivo]}).",
             extra={"faltan": ["certificado"], "motivo": estado.motivo.value},
         )

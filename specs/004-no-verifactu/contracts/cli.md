@@ -30,7 +30,8 @@ joyeria exportar-registros --tipo facturacion|eventos --desde AAAA-MM-DD --hasta
 - **Salida**: la ruta, el número de registros y el SHA-256 del ZIP, con código 0.
 - **Errores**:
   - periodo sin registros: «No hay registros en ese periodo», código 1, sin fichero;
-  - fechas no válidas o «desde» posterior a «hasta»: código 2.
+  - fechas no válidas, «desde» posterior a «hasta» o un `--tipo` desconocido: código 2;
+  - sin certificado utilizable, con el que se firma su evento: código 3, sin fichero.
 
 ## `generar-certificado-pruebas`
 

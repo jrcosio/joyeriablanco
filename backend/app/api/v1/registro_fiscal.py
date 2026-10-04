@@ -5,9 +5,11 @@ cualquier registro o evento se salta al anterior y al siguiente.
 """
 
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from app.api.deps import AdminSession, DbDep, OrigenDep, require_admin
 from app.domain.tipos import TipoEventoSif, TipoRegistro
@@ -22,6 +24,7 @@ from app.schemas.registro_fiscal import (
     RegistroCadenaDetalle,
     Salto,
 )
+from app.services import exportacion
 from app.services import registro_fiscal as servicio
 
 router = APIRouter(
@@ -139,4 +142,37 @@ async def comprobar_integridad(
             )
             for a in resultado.anomalias
         ],
+    )
+
+
+RESPUESTA_ZIP: dict[int | str, dict[str, Any]] = {
+    status.HTTP_200_OK: {
+        "content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}},
+        "description": "ZIP con los registros del periodo (contracts/exportacion.md)",
+    }
+}
+
+
+@router.get("/exportacion", response_class=FileResponse, responses=RESPUESTA_ZIP)
+async def exportar_registros(
+    db: DbDep,
+    sesion: AdminSession,
+    origen: OrigenDep,
+    tipo: Literal["facturacion", "eventos"],
+    desde: Annotated[date, Query(description="Primer día, en hora de Madrid, incluido")],
+    hasta: Annotated[date, Query(description="Último día, en hora de Madrid, incluido")],
+) -> FileResponse:
+    """Los registros de un periodo, tal como se firmaron (Orden, art. 8.2). Genera el 08 o el 09.
+
+    Es un GET sin CSRF, como los PDF de 003: su único efecto es generar el evento de exportación,
+    que solo puede provocar un administrador con sesión.
+    """
+    resultado = await exportacion.export_records(
+        db, tipo=tipo, desde=desde, hasta=hasta, actor=sesion.usuario, origen=origen
+    )
+    return FileResponse(
+        resultado.ruta,
+        media_type="application/zip",
+        filename=resultado.nombre,
+        background=BackgroundTask(resultado.ruta.unlink, missing_ok=True),
     )

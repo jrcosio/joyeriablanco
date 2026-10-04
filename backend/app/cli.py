@@ -174,6 +174,68 @@ def verificar_cadena(
         raise typer.Exit(code=1)
 
 
+@app.command("exportar-registros")
+def exportar_registros(
+    tipo: Annotated[str, typer.Option(help="facturacion o eventos")],
+    desde: Annotated[str, typer.Option(help="Primer día, AAAA-MM-DD (hora de Madrid)")],
+    hasta: Annotated[str, typer.Option(help="Último día, AAAA-MM-DD (hora de Madrid)")],
+    destino: Annotated[Path, typer.Option(help="Fichero ZIP que se crea")],
+) -> None:
+    """Exporta los registros de un periodo, tal como se firmaron (004, FR-022 a FR-026).
+
+    Código 0 si exporta, 1 si el periodo no tiene registros, 2 si las fechas no son válidas y 3
+    si no hay certificado para firmar el evento de la exportación.
+    """
+    import shutil
+    from datetime import date
+
+    from app.core.errors import SinRegistros
+    from app.services import certificado, exportacion
+    from app.services.certificado import TEXTO_MOTIVO
+
+    inicio: date | None
+    fin: date | None
+    try:
+        inicio, fin = date.fromisoformat(desde), date.fromisoformat(hasta)
+    except ValueError:
+        inicio = fin = None
+    if tipo not in ("facturacion", "eventos") or inicio is None or fin is None or inicio > fin:
+        typer.secho(
+            "Error: --tipo es facturacion o eventos, y --desde y --hasta son fechas AAAA-MM-DD "
+            "con «desde» no posterior a «hasta».",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if (motivo := certificado.estado().motivo) is not None:
+        typer.secho(
+            "Error: el evento de la exportación se firma y el certificado de firma no es "
+            f"utilizable ({TEXTO_MOTIVO[motivo]}).",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=3)
+
+    async def _exportar(db: AsyncSession) -> exportacion.Exportacion | None:
+        try:
+            return await exportacion.export_records(
+                db,
+                tipo="facturacion" if tipo == "facturacion" else "eventos",
+                desde=inicio,
+                hasta=fin,
+            )
+        except SinRegistros:
+            return None
+
+    resultado = _ejecutar(_exportar)
+    if resultado is None:
+        typer.secho("No hay registros en ese periodo.", fg=typer.colors.YELLOW, err=True)
+        raise typer.Exit(code=1)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(resultado.ruta, destino)
+    typer.echo(f"Exportado {destino}: {resultado.registros} registros, SHA-256 {resultado.sha256}")
+
+
 @app.command("generar-certificado-pruebas")
 def generar_certificado_pruebas(
     destino: Annotated[Path, typer.Option(help="Fichero PKCS#12 (.p12) que se crea")],

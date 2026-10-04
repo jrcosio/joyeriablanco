@@ -7,9 +7,11 @@ después el contador (R-7), para descartar interbloqueos.
 """
 
 import uuid
+from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Final
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import TIMESTAMP, ColumnElement, cast, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.registro_facturacion import RegistroFacturacion
@@ -78,3 +80,21 @@ async def get_by_secuencia(session: AsyncSession, secuencia: int) -> RegistroFac
         select(RegistroFacturacion).where(RegistroFacturacion.secuencia == secuencia)
     )
     return resultado.scalar_one_or_none()
+
+
+def _generado() -> ColumnElement[datetime]:
+    return cast(RegistroFacturacion.fecha_hora_huso_gen, TIMESTAMP(timezone=True))
+
+
+async def stream_between(
+    session: AsyncSession, desde: datetime, hasta: datetime
+) -> AsyncIterator[RegistroFacturacion]:
+    """Los registros generados en el periodo, en orden de la cadena, de 500 en 500 (004, R-12)."""
+    resultado = await session.stream_scalars(
+        select(RegistroFacturacion)
+        .where(_generado() >= desde, _generado() <= hasta)
+        .order_by(RegistroFacturacion.secuencia)
+        .execution_options(yield_per=500)
+    )
+    async for registro in resultado:
+        yield registro

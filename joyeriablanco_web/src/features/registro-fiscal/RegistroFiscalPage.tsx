@@ -6,6 +6,7 @@ import type { PestanaRegistroFiscal } from '../../lib/registro-fiscal'
 import { CadenaTab } from './CadenaTab'
 import { ComprobarTab } from './ComprobarTab'
 import { EventosTab } from './EventosTab'
+import { ExportarTab } from './ExportarTab'
 
 export interface BusquedaRegistroFiscal {
   pestana: PestanaRegistroFiscal
@@ -25,12 +26,13 @@ const PESTANAS: readonly { id: PestanaRegistroFiscal; label: string }[] = [
   { id: 'eventos', label: 'Eventos' },
   { id: 'cadena', label: 'Cadena' },
   { id: 'comprobar', label: 'Comprobar integridad' },
+  { id: 'exportar', label: 'Exportar' },
 ]
 
 /**
  * «Registro fiscal» (004; RRSIF, art. 8.3): el registro de eventos, la cadena de registros, la
- * comprobación de integridad y, en la US4, la exportación. Pestañas de React Aria (flechas y foco
- * visible), con la pestaña en la URL.
+ * comprobación de integridad y la exportación. Pestañas de React Aria (flechas y foco visible),
+ * con la pestaña en la URL.
  */
 export function RegistroFiscalPage({
   busqueda,
@@ -90,6 +92,9 @@ export function RegistroFiscalPage({
         </TabPanel>
         <TabPanel id="comprobar" className="outline-none">
           <ComprobarTab />
+        </TabPanel>
+        <TabPanel id="exportar" className="outline-none">
+          <ExportarTab />
         </TabPanel>
       </Tabs>
     </div>

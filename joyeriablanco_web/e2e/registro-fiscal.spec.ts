@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import { iniciarSesion } from './helpers/acceso'
 import { emitirPorLaApi } from './helpers/facturas'
@@ -75,5 +76,29 @@ test.describe('Registro fiscal', () => {
     await expect(page.getByText('Siguiente: no hay.')).toBeVisible()
     await page.getByRole('button', { name: /Anterior \(nº \d+\)/ }).click()
     await expect(page.getByText('Siguiente: no hay.')).toHaveCount(0)
+  })
+
+  test('exportar los registros de facturación de hoy descarga el ZIP y deja su evento (US4)', async ({
+    page,
+  }) => {
+    await iniciarSesion(page, 'admin.demo')
+    await emitirPorLaApi(page) // al menos un registro de hoy
+    await page.goto('/registro-fiscal?pestana=exportar')
+    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date())
+    await page.getByLabel(/^Desde/).fill(hoy)
+
+    const descarga = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Exportar' }).click()
+    const fichero = await descarga
+
+    const compacto = hoy.replaceAll('-', '')
+    expect(fichero.suggestedFilename()).toBe(`registros-facturacion-${compacto}-${compacto}.zip`)
+    const ruta = await fichero.path()
+    expect((await readFile(ruta)).subarray(0, 2).toString()).toBe('PK')
+    await expect(page.getByText(/^Descargado registros-facturacion-/)).toBeVisible()
+
+    await page.getByRole('tab', { name: 'Eventos' }).click()
+    const tabla = page.getByRole('table', { name: 'Registro de eventos' })
+    await expect(tabla.getByText('Exportación de registros de facturación').first()).toBeVisible()
   })
 })
