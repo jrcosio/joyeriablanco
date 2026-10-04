@@ -222,7 +222,8 @@ async def eventos(db: AsyncSession, tipo: TipoEvento) -> list[EventoAuditoria]:
     resultado = await db.execute(
         select(EventoAuditoria)
         .where(EventoAuditoria.tipo == tipo.value, EventoAuditoria.ocurrido_en == func.now())
-        .order_by(EventoAuditoria.ocurrido_en)
+        # `ocurrido_en` es el mismo en toda la transacción: el id (uuidv7) da el orden de inserción.
+        .order_by(EventoAuditoria.ocurrido_en, EventoAuditoria.id)
     )
     return list(resultado.scalars())
 

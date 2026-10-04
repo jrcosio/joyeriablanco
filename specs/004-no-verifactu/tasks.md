@@ -262,7 +262,7 @@ ven en «Registro fiscal → Eventos».
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T031 [P] [US2] ⚖️ Test `backend/tests/integration/test_eventos_sif.py`:
+- [X] T031 [P] [US2] ⚖️ Test `backend/tests/integration/test_eventos_sif.py`:
   - `record_evento` encadena, calcula la huella de F-2 §3.c, valida contra F-17 y firma;
   - el primero lleva `PrimerEvento`;
   - 20 eventos simultáneos, en sesiones que confirman, dan una cadena sin huecos;
@@ -270,28 +270,28 @@ ven en «Registro fiscal → Eventos».
   - el contenido del resumen: eventos por tipo, primer y último registro, altas, anulaciones y
     sumas `NUMERIC`;
   - sin certificado no se genera evento, se registra un aviso y la llamada no falla.
-- [ ] T032 [P] [US2] Test `backend/tests/integration/test_eventos_lider.py` (R-8), con reloj
+- [X] T032 [P] [US2] Test `backend/tests/integration/test_eventos_lider.py` (R-8), con reloj
   simulado:
   - dos *lifespans* simultáneos generan un solo 01;
   - pasadas 6 horas, un 10, también sin eventos;
   - al cerrar, un 10 y un 02;
   - si el líder cae sin cerrar, el siguiente genera su 01 y el resumen cubre el intervalo.
-- [ ] T033 [P] [US2] Test `backend/tests/integration/test_api_eventos.py`:
+- [X] T033 [P] [US2] Test `backend/tests/integration/test_api_eventos.py`:
   - `GET /v1/registro-fiscal/eventos` con filtros por tipo y por fechas, y paginación;
   - el detalle con saltos al anterior y al siguiente;
   - un empleado recibe 403.
-- [ ] T034 [P] [US2] Tests web, en `joyeriablanco_web/src/features/registro-fiscal/`:
-  - `RegistroFiscalPage.test.tsx`: las pestañas;
-  - `EventosTab.test.tsx`: lista, filtros en la URL, detalle y estados de carga, vacío y error;
+- [X] T034 [P] [US2] Tests web, en `joyeriablanco_web/src/features/registro-fiscal/`:
+  - `RegistroFiscalPage.test.tsx`: las pestañas y la de eventos (lista, filtros en la URL, detalle
+    con sus saltos y estados de vacío y error);
   - `Sidebar.test.tsx`: «Registro fiscal» solo para administradores.
 
 ### Implementation for User Story 2
 
-- [ ] T035 [P] [US2] `backend/app/repositories/eventos.py`:
+- [X] T035 [P] [US2] `backend/app/repositories/eventos.py`:
   - el cerrojo «JBEVEN» y el último evento;
   - insertar, listar con filtros y obtener por secuencia;
   - el rango por fecha y los recuentos por tipo desde una secuencia.
-- [ ] T036 [US2] `backend/app/services/eventos_sif.py` (R-7):
+- [X] T036 [US2] `backend/app/services/eventos_sif.py` (R-7):
   - `record_evento(tipo, datos)`, en una sesión propia que confirma, con la comprobación previa
     del último evento por analogía con el 7.i;
   - el contenido del resumen;
@@ -299,15 +299,15 @@ ven en «Registro fiscal → Eventos».
     minuto y el cierre.
 
   Hace pasar T031 y T032.
-- [ ] T037 [US2] `backend/app/lifespan.py`: arrancar el líder (inicio) y pararlo al cerrar (resumen
+- [X] T037 [US2] `backend/app/lifespan.py`: arrancar el líder (inicio) y pararlo al cerrar (resumen
   y fin). Nunca impide que la API arranque.
-- [ ] T038 [US2] API `backend/app/api/v1/registro_fiscal.py` (solo `AdminSession`) con esquemas en
+- [X] T038 [US2] API `backend/app/api/v1/registro_fiscal.py` (solo `AdminSession`) con esquemas en
   `backend/app/schemas/registro_fiscal.py`:
   - `GET /v1/registro-fiscal/eventos`;
   - `GET /v1/registro-fiscal/eventos/{secuencia}`, con los saltos de R-9.
 
   Salen de `PENDIENTES_004`. Hace pasar T033.
-- [ ] T039 [US2] Web:
+- [X] T039 [US2] Web:
   - la ruta `joyeriablanco_web/src/routes/_app/registro-fiscal.tsx`, con `requireAdmin` y la
     pestaña en la URL;
   - `features/registro-fiscal/RegistroFiscalPage.tsx` y `EventosTab.tsx`, con el modal de detalle;
@@ -316,7 +316,7 @@ ven en «Registro fiscal → Eventos».
   - los textos de los tipos de evento en `lib/registro-fiscal.ts`.
 
   Hace pasar T034.
-- [ ] T040 [US2] E2E en `joyeriablanco_web/e2e/registro-fiscal.spec.ts`: el administrador ve el
+- [X] T040 [US2] E2E en `joyeriablanco_web/e2e/registro-fiscal.spec.ts`: el administrador ve el
   evento de inicio del arranque de `api-e2e` y su detalle. Un empleado no ve la entrada.
 
 **Checkpoint**: registro de eventos completo y consultable.

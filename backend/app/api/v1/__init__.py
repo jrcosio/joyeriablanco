@@ -11,6 +11,7 @@ from app.api.v1 import (
     configuracion,
     facturas,
     presupuestos,
+    registro_fiscal,
     sesion,
     usuarios,
 )
@@ -26,3 +27,4 @@ router.include_router(facturas.router)
 router.include_router(borradores.router)
 router.include_router(presupuestos.router)
 router.include_router(borradores_presupuesto.router)
+router.include_router(registro_fiscal.router)

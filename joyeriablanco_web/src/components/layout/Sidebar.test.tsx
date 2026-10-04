@@ -55,4 +55,21 @@ describe('Sidebar', () => {
 
     expect(await screen.findByRole('heading', { name: 'Página no encontrada' })).toBeInTheDocument()
   })
+
+  it('«Registro fiscal» solo para administradores (004)', async () => {
+    conSesion(crearSesion({ rol: 'administrador' }))
+    renderApp('/clientes')
+    const nav = await navegacion()
+    expect(within(nav).getByRole('link', { name: 'Registro fiscal' })).toHaveAttribute(
+      'href',
+      '/registro-fiscal',
+    )
+  })
+
+  it('oculta «Registro fiscal» a los empleados (004)', async () => {
+    conSesion(crearSesion({ rol: 'empleado' }))
+    renderApp('/clientes')
+    const nav = await navegacion()
+    expect(within(nav).queryByRole('link', { name: 'Registro fiscal' })).toBeNull()
+  })
 })

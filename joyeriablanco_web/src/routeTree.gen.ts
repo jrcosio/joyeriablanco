@@ -19,6 +19,7 @@ import { Route as AppConfiguracionRouteImport } from './routes/_app/configuracio
 import { Route as AppCuentaRouteImport } from './routes/_app/cuenta'
 import { Route as AppFacturasRouteImport } from './routes/_app/facturas'
 import { Route as AppPresupuestosRouteImport } from './routes/_app/presupuestos'
+import { Route as AppRegistroFiscalRouteImport } from './routes/_app/registro-fiscal'
 import { Route as AppClientesClienteIdRouteImport } from './routes/_app/clientes/$clienteId'
 import { Route as AppClientesNuevoRouteImport } from './routes/_app/clientes/nuevo'
 import { Route as AppConfiguracionIndexRouteImport } from './routes/_app/configuracion/index'
@@ -81,6 +82,11 @@ const AppFacturasRoute = AppFacturasRouteImport.update({
 const AppPresupuestosRoute = AppPresupuestosRouteImport.update({
   id: '/presupuestos',
   path: '/presupuestos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRegistroFiscalRoute = AppRegistroFiscalRouteImport.update({
+  id: '/registro-fiscal',
+  path: '/registro-fiscal',
   getParentRoute: () => AppRoute,
 } as any)
 const AppClientesClienteIdRoute = AppClientesClienteIdRouteImport.update({
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/cuenta': typeof AppCuentaRoute
   '/facturas': typeof AppFacturasRouteWithChildren
   '/presupuestos': typeof AppPresupuestosRouteWithChildren
+  '/registro-fiscal': typeof AppRegistroFiscalRoute
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
   '/configuracion/auditoria': typeof AppConfiguracionAuditoriaRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/cuenta': typeof AppCuentaRoute
   '/facturas': typeof AppFacturasRouteWithChildren
   '/presupuestos': typeof AppPresupuestosRouteWithChildren
+  '/registro-fiscal': typeof AppRegistroFiscalRoute
   '/': typeof AppIndexRoute
   '/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/clientes/nuevo': typeof AppClientesNuevoRoute
@@ -223,6 +231,7 @@ export interface FileRoutesById {
   '/_app/cuenta': typeof AppCuentaRoute
   '/_app/facturas': typeof AppFacturasRouteWithChildren
   '/_app/presupuestos': typeof AppPresupuestosRouteWithChildren
+  '/_app/registro-fiscal': typeof AppRegistroFiscalRoute
   '/_app/': typeof AppIndexRoute
   '/_app/clientes/$clienteId': typeof AppClientesClienteIdRoute
   '/_app/clientes/nuevo': typeof AppClientesNuevoRoute
@@ -251,6 +260,7 @@ export interface FileRouteTypes {
     | '/cuenta'
     | '/facturas'
     | '/presupuestos'
+    | '/registro-fiscal'
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
     | '/configuracion/auditoria'
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
     | '/cuenta'
     | '/facturas'
     | '/presupuestos'
+    | '/registro-fiscal'
     | '/'
     | '/clientes/$clienteId'
     | '/clientes/nuevo'
@@ -300,6 +311,7 @@ export interface FileRouteTypes {
     | '/_app/cuenta'
     | '/_app/facturas'
     | '/_app/presupuestos'
+    | '/_app/registro-fiscal'
     | '/_app/'
     | '/_app/clientes/$clienteId'
     | '/_app/clientes/nuevo'
@@ -393,6 +405,13 @@ declare module '@tanstack/react-router' {
       path: '/presupuestos'
       fullPath: '/presupuestos'
       preLoaderRoute: typeof AppPresupuestosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/registro-fiscal': {
+      id: '/_app/registro-fiscal'
+      path: '/registro-fiscal'
+      fullPath: '/registro-fiscal'
+      preLoaderRoute: typeof AppRegistroFiscalRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/clientes/$clienteId': {
@@ -573,6 +592,7 @@ interface AppRouteChildren {
   AppCuentaRoute: typeof AppCuentaRoute
   AppFacturasRoute: typeof AppFacturasRouteWithChildren
   AppPresupuestosRoute: typeof AppPresupuestosRouteWithChildren
+  AppRegistroFiscalRoute: typeof AppRegistroFiscalRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -583,6 +603,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCuentaRoute: AppCuentaRoute,
   AppFacturasRoute: AppFacturasRouteWithChildren,
   AppPresupuestosRoute: AppPresupuestosRouteWithChildren,
+  AppRegistroFiscalRoute: AppRegistroFiscalRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

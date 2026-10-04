@@ -16,7 +16,7 @@ Los datos propios de cada tipo (data-model, «DatosPropiosEvento»):
 from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Final
+from typing import Any, Final
 
 from app.domain.huella import CamposHuellaEvento, format_amount
 from app.domain.registro import ID_VERSION, TIPO_HUELLA_SHA256, Contenido, SistemaInformatico
@@ -286,3 +286,63 @@ def build_contenido_evento(
     )
     evento |= {"TipoHuella": TIPO_HUELLA_SHA256, "HuellaEvento": huella}
     return {"IDVersion": ID_VERSION, "Evento": evento}
+
+
+# --------------------------------------------------------------------- presentación (FR-016)
+
+# F-17, `TipoAnomaliaType`: las descripciones oficiales del esquema.
+TEXTO_ANOMALIA: Final[dict[str, str]] = {
+    "01": "Integridad-huella",
+    "02": "Integridad-firma",
+    "03": "Integridad - Otros",
+    "04": "Registro no primero con el anterior no anotado o inexistente",
+    "05": "Registro no último con el posterior no anotado o inexistente",
+    "06": "Trazabilidad-cadena-registro - Otros",
+    "07": "La huella no coincide con la «huella del anterior» del posterior",
+    "08": "La «huella del anterior» no coincide con la huella del anterior",
+    "09": "Trazabilidad-cadena-huella - Otros",
+    "10": "Trazabilidad-cadena - Otros",
+    "11": "Fecha y hora anteriores a las del registro anterior",
+    "12": "Fecha y hora posteriores a las del registro posterior",
+    "13": "Fecha y hora de generación posteriores a la hora actual",
+    "14": "Trazabilidad-fechas - Otros",
+    "15": "Trazabilidad - Otros",
+    "90": "Otros",
+}
+
+
+def describe(contenido: Mapping[str, Any]) -> str | None:
+    """Una línea legible con los datos propios del evento, para la lista de eventos."""
+    evento: Mapping[str, Any] = contenido["Evento"]
+    datos: Mapping[str, Any] = evento.get("DatosPropiosEvento") or {}
+    if lanzado := datos.get("LanzamientoProcesoDeteccionAnomaliasRegFacturacion"):
+        n = lanzado["NumeroDeRegistrosFacturacionProcesadosSobreIntegridadHuellas"]
+        return f"{n} registros de facturación comprobados"
+    if lanzado := datos.get("LanzamientoProcesoDeteccionAnomaliasRegEvento"):
+        n = lanzado["NumeroDeRegistrosEventoProcesadosSobreIntegridadHuellas"]
+        return f"{n} registros de evento comprobados"
+    if anomalia := datos.get("DeteccionAnomaliasRegFacturacion"):
+        tipo = anomalia["TipoAnomalia"]
+        donde = anomalia.get("RegistroFacturacionAnomalo", {}).get("NumSerieFactura")
+        return f"Anomalía {tipo} ({TEXTO_ANOMALIA.get(tipo, tipo)})" + (
+            f" en {donde}" if donde else ""
+        )
+    if anomalia := datos.get("DeteccionAnomaliasRegEvento"):
+        tipo = anomalia["TipoAnomalia"]
+        donde = anomalia.get("RegEventoAnomalo", {}).get("TipoEvento")
+        return f"Anomalía {tipo} ({TEXTO_ANOMALIA.get(tipo, tipo)})" + (
+            f" en un evento {donde}" if donde else ""
+        )
+    if exportacion := datos.get("ExportacionRegFacturacionPeriodo"):
+        altas = exportacion["NumeroDeRegistrosFacturacionAltaExportados"]
+        anulaciones = exportacion["NumeroDeRegistrosFacturacionAnulacionExportados"]
+        return f"{altas} altas y {anulaciones} anulaciones exportadas"
+    if exportacion := datos.get("ExportacionRegEventoPeriodo"):
+        return f"{exportacion['NumeroDeRegEventoExportados']} registros de evento exportados"
+    if resumen_eventos := datos.get("ResumenEventos"):
+        total = sum(int(t["NumeroDeEventos"]) for t in resumen_eventos["TipoEvento"])
+        altas = resumen_eventos["NumeroDeRegistrosFacturacionAltaGenerados"]
+        anulaciones = resumen_eventos["NumeroDeRegistrosFacturacionAnulacionGenerados"]
+        return f"{total} eventos, {altas} altas y {anulaciones} anulaciones"
+    otros = evento.get("OtrosDatosEvento")
+    return str(otros) if otros else None

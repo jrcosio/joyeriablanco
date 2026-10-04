@@ -54,3 +54,27 @@ async def list_by_factura(
         .order_by(RegistroFacturacion.secuencia)
     )
     return list(resultado.scalars())
+
+
+async def list_after(session: AsyncSession, secuencia: int) -> list[RegistroFacturacion]:
+    """Los registros posteriores a una secuencia, en orden (resumen de eventos, 004 R-8)."""
+    resultado = await session.execute(
+        select(RegistroFacturacion)
+        .where(RegistroFacturacion.secuencia > secuencia)
+        .order_by(RegistroFacturacion.secuencia)
+    )
+    return list(resultado.scalars())
+
+
+async def get_by_huella(session: AsyncSession, huella: str) -> RegistroFacturacion | None:
+    resultado = await session.execute(
+        select(RegistroFacturacion).where(RegistroFacturacion.huella == huella)
+    )
+    return resultado.scalar_one_or_none()
+
+
+async def get_by_secuencia(session: AsyncSession, secuencia: int) -> RegistroFacturacion | None:
+    resultado = await session.execute(
+        select(RegistroFacturacion).where(RegistroFacturacion.secuencia == secuencia)
+    )
+    return resultado.scalar_one_or_none()

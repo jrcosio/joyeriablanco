@@ -55,3 +55,11 @@ export type CierrePresupuestoSalida = Esquemas['CierrePresupuestoSalida']
 export type PresupuestoReferencia = Esquemas['PresupuestoReferencia']
 export type ModificacionPresupuestoEntrada = Esquemas['ModificacionPresupuestoEntrada']
 export type AnulacionPresupuestoEntrada = Esquemas['AnulacionPresupuestoEntrada']
+
+// Registro fiscal: modalidad No VERI*FACTU (004)
+export type EstadoCertificado = Esquemas['EstadoCertificado']
+export type TipoEventoSif = Esquemas['TipoEventoSif']
+export type EventoSifResumen = Esquemas['EventoSifResumen']
+export type EventoSifDetalle = Esquemas['EventoSifDetalle']
+export type PaginaEventosSif = Esquemas['Pagina_EventoSifResumen_']
+export type Salto = Esquemas['Salto']

@@ -698,6 +698,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/registro-fiscal/eventos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Eventos
+         * @description Registro de eventos, del más reciente al más antiguo (FR-016).
+         */
+        get: operations["listar_eventos_api_v1_registro_fiscal_eventos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registro-fiscal/eventos/{secuencia}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Obtener Evento
+         * @description Un evento con sus datos propios y los saltos al anterior y al siguiente (arts. 7.h, 9.3).
+         */
+        get: operations["obtener_evento_api_v1_registro_fiscal_eventos__secuencia__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1390,6 +1430,53 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** EventoSifDetalle */
+        EventoSifDetalle: {
+            /** Secuencia */
+            secuencia: number;
+            tipo_evento: components["schemas"]["TipoEventoSif"];
+            /** Fecha Hora Huso Gen */
+            fecha_hora_huso_gen: string;
+            /** Huella */
+            huella: string;
+            /** Certificado Titular */
+            certificado_titular: string;
+            /**
+             * Resumen
+             * @description Una línea legible de sus datos propios
+             */
+            resumen: string | null;
+            /**
+             * Datos
+             * @description DatosPropiosEvento (F-17)
+             */
+            datos: {
+                [key: string]: unknown;
+            };
+            /** Huella Correcta */
+            huella_correcta: boolean;
+            /** Firma Correcta */
+            firma_correcta: boolean;
+            anterior: components["schemas"]["Salto"] | null;
+            siguiente: components["schemas"]["Salto"] | null;
+        };
+        /** EventoSifResumen */
+        EventoSifResumen: {
+            /** Secuencia */
+            secuencia: number;
+            tipo_evento: components["schemas"]["TipoEventoSif"];
+            /** Fecha Hora Huso Gen */
+            fecha_hora_huso_gen: string;
+            /** Huella */
+            huella: string;
+            /** Certificado Titular */
+            certificado_titular: string;
+            /**
+             * Resumen
+             * @description Una línea legible de sus datos propios
+             */
+            resumen: string | null;
+        };
         /** FacturaEntrada */
         FacturaEntrada: {
             /**
@@ -1678,6 +1765,17 @@ export interface components {
             /** Tamano */
             tamano: number;
         };
+        /** Pagina[EventoSifResumen] */
+        Pagina_EventoSifResumen_: {
+            /** Elementos */
+            elementos: components["schemas"]["EventoSifResumen"][];
+            /** Total */
+            total: number;
+            /** Pagina */
+            pagina: number;
+            /** Tamano */
+            tamano: number;
+        };
         /** Pagina[FacturaResumenSalida] */
         Pagina_FacturaResumenSalida_: {
             /** Elementos */
@@ -1944,6 +2042,21 @@ export interface components {
          * @enum {string}
          */
         Rol: "administrador" | "empleado";
+        /**
+         * Salto
+         * @description Un salto de la cadena al anterior o al siguiente (Orden, art. 7.h).
+         */
+        Salto: {
+            /** Secuencia */
+            secuencia: number;
+            /** Encadenamiento Correcto */
+            encadenamiento_correcto: boolean;
+            /**
+             * Fechas En Orden
+             * @description Entre sí y con la hora actual
+             */
+            fechas_en_orden: boolean;
+        };
         /** SaludSalida */
         SaludSalida: {
             /**
@@ -1986,6 +2099,14 @@ export interface components {
          * @enum {string}
          */
         TipoEvento: "acceso_correcto" | "acceso_fallido" | "acceso_bloqueado" | "acceso_limitado" | "cierre_sesion" | "contrasena_cambiada" | "contrasena_restablecida" | "usuario_creado" | "usuario_rol_cambiado" | "usuario_desactivado" | "usuario_reactivado" | "usuario_eliminado" | "cliente_creado" | "cliente_editado" | "cliente_desactivado" | "cliente_reactivado" | "cliente_borrado" | "borrador_factura_creado" | "borrador_factura_editado" | "borrador_factura_eliminado" | "factura_emitida" | "factura_anulada" | "factura_rectificada" | "configuracion_facturacion_cambiada" | "contador_ajustado" | "cadena_verificada" | "cadena_inconsistente" | "borrador_presupuesto_creado" | "borrador_presupuesto_editado" | "borrador_presupuesto_eliminado" | "presupuesto_emitido" | "presupuesto_modificado" | "presupuesto_anulado" | "presupuesto_convertido" | "registros_exportados" | "integridad_comprobada";
+        /**
+         * TipoEventoSif
+         * @description F-17, `TipoEventoType`: los eventos que genera el sistema (004, FR-012; Orden, art. 9.1).
+         *
+         *     El 07 (restauración de copias desde el propio sistema) y el 90 (otros) no se generan.
+         * @enum {string}
+         */
+        TipoEventoSif: "01" | "02" | "03" | "04" | "05" | "06" | "08" | "09" | "10";
         /**
          * TipoFactura
          * @description Lista L2 de DsRegistroVeriFactu.xlsx v1.0 (research R-3, R-4). Solo las de esta feature.
@@ -3828,6 +3949,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PresupuestoSalida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_eventos_api_v1_registro_fiscal_eventos_get: {
+        parameters: {
+            query?: {
+                tipo?: components["schemas"]["TipoEventoSif"] | null;
+                desde?: string | null;
+                hasta?: string | null;
+                pagina?: number;
+                tamano?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pagina_EventoSifResumen_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_evento_api_v1_registro_fiscal_eventos__secuencia__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                secuencia: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventoSifDetalle"];
                 };
             };
             /** @description Validation Error */
