@@ -164,3 +164,28 @@ test('modal y diálogos de presupuesto solo con teclado: Escape y foco devuelto 
     await expect.poll(() => nombreDelFoco(page)).toBe(boton)
   }
 })
+
+test('registro fiscal solo con teclado: pestañas con las flechas y detalle con Escape (004)', async ({
+  page,
+}) => {
+  await iniciarSesion(page, 'admin.demo')
+  await page.goto('/registro-fiscal')
+  await expect(page.getByRole('table', { name: 'Registro de eventos' })).toBeVisible()
+
+  await tabularHastaNombre(page, /^Eventos$/)
+  expect(await focoVisible(page)).toBe(true)
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('tab', { name: 'Cadena' })).toBeFocused()
+  await expect(page.getByRole('tab', { name: 'Cadena' })).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('ArrowLeft')
+  await expect(page.getByRole('tab', { name: 'Eventos' })).toHaveAttribute('aria-selected', 'true')
+
+  await tabularHastaNombre(page, /^Ver el evento nº /)
+  const boton = await nombreDelFoco(page)
+  await page.keyboard.press('Enter')
+  const detalle = page.getByRole('dialog', { name: /^Evento nº / })
+  await expect(detalle).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(detalle).toHaveCount(0)
+  await expect.poll(() => nombreDelFoco(page)).toBe(boton)
+})

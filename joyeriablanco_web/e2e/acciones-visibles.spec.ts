@@ -307,4 +307,22 @@ test.describe('Acciones siempre visibles (SC-014, FR-031, FR-059)', () => {
       expect(cabe, `la tabla de presupuestos cabe a ${ancho}px`).toBe(true)
     })
   }
+
+  for (const ancho of ANCHOS) {
+    test(`registro de eventos a ${ancho}px: la acción de cada fila sin desplazar (004)`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: ancho, height: 900 })
+      await iniciarSesion(page, 'admin.demo')
+      await page.goto('/registro-fiscal')
+
+      const contenedor = page.getByRole(ancho < 768 ? 'list' : 'table', {
+        name: 'Registro de eventos',
+      })
+      await expect(contenedor).toBeVisible()
+      const ver = contenedor.getByRole('button', { name: /^Ver el evento nº / })
+      await esperarVisibles(page, ver, 1, ancho >= 768)
+      await sinDesplazamientoHorizontal(page)
+    })
+  }
 })

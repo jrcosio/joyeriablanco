@@ -82,6 +82,62 @@ Tests de cobertura obligatoria (constitución VII, 2.4.0):
 - **Asesoría**: antes de producción, validar la decisión de no tener capacidad de remisión (spec,
   «Riesgo normativo asumido»).
 
-## Resultado de la validación
+## Resultado de la validación (2026-10-04)
 
-*(Se completa al cerrar la feature.)*
+**Rendimiento** (`uv run pytest -m lento`, `test_no_verifactu_rendimiento.py`). Se emitieron
+20.000 facturas con el servicio real, cada una con su XML firmado y validado contra el XSD, en un
+Mac con Apple M5 Pro:
+
+| Medida | Resultado | Objetivo |
+|---|---|---|
+| Emisión con firma, p95 (SC-007) | 21 ms | < 1 s |
+| Exportación de los 20.000 registros (SC-005) | 3,0 s, con todos idénticos a los guardados | < 1 min |
+| Comprobación completa de registros y eventos (SC-006) | 76,5 s, íntegra | < 3 min |
+
+**Puertas**:
+- Backend: 1.004 tests y los 6 lentos en verde. Además, ruff y mypy sin avisos.
+- Web: lint, typecheck, 274 tests de Vitest, build y check:tokens en verde, y la E2E completa con
+  87 pruebas, incluidas `registro-fiscal.spec.ts` y `acerca.spec.ts`.
+- `test_logs_facturacion.py` compara ahora los logs sin escapar lo que no es ASCII. Con `í`, la
+  comprobación nunca habría encontrado «María» ni «López». Firmar, comprobar y exportar no dejan
+  contraseñas, claves, XML, datos personales ni importes (FR-033).
+- La E2E completa destapó una regresión, ya corregida en `src/auth/perdida.ts` con su test
+  `perdida.test.tsx`. Al caducar la sesión, la banda de alarma repetía su consulta, y su 401
+  llegaba ya en el acceso: el aviso «Tu sesión ha caducado» salía dos veces.
+- **Pila de desarrollo**: se migró de la 0008 a la 0009 sin perder datos. `joyeria
+  verificar-cadena` da la cadena íntegra, con 61 registros de facturación y 8 de evento. Cada
+  reinicio de la API deja un resumen (10), un fin (02) y un inicio (01), encadenados y firmados.
+  Los datos de ejemplo siguen siendo los de antes de la 004, en VERI\*FACTU: para emitir en No
+  VERI\*FACTU hay que regenerarlos (requisitos previos).
+
+**Validaciones de §2**:
+
+| # | Cómo se ha validado |
+|---|---|
+| 1 | `test_configuracion_facturacion.py`, `FacturacionPage.test.tsx` y E2E `configuracion-facturacion.spec.ts`: modalidad fija y tarjeta del certificado con titular, caducidad y aviso |
+| 2 | `test_firma_registros.py`: emitir, anular, rectificar y convertir un presupuesto dejan su registro firmado, y la consulta muestra la firma verificada. También `FacturaModal.consulta.test.tsx` y E2E `facturas.spec.ts` |
+| 3 | `test_exportacion.py`: ZIP con un XML por registro, índice, manifiesto SHA-256 y resumen, eventos 08 y 09, 422 `sin-registros` y 20.000 registros en el lento. También `ExportarTab.test.tsx` y E2E `registro-fiscal.spec.ts`, que descarga el ZIP y ve su evento |
+| 4 | **Pendiente del responsable**: VALIDe necesita un navegador y subir el fichero a un servicio externo. La estructura está comprobada contra el ejemplo oficial F-18 (`test_firma.py`, mismo `DigestValue` de los datos) y contra el XSD |
+| 5 | `test_eventos_lider.py`: inicio con un solo líder, resumen cada 6 horas aunque no pase nada (SC-004), resumen y fin al parar, y relevo si el líder cae. En la pila de desarrollo, el reinicio de la API deja resumen, fin e inicio encadenados |
+| 6 | `test_integridad_anomalias.py`: lanzamientos 03 y 05 con sus recuentos, guardados. También `RegistroFiscalPage.test.tsx` y E2E `registro-fiscal.spec.ts`, sin alarma |
+| 7 | `test_api_cadena.py`: indicadores de encadenamiento y de fechas, anterior y siguiente. También E2E `registro-fiscal.spec.ts`, de la factura a su registro |
+| 8 | `test_firma_registros.py`: sin certificado utilizable no se emite, no se anula, no se rectifica ni se emite un borrador, y no se consume número (SC-002). También `test_alarmas.py` y `BandaAlarma.test.tsx` |
+| 9 | `test_sistema.py`: declaración con las letras a) a l) y el PDF. También `AcercaPage.test.tsx`, `Sidebar.test.tsx` y E2E `acerca.spec.ts`, como empleado, en 2 clics (SC-008) |
+| 10 | `test_integridad_anomalias.py`: dato, huella, firma, borrado y fecha dan su anomalía y el evento 04, y un evento alterado da el 06 (SC-003). `test_alarmas.py` cubre la banda para todos y cuándo se apaga (SC-009) |
+
+**Producción** (T070): la imagen `prod`, construida con `docker compose -f docker-compose.prod.yml
+build api`, se ejecutó como en el compose de producción: `read_only`, `cap_drop: ALL`,
+`no-new-privileges`, `/tmp` en tmpfs, el usuario `app` (uid 10001) y un certificado de prueba
+montado en solo lectura en `/run/secrets/certificado.p12`. Resultado:
+- firmó el registro del ejemplo oficial F-18, lo validó contra el XSD empaquetado en la imagen y
+  verificó la firma con el certificado;
+- `/app` no admite escritura;
+- `joyeria estado-certificado` da «Utilizable» (código 0) fuera de producción y «No utilizable:
+  es un certificado de pruebas» (código 1) con `ENTORNO=produccion`.
+
+**Pendiente del responsable**:
+- Paso 4: validar un XML exportado en VALIDe.
+- Instalar el certificado real y comprobarlo con `deploy/verificar-produccion.sh` (§3).
+- Datos reales de la declaración (`SIF_*`) y archivo de su PDF en `docs/declaraciones/`.
+- Consulta a la asesoría sobre la falta de capacidad de remisión (spec, «Riesgo normativo
+  asumido»).

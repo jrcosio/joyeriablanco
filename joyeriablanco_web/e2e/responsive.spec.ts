@@ -92,5 +92,28 @@ for (const ancho of ANCHOS) {
     const consulta = page.getByRole('dialog', { name: /^Presupuesto PRE-/ })
     await expect(consulta.getByRole('link', { name: /^Imprimir presupuesto / })).toBeVisible()
     await sinDesplazamientoHorizontal(page)
+
+    // Registro fiscal y «Acerca del sistema» (004, contracts/ui-rutas.md): tarjetas en móvil y
+    // ninguna pestaña ni tabla que desborde.
+    await page.goto('/registro-fiscal')
+    await expect(
+      page.getByRole(ancho < 768 ? 'list' : 'table', { name: 'Registro de eventos' }),
+    ).toBeVisible()
+    await sinDesplazamientoHorizontal(page)
+    for (const pestana of ['cadena', 'comprobar', 'exportar']) {
+      await page.goto(`/registro-fiscal?pestana=${pestana}`)
+      await expect(page.getByRole('tab', { selected: true })).toBeVisible()
+      await sinDesplazamientoHorizontal(page)
+    }
+    await page.goto('/registro-fiscal?pestana=cadena&secuencia=1')
+    await expect(page.getByRole('heading', { name: /Registro de alta nº 1/ })).toBeVisible()
+    await sinDesplazamientoHorizontal(page)
+    await page.goto('/acerca')
+    await expect(
+      page.getByRole('heading', {
+        name: 'DECLARACIÓN RESPONSABLE DEL SISTEMA INFORMÁTICO DE FACTURACIÓN',
+      }),
+    ).toBeVisible()
+    await sinDesplazamientoHorizontal(page)
   })
 }

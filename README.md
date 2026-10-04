@@ -40,6 +40,7 @@ actual:
 | **Facturas y registro Verifactu** | ✅ | Borradores y emisión en un modal, numeración correlativa sin huecos, registro de alta con huella SHA-256 encadenada e inalterable, anulación y rectificativas trazables, y comprobación de la cadena. IVA por defecto configurable a cualquier tipo, venta de oro de inversión sin IVA e IBAN del emisor en la factura |
 | **PDF e impresión** | ✅ | PDF de la factura con el QR de cotejo de la AEAT, duplicado, IBAN opcional y listado filtrado impreso con totales por tipo de IVA (003) |
 | **Presupuestos** | ✅ | Borradores y emisión con numeración `PRE-AAAA-NNNN` sin huecos, validez y caducidad, PDF «PRESUPUESTO» sin validez fiscal (sin QR ni registro), conversión en factura mediante un borrador vinculado, modificación y anulación trazables, y listado impreso (005) |
+| **Firma y registro de eventos (No VERI\*FACTU)** | ✅ | Cada registro de facturación se genera en el XML oficial y se firma con XAdES-EPES antes de guardarse; registro de eventos encadenado y firmado (inicio, fin, resumen cada 6 horas, comprobaciones y exportaciones); comprobación de la integridad con alarma; exportación de un periodo en ZIP para un requerimiento; y declaración responsable en «Acerca del sistema». Nada se envía a la AEAT (004) |
 | **Remisión a la AEAT** | 🔜 | Envío de los registros en VERI\*FACTU o firma en no VERI\*FACTU (004) |
 
 > [!NOTE]
@@ -120,6 +121,10 @@ Edita `.env` y rellena como mínimo estas variables:
 | `POSTGRES_PASSWORD` | aleatoria | Superusuario de PostgreSQL: inicialización y administración |
 | `DB_OWNER_PASSWORD` | aleatoria | Rol `jb_owner`, dueño del esquema; ejecuta las migraciones |
 | `DB_APP_PASSWORD` | aleatoria | Rol `jb_app`, el de la API: solo lee y escribe datos, no cambia la estructura |
+| `CERTIFICADO_FICHERO` | ruta en el servidor | El `.p12` del certificado cualificado de la empresa, con el que se firma cada registro (004). Se monta en solo lectura; lo lee el uid 10001: `chown 10001 certificado.p12 && chmod 0400 certificado.p12` |
+| `CERTIFICADO_CONTRASENA` | la del `.p12` | No se guarda en la base de datos ni aparece en los logs |
+| `SIF_PRODUCTOR_NOMBRE`, `SIF_PRODUCTOR_NIF`, `SIF_PRODUCTOR_DIRECCION` | Joyería Blanco | Productora del sistema: van en cada registro y en la declaración responsable |
+| `SIF_DECLARACION_FECHA`, `SIF_DECLARACION_LUGAR` | `AAAA-MM-DD`, «localidad, país» | Suscripción de la declaración responsable de la versión (`docs/declaraciones/`) |
 
 El compose de producción **ya fija** `ENTORNO=produccion`, `ORIGEN_PERMITIDO=https://<DOMINIO>`,
 `SESION_COOKIE_SEGURA=true`, `DB_HOST` y `DB_NAME`. No hace falta tocarlos. Los tiempos de sesión
@@ -253,7 +258,10 @@ jb exec api joyeria --help
 | `crear-admin --usuario U --nombre "N"` | Crea un administrador con contraseña temporal |
 | `restablecer-admin --usuario U` | **Último recurso** si ningún administrador puede entrar: genera una contraseña temporal nueva, levanta el bloqueo y cierra sus sesiones |
 | `purgar-sesiones` | Borra las sesiones caducadas hace más de 30 días. También se hace sola en cada arranque de la API |
-| `verificar-cadena` | Comprueba la cadena de registros de facturación y los documentos: huellas, encadenamiento, contenido y totales. Termina con código 1 y señala el primer registro discrepante si algo no cuadra |
+| `verificar-cadena [--desde N] [--hasta M]` | Comprueba la integridad de los registros de facturación y de evento: huellas, firmas, cadena y fechas, y los documentos. Deja sus eventos en el registro fiscal. Código 1 con la primera anomalía si algo no cuadra, 2 si no hay certificado para firmar sus eventos |
+| `exportar-registros --tipo facturacion\|eventos --desde AAAA-MM-DD --hasta AAAA-MM-DD --destino R.zip` | Exporta los registros de un periodo tal como se firmaron, para atender un requerimiento (004). Código 1 si el periodo está vacío |
+| `estado-certificado` | Estado del certificado de firma: titular, validez y motivo si no es utilizable. Código 0, 1 si no es utilizable y 3 si caduca en 30 días o menos |
+| `generar-certificado-pruebas --destino R.p12 --contrasena C` | Solo desarrollo y E2E: crea un certificado de firma de pruebas. Se niega en producción |
 
 `cargar-datos-ejemplo` se niega a ejecutarse en producción.
 
@@ -354,6 +362,10 @@ cp .env.example .env
 docker compose up -d --build                           # db + api con recarga automática
 docker compose exec api alembic upgrade head
 docker compose exec api joyeria crear-admin --usuario admin --nombre "Administrador"
+# Certificado de firma de pruebas (004): los registros se firman, también los de ejemplo
+docker compose exec api joyeria generar-certificado-pruebas \
+    --destino /app/var/certificados/pruebas.p12 --contrasena pruebas
+docker compose restart api
 docker compose exec api joyeria cargar-datos-ejemplo   # usuarios *.demo, 40 clientes, unas 50 facturas y 30 presupuestos ficticios
 
 cd joyeriablanco_web

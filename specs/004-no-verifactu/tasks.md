@@ -513,33 +513,33 @@ se abre «Acerca del sistema» y se descarga la declaración.
 
 - [X] T066 Contrato completo: eliminar `PENDIENTES_004` de `test_contrato_openapi.py`, con el test en
   verde.
-- [ ] T067 [P] Logs (FR-033), en `backend/tests/integration/test_logs_facturacion.py`:
+- [X] T067 [P] Logs (FR-033), en `backend/tests/integration/test_logs_facturacion.py`:
   - firmar, generar eventos, comprobar y exportar no dejan en los registros de actividad la
     contraseña, la clave, datos personales ni importes;
   - solo quedan números, tipos y recuentos.
-- [ ] T068 [P] Test lento `backend/tests/integration/test_no_verifactu_rendimiento.py`
+- [X] T068 [P] Test lento `backend/tests/integration/test_no_verifactu_rendimiento.py`
   (`@pytest.mark.lento`):
   - SC-007: p95 de la emisión con firma por debajo de 1 s;
   - SC-005: exportación de 20.000 registros en menos de 1 minuto;
   - SC-006: comprobación de 20.000 en menos de 3 minutos.
 
   Si no se llega, paralelizar la verificación (R-9). Anotar los resultados en el quickstart.
-- [ ] T069 [P] E2E transversales:
+- [X] T069 [P] E2E transversales:
   - `acciones-visibles.spec.ts`: las tablas de «Registro fiscal»;
   - `responsive.spec.ts`: «Registro fiscal», «Acerca del sistema» y la banda a 360 px;
   - `teclado.spec.ts`: las pestañas y el modal de detalle.
-- [ ] T070 [P] Imagen de producción: `docker compose -f docker-compose.prod.yml build api` y, en el
+- [X] T070 [P] Imagen de producción: `docker compose -f docker-compose.prod.yml build api` y, en el
   contenedor `read_only` y sin root, firmar un registro con un certificado de prueba montado
   (comprobación manual de humo, anotada en el quickstart).
-- [ ] T071 [P] Documentación:
+- [X] T071 [P] Documentación:
   - `README.md`: módulo «Firma y registro de eventos (No VERI\*FACTU)» ✅ y los comandos nuevos;
   - `CLAUDE.md`: la lista de la CLI;
   - `backend/app/resources/README.md`: `aeat/xsd` y la declaración;
   - `specs/002-facturas/research.md`, R-17: Q-3, Q-8 y Q-11 cerradas como «no aplica».
-- [ ] T072 Puertas completas:
+- [X] T072 Puertas completas:
   - backend: `uv run pytest`, `-m lento`, ruff, mypy y `verificar-cadena`;
   - web: `lint`, `typecheck`, `test`, `build`, `check:tokens` y `npx playwright test`.
-- [ ] T073 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 10). La validación con
+- [X] T073 Validación manual del [quickstart](quickstart.md) §2 (pasos 1 a 10). La validación con
   VALIDe y la instalación del certificado real quedan **pendientes del responsable** si no se
   pueden hacer en el entorno.
 

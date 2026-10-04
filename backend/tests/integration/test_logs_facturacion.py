@@ -15,7 +15,11 @@ from pythonjsonlogger.json import JsonFormatter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import RedactionFilter
-from app.domain.tipos import Rol
+from app.core.tiempo import hoy
+from app.domain.tipos import Rol, TipoEventoSif
+from app.services import eventos_sif
+from app.services.eventos_sif import NuevoEvento
+from tests.certificados import CONTRASENA_PRUEBAS
 from tests.conftest import CrearUsuario, IniciarSesion
 from tests.integration.facturacion_datos import (
     IBAN_DEMO,
@@ -57,10 +61,16 @@ PROHIBIDOS = (
 
 @pytest.fixture
 def salida_logs() -> Iterator[io.StringIO]:
-    """Captura los logs con el mismo formateador y filtro que producción."""
+    """Captura los logs con el mismo formateador y filtro que producción.
+
+    Sin escapar lo que no es ASCII: con `\\u00ed`, «María» o «López» no se encontrarían aunque
+    estuvieran en los logs.
+    """
     buffer = io.StringIO()
     handler = logging.StreamHandler(buffer)
-    handler.setFormatter(JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    handler.setFormatter(
+        JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s", json_ensure_ascii=False)
+    )
     handler.addFilter(RedactionFilter())
     handler.addFilter(lambda registro: not registro.name.startswith(("httpx", "httpcore")))
     raiz = logging.getLogger()
@@ -206,3 +216,41 @@ async def test_el_ciclo_del_presupuesto_no_deja_datos_personales_ni_importes(
     assert f"Presupuesto {convertido['num_serie']} convertido en {numero_factura}" in salida
     assert f"PDF del presupuesto {convertido['num_serie']} generado" in salida
     assert "PDF del listado de presupuestos generado" in salida
+
+
+async def test_firmar_comprobar_y_exportar_no_deja_secretos_ni_datos(
+    client: AsyncClient,
+    db: AsyncSession,
+    crear_usuario: CrearUsuario,
+    iniciar_sesion: IniciarSesion,
+    salida_logs: io.StringIO,
+) -> None:
+    """004, FR-033: solo números, tipos y recuentos; nunca la contraseña ni la clave del
+    certificado, datos personales, importes ni el XML de los registros."""
+    admin = await crear_usuario("admin.logs004", rol=Rol.ADMINISTRADOR)
+    csrf = await iniciar_sesion(client, "admin.logs004")
+    await configurar_facturacion(db, iban=IBAN_DEMO)
+    maria = await crear_cliente(db, admin.id)
+    await eventos_sif.record_evento(db, NuevoEvento(TipoEventoSif.INICIO))
+    emitida = await client.post(URL, json=cuerpo_factura(maria.id), headers=cabeceras(csrf))
+    assert emitida.status_code == 201, emitida.text
+    await client.get(f"{URL}/{emitida.json()['id']}")  # verifica la firma al consultar
+    comprobacion = await client.post(
+        "/api/v1/registro-fiscal/comprobaciones", headers={"X-CSRF-Token": csrf}
+    )
+    assert comprobacion.status_code == 201, comprobacion.text
+    dia = hoy().isoformat()
+    exportada = await client.get(
+        "/api/v1/registro-fiscal/exportacion",
+        params={"tipo": "facturacion", "desde": dia, "hasta": dia},
+    )
+    assert exportada.status_code == 200
+    await client.get("/api/v1/registro-fiscal/eventos/1")
+
+    salida = salida_logs.getvalue()
+    for prohibido in (*PROHIBIDOS, CONTRASENA_PRUEBAS, "PRIVATE KEY", "BEGIN CERTIFICATE"):
+        assert prohibido not in salida, prohibido
+    assert "<sum1:" not in salida  # ni el XML del registro (signxml lo escribe en DEBUG)
+    assert "Registros exportados" in salida
+    assert "Evento del sistema registrado" in salida
+    assert "Integridad comprobada sin anomalías" in salida

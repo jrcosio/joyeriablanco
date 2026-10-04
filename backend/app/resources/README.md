@@ -29,7 +29,15 @@ mayúsculas).
   - `factura.html`, con el QR tributario, y `presupuesto.html` (005), sin QR ni frase VERI\*FACTU,
     con el título «PRESUPUESTO» y el aviso no fiscal (`.aviso-no-fiscal`, DESIGN.md 1.3).
   - `listado.html`: el listado impreso de facturas y de presupuestos, con sus textos en el modelo.
+  - `declaracion.html` (004, research R-13): la declaración responsable del sistema, con el título
+    literal y las letras a) a l) del art. 15.1 de la Orden HAC/1177/2024.
   - `error.html`: la página de error de las rutas de PDF.
 - [`fuentes/`](fuentes/README.md): Bodoni Moda y Manrope en WOFF2, con su licencia OFL y su
   procedencia.
 - [`marca/`](marca/README.md): logotipo.
+
+## Esquemas oficiales de la AEAT (004, research R-2)
+
+- [`aeat/xsd/`](aeat/xsd/README.md): `SuministroInformacion.xsd`, `SuministroLR.xsd`,
+  `EventosSIF.xsd` y `xmldsig-core-schema.xsd`, copias literales con su URL y su SHA-256. Con ellos
+  se valida cada registro de facturación y de evento antes de guardarlo, sin red.
