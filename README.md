@@ -41,7 +41,6 @@ actual:
 | **PDF e impresión** | ✅ | PDF de la factura con el QR de cotejo de la AEAT, duplicado, IBAN opcional y listado filtrado impreso con totales por tipo de IVA (003) |
 | **Presupuestos** | ✅ | Borradores y emisión con numeración `PRE-AAAA-NNNN` sin huecos, validez y caducidad, PDF «PRESUPUESTO» sin validez fiscal (sin QR ni registro), conversión en factura mediante un borrador vinculado, modificación y anulación trazables, y listado impreso (005) |
 | **Firma y registro de eventos (No VERI\*FACTU)** | ✅ | Cada registro de facturación se genera en el XML oficial y se firma con XAdES-EPES antes de guardarse; registro de eventos encadenado y firmado (inicio, fin, resumen cada 6 horas, comprobaciones y exportaciones); comprobación de la integridad con alarma; exportación de un periodo en ZIP para un requerimiento; y declaración responsable en «Acerca del sistema». Nada se envía a la AEAT (004) |
-| **Remisión a la AEAT** | 🔜 | Envío de los registros en VERI\*FACTU o firma en no VERI\*FACTU (004) |
 
 > [!NOTE]
 > La aplicación está en español de España, usa un único tema oscuro y aplica el sistema de diseño
@@ -468,6 +467,7 @@ uv --directory ../backend run joyeria exportar-openapi && npm run gen:api
 | [`specs/001-cimientos-clientes/spec.md`](specs/001-cimientos-clientes/spec.md) · [`specs/002-facturas/spec.md`](specs/002-facturas/spec.md) | Requisitos funcionales y criterios de éxito de cada feature |
 | [`specs/002-facturas/research.md`](specs/002-facturas/research.md) | Decisiones de Verifactu con sus fuentes oficiales de la AEAT (versión y SHA-256) y las preguntas abiertas para la asesoría |
 | [`specs/001-cimientos-clientes/contracts/openapi.yaml`](specs/001-cimientos-clientes/contracts/openapi.yaml) · [`specs/002-facturas/contracts/openapi.yaml`](specs/002-facturas/contracts/openapi.yaml) · [`specs/005-presupuestos/contracts/openapi.yaml`](specs/005-presupuestos/contracts/openapi.yaml) | Contrato de la API (la API implementa exactamente la unión de los de cada feature) |
+| [`docs/PASOS-PENDIENTES.md`](docs/PASOS-PENDIENTES.md) | Lo que falta para facturar en real: certificado, VALIDe, declaración, asesoría y servidor |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Sistema de diseño: colores, tipografías y componentes |
 | [`.specify/memory/constitution.md`](.specify/memory/constitution.md) | Principios del proyecto, que mandan sobre cualquier otra guía |
 | [`CLAUDE.md`](CLAUDE.md) | Guía operativa de desarrollo y reglas innegociables de Verifactu |
