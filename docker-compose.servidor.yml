@@ -1,0 +1,90 @@
+# Servidor de DESARROLLO en una MV: se suma a docker-compose.yml desde el `.env` del servidor
+# (COMPOSE_FILE=docker-compose.yml:docker-compose.servidor.yml, ver .env.server), de modo que
+# `docker compose up -d --build` lo deja todo listo:
+#   preparar  certificado de PRUEBAS, migraciones y administrador inicial; termina y sale.
+#   api       la de desarrollo (recarga en caliente), cuando `preparar` ha terminado bien.
+#   web       Caddy con la SPA compilada y proxy de /api, por HTTPS. Hace falta HTTPS: la web usa
+#             crypto.randomUUID(), que el navegador solo da en contexto seguro.
+#             Con DOMINIO=<máquina>.<tailnet>.ts.net y TLS_MODO=acme, Caddy pide el certificado
+#             (Let's Encrypt, de confianza en cualquier navegador) al tailscaled del anfitrión por
+#             su socket; requiere «HTTPS Certificates» activado en la consola de Tailscale.
+#             Con DOMINIO=<IP> y TLS_MODO=internal usa su CA interna (aviso en el navegador).
+# No sirve para producción: ENTORNO=desarrollo, certificado de pruebas y sin datos reales.
+
+services:
+  preparar:
+    build:
+      context: ./backend
+      target: dev
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_NAME: joyeriablanco
+    # root solo para dar backend/var (montado) al usuario de la imagen, uid 10001.
+    user: "0:0"
+    volumes:
+      - ./backend:/app
+    command:
+      - sh
+      - -ec
+      - |
+        mkdir -p /app/var/certificados
+        if [ ! -f /app/var/certificados/pruebas.p12 ]; then
+          joyeria generar-certificado-pruebas \
+            --destino /app/var/certificados/pruebas.p12 --contrasena pruebas
+        fi
+        chown -R 10001:10001 /app/var
+        alembic upgrade head
+        joyeria crear-admin --usuario admin --nombre "Administrador" \
+          || echo "El administrador «admin» ya existía: no se ha tocado."
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  db:
+    restart: unless-stopped
+
+  api:
+    depends_on:
+      preparar:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/caddy/Dockerfile
+    # El Caddyfile de producción, con default_sni: los navegadores no mandan SNI a una IP y, tras
+    # el NAT de Docker, Caddy no ve la IP de destino para elegir el certificado.
+    command: ["caddy", "run", "--config", "/etc/caddy/servidor.caddy", "--adapter", "caddyfile"]
+    configs:
+      - source: caddy-servidor
+        target: /etc/caddy/servidor.caddy
+    environment:
+      DOMINIO: ${DOMINIO:?Falta DOMINIO (IP o nombre con que se entra a la web)}
+      TLS_MODO: ${TLS_MODO:-internal}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data   # aquí vive la CA interna: su raíz se instala en los navegadores
+      - caddy_config:/config
+      # Certificados de Tailscale para los nombres *.ts.net (Caddy los pide solo a este socket).
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+    depends_on:
+      - api
+    restart: unless-stopped
+
+configs:
+  caddy-servidor:
+    content: |
+      {
+      	default_sni ${DOMINIO}
+      	skip_install_trust
+      }
+      import /etc/caddy/Caddyfile
+
+volumes:
+  caddy_data:
+  caddy_config:
