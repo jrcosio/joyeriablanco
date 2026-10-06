@@ -379,6 +379,46 @@ npm run dev                                            # → http://localhost:51
 | Documentación interactiva de la API (solo en desarrollo) | http://localhost:8000/api/docs |
 | PostgreSQL (solo desde el propio equipo) | `127.0.0.1:5432` |
 
+### Servidor de desarrollo en una MV (Tailscale)
+
+`docker-compose.servidor.yml` se suma a `docker-compose.yml` y deja una MV de desarrollo lista con
+un solo comando: genera el certificado de firma de pruebas, aplica las migraciones, crea el
+administrador y sirve la web compilada con Caddy por HTTPS. La web necesita HTTPS porque usa
+`crypto.randomUUID()`, que el navegador solo ofrece en contexto seguro.
+
+Caddy obtiene un certificado de Let's Encrypt para el nombre MagicDNS de la máquina a través del
+`tailscaled` del anfitrión, cuyo socket se monta en el contenedor. Así ningún navegador avisa de
+«No seguro» y no hay que instalar nada en los equipos. Requisitos:
+
+- Tailscale instalado en la MV y en los equipos desde los que se entra.
+- **MagicDNS** y **HTTPS Certificates** activados en la consola de Tailscale (apartado DNS). El
+  nombre de la máquina queda en los registros públicos de Certificate Transparency; la web sigue
+  siendo accesible solo desde la tailnet.
+
+En el `.env` de la MV:
+
+```bash
+COMPOSE_FILE=docker-compose.yml:docker-compose.servidor.yml
+DOMINIO=<máquina>.<tailnet>.ts.net
+TLS_MODO=acme
+ORIGEN_PERMITIDO=https://<máquina>.<tailnet>.ts.net
+SESION_COOKIE_SEGURA=true
+```
+
+```bash
+docker compose up -d --build                # preparar → api → web
+docker compose exec api joyeria cargar-datos-ejemplo   # opcional
+# → https://<máquina>.<tailnet>.ts.net
+```
+
+Se entra **siempre por el nombre**: la API rechaza cualquier otro origen. Para entrar por la IP de
+Tailscale se usa la CA interna de Caddy (`DOMINIO=<IP>`, `TLS_MODO=internal`,
+`ORIGEN_PERMITIDO=https://<IP>`, `SESION_COOKIE_SEGURA=false`), y el navegador avisará salvo que se
+instale su raíz (`/data/caddy/pki/authorities/local/root.crt` del contenedor `web`).
+
+Esta MV **no sirve para producción**: `ENTORNO=desarrollo`, certificado de firma de pruebas y sin
+datos reales.
+
 ### Pruebas y calidad
 
 ```bash
@@ -452,6 +492,7 @@ uv --directory ../backend run joyeria exportar-openapi && npm run gen:api
 ├── specs/                   una carpeta por feature (spec, plan, contratos, tareas…)
 ├── .specify/                Spec Kit: constitución, plantillas y scripts
 ├── docker-compose.yml       desarrollo (db, api y api-e2e)
+├── docker-compose.servidor.yml  MV de desarrollo por Tailscale (preparar y web con Caddy)
 └── docker-compose.prod.yml  producción (db, migrate, api y caddy)
 ```
 
