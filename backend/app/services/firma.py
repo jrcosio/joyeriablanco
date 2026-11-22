@@ -18,8 +18,8 @@ obligatoria. Un fallo es un error de programación y deshace la operación.
 - `DataObjectFormat` con `ObjectIdentifier`, `MimeType` `text/xml` y `Encoding` `UTF-8`.
 - `KeyInfo` con `X509Data` y `KeyValue`.
 
-La subclase de `XAdESSigner` sobrescribe métodos de signxml 5.1, por eso la dependencia se fija en
-`>=5.1,<5.2`.
+La subclase de `XAdESSigner` sobrescribe métodos internos de SignXML.
+Las actualizaciones de la dependencia requieren pruebas de compatibilidad de firma.
 """
 
 import logging
